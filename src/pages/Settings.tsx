@@ -45,6 +45,19 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
+interface PasswordForm {
+  currentPassword: string,
+  newPassword: string,
+  confirmPassword: string
+}
+
+interface NotificationSetting {
+  id: string,
+  label: string,
+  rowName: string,
+  enabled: boolean
+}
+
 const notificationSettings = [
   {
     id: "workout",
@@ -90,7 +103,6 @@ const notificationSettings = [
   },
 ];
 
-
 const privacySettings = [
   {
     id: "profile",
@@ -117,11 +129,17 @@ export default function Settings() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordForm, setPasswordForm] = useState<PasswordForm>({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [settings, setSettings] = useState(notificationSettings);
-  const { user, signOut } = useAuth();
+  const [settings, setSettings] = useState<NotificationSetting[]>(notificationSettings);
+  const { toast } = useToast();
+  const {user, signOut} = useAuth();
 
   const [avatarUrl, setAvatarUrl] = useState<string>("");
   const [form, setForm] = useState({
@@ -133,14 +151,9 @@ export default function Settings() {
     email: "",
   });
 
-  const { toast } = useToast();
 
  useEffect(() => {
    async function loadProfile() {
-     const {
-       data: { user },
-     } = await supabase.auth.getUser();
-
      if (!user) return;
 
      setForm((prev) => ({ ...prev, email: user.email ?? "" }));
@@ -201,11 +214,11 @@ export default function Settings() {
 
      setLoading(false);
    }
-
    loadProfile();
  }, []);
 
 
+//  Notification Toggle Function
 const handleToggle = async (rowName: string, enabled: boolean) => {
   const {
     data: { user },

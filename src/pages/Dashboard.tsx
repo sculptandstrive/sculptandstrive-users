@@ -14,10 +14,71 @@ import { WorkoutProgress } from "@/components/dashboard/WorkoutProgress";
 import { ProgressChart } from "@/components/dashboard/ProgressChart";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+
+interface NutritionLog {
+  id: string;
+  meal_type: string;
+  meal_name: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fats_g: number;
+}
+
+interface WaterIntake {
+  id: string;
+  amount_ml: number;
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
+  const [nutritionLogs, setNutritionLogs] = useState<NutritionLog[]>([]);
+  const [waterIntake, setWaterIntake] = useState<WaterIntake[]>([]);
+
+  // User Report
+  const today = new Date().toISOString().split('T')[0];
+
+  const fetchUserReport = async() => {
+    if(!user)
+      return;
+
+    try{
+      const [logsResult, waterResult] = await Promise.all([
+        supabase
+        .from('nutrition_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', {ascending: true}),
+        supabase
+          .from('water_intake')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('log_date', today)
+      ])
+
+      if(logsResult.error)
+        throw logsResult.error;
+      if (waterResult.error) 
+        throw logsResult.error;
+
+      setNutritionLogs(logsResult.data || []);
+      setWaterIntake(waterResult.data || []);
+    }
+    catch(err){
+      toast({
+        title: 'Failed to fetch user data',
+        description: err
+      })
+    }
+  }
+
+  useEffect(()=>{
+    fetchUserReport();
+  },[])
 
   return (
     <div className="space-y-8">
@@ -90,7 +151,7 @@ export default function Dashboard() {
 
         {/* Right Column - Nutrition */}
         <div className="space-y-6">
-          <NutritionWidget />
+          <NutritionWidget nutritionLogs = {nutritionLogs} waterIntake = {waterIntake}/>
         </div>
       </div>
 

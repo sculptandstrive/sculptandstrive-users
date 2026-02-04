@@ -59,7 +59,6 @@ export default function Nutrition() {
 
   const fetchData = useCallback(async () => {
     if (!user) return;
-
     try {
       const [logsResult, waterResult] = await Promise.all([
         supabase

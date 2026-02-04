@@ -25,6 +25,18 @@ import {
   BarChart,
   Bar,
 } from "recharts";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+
+type ProgressPhoto = {
+  date: string;
+  label: string;
+  image: string | null;
+  imagePath?: string | null;
+};
+
 
 const weightData = [
   { date: "Jan 1", weight: 85 },
@@ -57,12 +69,6 @@ const workoutData = [
   { week: "Week 6", workouts: 5, duration: 275 },
 ];
 
-const progressPhotos = [
-  { date: "Jan 1", label: "Start" },
-  { date: "Feb 1", label: "Month 1" },
-  { date: "Mar 1", label: "Month 2" },
-];
-
 const stats = [
   { label: "Starting Weight", value: "85 kg", icon: Scale },
   { label: "Current Weight", value: "80.5 kg", icon: Scale },
@@ -79,6 +85,103 @@ const measurements = [
 ];
 
 export default function Progress() {
+  const [uploading, setUploading] = useState(false);
+  const [progressPhotos, setProgressPhotos] = useState([
+    { date: "Jan 1", label: "Start", image: null },
+    { date: "Feb 1", label: "Month 1", image: null },
+    { date: "Mar 1", label: "Month 2", image: null },
+  ]);
+  const {user} = useAuth();
+
+  useEffect(()=>{
+    const getUserData = async () => {
+      if(!user){
+        console.log(user);
+        return ;
+      }
+
+      console.log(user);
+
+      console.log("Set user");
+
+      const {data: photos, error: photosError} = await supabase.from('progress_photos').select('image_path, label, taken_at').eq('user_id', user.id);
+
+      if(photosError || !photos)
+        return;
+
+      const updatedPhotos = await Promise.all(progressPhotos.map(async(slot)=>{
+        const match = photos.find((p)=>p.label == slot.label)
+
+        if(!match)
+            return slot;
+
+        const {data: signed} = await supabase.storage.from('progress-photos').createSignedUrl(match.image_path, 60 * 60);
+
+        return {
+          ...slot,
+          image: signed?.signedUrl ?? null
+        }
+      })
+    )
+
+      setProgressPhotos(updatedPhotos);
+    }
+    getUserData();
+  },[])
+
+  // Handling New Photo Addition
+  const handleAddProgressPhoto = async(e:React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = e.target.files?.[0];
+    if(!file){
+      console.log("Returning From No File");
+      return;
+    }
+    
+    setUploading(true);
+
+    if(!user){
+      console.log("Returning From Not User Found");
+      setUploading(false);
+      return;
+    }
+
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${user.id}/${progressPhotos[index].label}-${Date.now()}.${fileExt}`;
+
+    const {error: uploadError} = await supabase.storage.from('progress-photos').upload(filePath, file, {upsert: true});
+    
+
+    if(uploadError){
+      console.log("Upload Error Received");
+      toast({
+        title: "Upload Failed",
+        description: uploadError.message,
+        variant: "destructive"
+      })
+      setUploading(false);
+      return ;
+    }
+    await supabase.from("progress_photos").upsert({
+      user_id: user.id,
+      image_path: filePath,
+      label: progressPhotos[index].label,
+      taken_at: new Date(`2026 ${progressPhotos[index].date}`),
+    });
+
+    const {data: signed} = await supabase.storage.from('progress-photos').createSignedUrl(filePath, 60*60);
+
+    setProgressPhotos((photos) => 
+      photos.map((photo, i) =>
+         i == index ? 
+        {...photo, image: signed?.signedUrl} : photo
+      ));
+
+    toast({
+      title: 'Image Uploaded',
+      description: 'You have uploaded image successfully'
+    })
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -88,7 +191,9 @@ export default function Progress() {
         className="flex flex-col lg:flex-row lg:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-3xl font-display font-bold mb-1">Progress Tracking</h1>
+          <h1 className="text-3xl font-display font-bold mb-1">
+            Progress Tracking
+          </h1>
           <p className="text-muted-foreground">
             Visualize your fitness journey and celebrate your wins
           </p>
@@ -125,7 +230,9 @@ export default function Progress() {
                   stat.highlight ? "text-success" : "text-muted-foreground"
                 }`}
               />
-              <span className="text-sm text-muted-foreground">{stat.label}</span>
+              <span className="text-sm text-muted-foreground">
+                {stat.label}
+              </span>
             </div>
             <p
               className={`text-2xl font-display font-bold ${
@@ -140,19 +247,31 @@ export default function Progress() {
 
       <Tabs defaultValue="weight" className="space-y-6">
         <TabsList className="bg-muted">
-          <TabsTrigger value="weight" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger
+            value="weight"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
             <Scale className="w-4 h-4 mr-2" />
             Weight
           </TabsTrigger>
-          <TabsTrigger value="body" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger
+            value="body"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
             <Ruler className="w-4 h-4 mr-2" />
             Measurements
           </TabsTrigger>
-          <TabsTrigger value="workouts" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger
+            value="workouts"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
             <Activity className="w-4 h-4 mr-2" />
             Workouts
           </TabsTrigger>
-          <TabsTrigger value="photos" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger
+            value="photos"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
             <Camera className="w-4 h-4 mr-2" />
             Photos
           </TabsTrigger>
@@ -167,7 +286,9 @@ export default function Progress() {
           >
             <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="font-display font-semibold text-lg">Weight Trend</h3>
+                <h3 className="font-display font-semibold text-lg">
+                  Weight Trend
+                </h3>
                 <Badge className="bg-success/10 text-success">
                   <TrendingDown className="w-3 h-3 mr-1" />
                   -4.5 kg
@@ -177,14 +298,40 @@ export default function Progress() {
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={weightData}>
                     <defs>
-                      <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(174 72% 46%)" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(174 72% 46%)" stopOpacity={0} />
+                      <linearGradient
+                        id="weightGradient"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="hsl(174 72% 46%)"
+                          stopOpacity={0.3}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="hsl(174 72% 46%)"
+                          stopOpacity={0}
+                        />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 20% 20%)" vertical={false} />
-                    <XAxis dataKey="date" stroke="hsl(215 20% 55%)" tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }} />
-                    <YAxis stroke="hsl(215 20% 55%)" tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }} domain={["dataMin - 2", "dataMax + 2"]} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="hsl(222 20% 20%)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="date"
+                      stroke="hsl(215 20% 55%)"
+                      tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
+                    />
+                    <YAxis
+                      stroke="hsl(215 20% 55%)"
+                      tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
+                      domain={["dataMin - 2", "dataMax + 2"]}
+                    />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "hsl(222 25% 12%)",
@@ -192,20 +339,40 @@ export default function Progress() {
                         borderRadius: "8px",
                       }}
                     />
-                    <Area type="monotone" dataKey="weight" stroke="hsl(174 72% 46%)" strokeWidth={3} fill="url(#weightGradient)" />
+                    <Area
+                      type="monotone"
+                      dataKey="weight"
+                      stroke="hsl(174 72% 46%)"
+                      strokeWidth={3}
+                      fill="url(#weightGradient)"
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             <div className="bg-card border border-border rounded-xl p-6">
-              <h3 className="font-display font-semibold text-lg mb-6">Body Fat %</h3>
+              <h3 className="font-display font-semibold text-lg mb-6">
+                Body Fat %
+              </h3>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={bodyFatData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 20% 20%)" vertical={false} />
-                    <XAxis dataKey="date" stroke="hsl(215 20% 55%)" tick={{ fill: "hsl(215 20% 55%)", fontSize: 10 }} />
-                    <YAxis stroke="hsl(215 20% 55%)" tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }} domain={["dataMin - 2", "dataMax + 2"]} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="hsl(222 20% 20%)"
+                      vertical={false}
+                    />
+                    <XAxis
+                      dataKey="date"
+                      stroke="hsl(215 20% 55%)"
+                      tick={{ fill: "hsl(215 20% 55%)", fontSize: 10 }}
+                    />
+                    <YAxis
+                      stroke="hsl(215 20% 55%)"
+                      tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
+                      domain={["dataMin - 2", "dataMax + 2"]}
+                    />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "hsl(222 25% 12%)",
@@ -213,7 +380,13 @@ export default function Progress() {
                         borderRadius: "8px",
                       }}
                     />
-                    <Line type="monotone" dataKey="value" stroke="hsl(38 92% 55%)" strokeWidth={3} dot={{ fill: "hsl(38 92% 55%)", strokeWidth: 2 }} />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="hsl(38 92% 55%)"
+                      strokeWidth={3}
+                      dot={{ fill: "hsl(38 92% 55%)", strokeWidth: 2 }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -228,11 +401,16 @@ export default function Progress() {
             animate={{ opacity: 1, y: 0 }}
             className="bg-card border border-border rounded-xl p-6"
           >
-            <h3 className="font-display font-semibold text-lg mb-6">Body Measurements</h3>
+            <h3 className="font-display font-semibold text-lg mb-6">
+              Body Measurements
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               {measurements.map((m, index) => {
                 const change = m.current - m.previous;
-                const isPositive = m.label === "Arms" || m.label === "Thighs" ? change > 0 : change < 0;
+                const isPositive =
+                  m.label === "Arms" || m.label === "Thighs"
+                    ? change > 0
+                    : change < 0;
                 return (
                   <motion.div
                     key={m.label}
@@ -242,12 +420,17 @@ export default function Progress() {
                     className="p-4 rounded-xl bg-muted/50 text-center"
                   >
                     <Ruler className="w-5 h-5 mx-auto mb-2 text-primary" />
-                    <p className="text-sm text-muted-foreground mb-1">{m.label}</p>
+                    <p className="text-sm text-muted-foreground mb-1">
+                      {m.label}
+                    </p>
                     <p className="text-2xl font-display font-bold">
                       {m.current} {m.unit}
                     </p>
-                    <span className={`text-xs ${isPositive ? "text-success" : "text-destructive"}`}>
-                      {change > 0 ? "+" : ""}{change} {m.unit}
+                    <span
+                      className={`text-xs ${isPositive ? "text-success" : "text-destructive"}`}
+                    >
+                      {change > 0 ? "+" : ""}
+                      {change} {m.unit}
                     </span>
                   </motion.div>
                 );
@@ -263,13 +446,26 @@ export default function Progress() {
             animate={{ opacity: 1, y: 0 }}
             className="bg-card border border-border rounded-xl p-6"
           >
-            <h3 className="font-display font-semibold text-lg mb-6">Weekly Workout Summary</h3>
+            <h3 className="font-display font-semibold text-lg mb-6">
+              Weekly Workout Summary
+            </h3>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={workoutData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 20% 20%)" vertical={false} />
-                  <XAxis dataKey="week" stroke="hsl(215 20% 55%)" tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }} />
-                  <YAxis stroke="hsl(215 20% 55%)" tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }} />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="hsl(222 20% 20%)"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="week"
+                    stroke="hsl(215 20% 55%)"
+                    tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
+                  />
+                  <YAxis
+                    stroke="hsl(215 20% 55%)"
+                    tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
+                  />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: "hsl(222 25% 12%)",
@@ -277,7 +473,11 @@ export default function Progress() {
                       borderRadius: "8px",
                     }}
                   />
-                  <Bar dataKey="workouts" fill="hsl(174 72% 46%)" radius={[4, 4, 0, 0]} />
+                  <Bar
+                    dataKey="workouts"
+                    fill="hsl(174 72% 46%)"
+                    radius={[4, 4, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -291,24 +491,60 @@ export default function Progress() {
             animate={{ opacity: 1, y: 0 }}
             className="bg-card border border-border rounded-xl p-6"
           >
-            <h3 className="font-display font-semibold text-lg mb-6">Progress Photos</h3>
+            <h3 className="font-display font-semibold text-lg mb-6">
+              Progress Photos
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {progressPhotos.map((photo, index) => (
-                <motion.div
-                  key={photo.date}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="aspect-[3/4] rounded-xl bg-muted/50 border border-dashed border-border flex flex-col items-center justify-center"
-                >
-                  <Camera className="w-12 h-12 text-muted-foreground mb-3" />
-                  <p className="font-medium">{photo.label}</p>
-                  <p className="text-sm text-muted-foreground">{photo.date}</p>
-                  <Button variant="outline" size="sm" className="mt-4">
-                    Add Photo
-                  </Button>
-                </motion.div>
-              ))}
+              {progressPhotos.map((photo, index) =>
+                photo.image ? (
+                  <motion.div
+                    key={photo.date}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="aspect-[3/4] rounded-xl overflow-hidden border"
+                  >
+                    <img
+                      src={photo.image}
+                      alt={photo.label}
+                      className="w-full h-full object-cover"
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key={photo.date}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="aspect-[3/4] rounded-xl bg-muted/50 border border-dashed border-border flex flex-col items-center justify-center"
+                  >
+                    <Camera className="w-12 h-12 text-muted-foreground mb-3" />
+                    <p className="font-medium">{photo.label}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {photo.date}
+                    </p>
+
+                    {/* Hidden file input */}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      id={`progress-${index}`}
+                      onChange={(e) => handleAddProgressPhoto(e, index)}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-4"
+                      onClick={() =>
+                        document.getElementById(`progress-${index}`)?.click()
+                      }
+                    >
+                      Add Photo
+                    </Button>
+                  </motion.div>
+                ),
+              )}
             </div>
           </motion.div>
         </TabsContent>
