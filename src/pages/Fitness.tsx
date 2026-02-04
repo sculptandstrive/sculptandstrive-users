@@ -29,6 +29,16 @@ const exerciseLibrary = [
   { name: "Deadlifts", sets: 3, reps: 8, weight_kg: 100 },
 ];
 
+const DEFAULT_WEEKLY_PLAN = [
+  { day_name: "Monday", workout_name: "Upper Body", order_index: 0 },
+  { day_name: "Tuesday", workout_name: "Lower Body", order_index: 1 },
+  { day_name: "Wednesday", workout_name: "Active Recovery", order_index: 2 },
+  { day_name: "Thursday", workout_name: "Push Day", order_index: 3 },
+  { day_name: "Friday", workout_name: "Pull Day", order_index: 4 },
+  { day_name: "Saturday", workout_name: "Legs & Core", order_index: 5 },
+  { day_name: "Sunday", workout_name: "Rest Day", order_index: 6 },
+];
+
 export default function Fitness() {
   const { toast } = useToast();
   const [exercises, setExercises] = useState<any[]>([]);
@@ -59,6 +69,28 @@ export default function Fitness() {
     return () => clearInterval(interval);
   }, [restTime]);
 
+  // Create a default weekly plan for a new user (returns inserted rows or null on error)
+  const createDefaultWorkoutsForUser = async (userId: string) => {
+    try {
+      const rowsToInsert = DEFAULT_WEEKLY_PLAN.map((d) => ({
+        name: d.workout_name,
+        user_id: userId,
+        day_name: d.day_name,
+        order_index: d.order_index,
+        completed: false,
+      }));
+      const { data, error } = await supabase.from("workouts").insert(rowsToInsert).select();
+      if (error) {
+        console.error("Error inserting default workouts:", error);
+        return null;
+      }
+      return data || null;
+    } catch (err) {
+      console.error("Unexpected error creating default workouts:", err);
+      return null;
+    }
+  };
+
   const fetchWorkoutData = async () => {
     setLoading(true);
     try {
@@ -74,7 +106,7 @@ export default function Fitness() {
       }
 
       // fetch weekly plan (check error)
-      const { data: plan, error: planError } = await supabase
+      let { data: plan, error: planError } = await supabase
         .from("workouts")
         .select("*")
         .eq("user_id", user.id)
@@ -84,30 +116,31 @@ export default function Fitness() {
         console.error("Error fetching weekly plan:", planError);
         setWeeklyPlan([]);
       } else {
-        setWeeklyPlan(plan || []);
+        // If the user has no workouts yet, create a default plan for them
+        if (!plan || plan.length === 0) {
+          const created = await createDefaultWorkoutsForUser(user.id);
+          if (created && created.length > 0) {
+            // Use the newly created plan
+            setWeeklyPlan(created);
+            plan = created;
+          } else {
+            setWeeklyPlan([]);
+            plan = [];
+          }
+        } else {
+          setWeeklyPlan(plan || []);
+        }
       }
 
-      // use maybeSingle() to avoid PostgREST 406 when server returns an array
-      const { data: workout, error: workoutError } = await supabase
-        .from("workouts")
-        .select("id")
-        .eq("user_id", user.id)
-        .limit(1)
-        .maybeSingle();
-
-      if (workoutError) {
-        console.error("Error fetching active workout:", workoutError);
-        setActiveWorkoutId(null);
-        setExercises([]);
-        return;
-      }
-
-      if (workout && workout.id) {
-        setActiveWorkoutId(workout.id);
+      // Choose active workout — prefer the first in order_index
+      const firstWorkout = Array.isArray(plan) && plan.length > 0 ? plan[0] : null;
+      if (firstWorkout && firstWorkout.id) {
+        setActiveWorkoutId(firstWorkout.id);
+        // fetch exercises for this workout
         const { data: exData, error: exError } = await supabase
           .from("exercises")
           .select("*")
-          .eq("workout_id", workout.id)
+          .eq("workout_id", firstWorkout.id)
           .order("created_at", { ascending: true });
 
         if (exError) {
@@ -117,7 +150,6 @@ export default function Fitness() {
           setExercises(exData || []);
         }
       } else {
-        // no active workout found
         setActiveWorkoutId(null);
         setExercises([]);
       }
@@ -128,17 +160,47 @@ export default function Fitness() {
     }
   };
 
+  // Wait for auth/session, fetch when available (avoids race on deployment)
   useEffect(() => {
-    fetchWorkoutData();
+    let unsub: any = null;
+    let cancelled = false;
+
+    const init = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData?.user;
+      if (user) {
+        if (!cancelled) await fetchWorkoutData();
+        return;
+      }
+
+      const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
+        if (session?.user) {
+          fetchWorkoutData();
+        }
+      });
+
+      unsub = subscription;
+    };
+
+    init();
+
+    return () => {
+      cancelled = true;
+      if (unsub && typeof unsub.unsubscribe === "function") {
+        unsub.unsubscribe();
+      } else if (unsub && typeof unsub === "object" && unsub.subscription) {
+        try { supabase.removeChannel(unsub.subscription); } catch (e) {}
+      }
+    };
+    // purposely no dependencies — we want to run this once on mount
   }, []);
 
   const progress = exercises.length > 0 ? (exercises.filter(e => e.completed).length / exercises.length) * 100 : 0;
 
   // --- HANDLERS ---
-
   const toggleExercise = async (id: string, currentStatus: boolean) => {
     setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, completed: !currentStatus } : ex));
-    if (!currentStatus) setFocusedExerciseId(null); // Remove focus if completed
+    if (!currentStatus) setFocusedExerciseId(null);
     try {
       const { error } = await supabase.from('exercises').update({ completed: !currentStatus }).eq('id', id);
       if (error) console.error("Error updating exercise:", error);
@@ -193,7 +255,7 @@ export default function Fitness() {
     const nextItem = exercises.find(ex => !ex.completed);
     if (nextItem) {
       setFocusedExerciseId(nextItem.id);
-      setRestTime(60); // Start 60s rest
+      setRestTime(60);
       toast({ title: "Rest Started", description: `60s rest. Next: ${nextItem.name}` });
     } else {
       toast({ title: "Workout Complete!", description: "All sets finished." });
@@ -230,7 +292,6 @@ export default function Fitness() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8 bg-[#0b0f13] min-h-screen text-white font-sans">
-      
       {/* HEADER */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
@@ -259,7 +320,6 @@ export default function Fitness() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
         {/* TODAY'S WORKOUT */}
         <div className="lg:col-span-2 bg-[#161b22] border border-slate-800 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">
