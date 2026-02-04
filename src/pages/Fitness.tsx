@@ -1,206 +1,240 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Dumbbell,
   Plus,
-  Flame,
   Timer,
   Target,
-  TrendingUp,
-  ChevronRight,
   Check,
   RotateCcw,
   X,
-  Search,
+  Loader2,
+  ChevronRight,
+  Trash2,
+  Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-
-// INITIAL DATA
-const initialExercises = [
-  { id: 1, name: "Bench Press", sets: 4, reps: 12, weight: "60kg", completed: true },
-  { id: 2, name: "Shoulder Press", sets: 3, reps: 10, weight: "40kg", completed: true },
-  { id: 3, name: "Lat Pulldown", sets: 4, reps: 12, weight: "50kg", completed: false },
-  { id: 4, name: "Bicep Curls", sets: 3, reps: 15, weight: "15kg", completed: false },
-  { id: 5, name: "Tricep Dips", sets: 3, reps: 12, weight: "BW", completed: false },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 const exerciseLibrary = [
-  { name: "Squats", sets: 3, reps: 10, weight: "80kg" },
-  { name: "Deadlifts", sets: 3, reps: 8, weight: "100kg" },
-  { name: "Pull Ups", sets: 3, reps: 12, weight: "BW" },
-  { name: "Leg Press", sets: 4, reps: 12, weight: "120kg" },
-  { name: "Lunges", sets: 3, reps: 12, weight: "20kg" },
-  { name: "Plank", sets: 3, reps: 1, weight: "1 min" },
+  { name: "Bench Press", sets: 4, reps: 12, weight_kg: 60 },
+  { name: "Shoulder Press", sets: 3, reps: 10, weight_kg: 40 },
+  { name: "Lat Pulldown", sets: 4, reps: 12, weight_kg: 50 },
+  { name: "Bicep Curls", sets: 3, reps: 15, weight_kg: 15 },
+  { name: "Tricep Dips", sets: 3, reps: 12, weight_kg: 0 },
+  { name: "Squats", sets: 3, reps: 10, weight_kg: 80 },
+  { name: "Deadlifts", sets: 3, reps: 8, weight_kg: 100 },
 ];
 
 export default function Fitness() {
-  const [exercises, setExercises] = useState(initialExercises);
+  const { toast } = useToast();
+  const [exercises, setExercises] = useState<any[]>([]);
+  const [weeklyPlan, setWeeklyPlan] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isLogOpen, setIsLogOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [stats, setStats] = useState([
+  const [activeWorkoutId, setActiveWorkoutId] = useState<string | null>(null);
+
+  // --- UI STATES ---
+  const [isEditingPlan, setIsEditingPlan] = useState(false);
+  const [editingDayId, setEditingDayId] = useState<string | null>(null);
+  const [focusedExerciseId, setFocusedExerciseId] = useState<string | null>(null);
+  const [restTime, setRestTime] = useState(0);
+
+  const bodyStats = [
     { label: "Weight", value: "80.5", unit: "kg", change: -0.3 },
     { label: "Body Fat", value: "18.2", unit: "%", change: -0.5 },
     { label: "Muscle Mass", value: "34.8", unit: "kg", change: 0.2 },
     { label: "BMI", value: "24.1", unit: "", change: -0.1 },
-  ]);
+  ];
 
-  // --- DERIVED STATE ---
-  const completedExercises = exercises.filter((e) => e.completed).length;
-  const progress = exercises.length > 0 ? (completedExercises / exercises.length) * 100 : 0;
+  // Rest Timer Effect
+  useEffect(() => {
+    let interval: any;
+    if (restTime > 0) {
+      interval = setInterval(() => setRestTime((prev) => prev - 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [restTime]);
 
-  const filteredLibrary = useMemo(() => {
-    return exerciseLibrary.filter(ex => 
-      ex.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery]);
+  const fetchWorkoutData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-  // --- HANDLERS ---
-  const toggleExercise = (id: number) => {
-    setExercises(prev => prev.map(ex => 
-      ex.id === id ? { ...ex, completed: !ex.completed } : ex
-    ));
-  };
+      const { data: plan } = await supabase
+        .from('workouts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('order_index', { ascending: true });
+      if (plan) setWeeklyPlan(plan);
 
-  const handleReset = () => {
-    setExercises(prev => prev.map(ex => ({ ...ex, completed: false })));
-  };
+      const { data: workout } = await supabase
+        .from('workouts')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
 
-  const handleContinue = () => {
-    const nextIncomplete = exercises.find(ex => !ex.completed);
-    if (nextIncomplete) {
-      alert(`Starting next exercise: ${nextIncomplete.name}`);
-    } else {
-      alert("Workout already completed!");
+      if (workout) {
+        setActiveWorkoutId(workout.id);
+        const { data: exData } = await supabase
+          .from('exercises')
+          .select('*')
+          .eq('workout_id', workout.id)
+          .order('created_at', { ascending: true });
+        if (exData) setExercises(exData);
+      }
+    } catch (error) {
+      console.error("Fetch error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const addExercise = (template: typeof exerciseLibrary[0]) => {
-    const newEx = {
-      ...template,
-      id: Date.now(),
-      completed: false
-    };
-    setExercises(prev => [...prev, newEx]);
-    setIsLogOpen(false);
-    setSearchQuery("");
+  useEffect(() => {
+    fetchWorkoutData();
+  }, []);
+
+  const progress = exercises.length > 0 ? (exercises.filter(e => e.completed).length / exercises.length) * 100 : 0;
+
+  // --- HANDLERS ---
+
+  const toggleExercise = async (id: string, currentStatus: boolean) => {
+    setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, completed: !currentStatus } : ex));
+    if (!currentStatus) setFocusedExerciseId(null); // Remove focus if completed
+    await supabase.from('exercises').update({ completed: !currentStatus }).eq('id', id);
   };
 
-  return (
-    <div className="max-w-7xl mx-auto p-4 lg:p-8 space-y-8">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col lg:flex-row lg:items-center justify-between gap-4"
-      >
-        <div>
-          <h1 className="text-3xl font-display font-bold mb-1 text-foreground">Fitness Tracking</h1>
-          <p className="text-muted-foreground">
-            Log workouts, track progress, and crush your goals
-          </p>
-        </div>
-        <Button 
-          onClick={() => setIsLogOpen(true)}
-          className="bg-primary hover:opacity-90 text-primary-foreground shadow-lg h-12 px-6"
-        >
-          <Plus className="w-5 h-5 mr-2" />
-          Log Workout
-        </Button>
-      </motion.div>
+  const addExercise = async (template: typeof exerciseLibrary[0]) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !activeWorkoutId) return;
+    const { data, error } = await supabase.from('exercises').insert([{ ...template, completed: false, user_id: user.id, workout_id: activeWorkoutId }]).select();
+    if (!error && data) {
+      setExercises(prev => [...prev, ...data]);
+      setIsLogOpen(false);
+      toast({ title: `${template.name} added!` });
+    }
+  };
 
-      {/* Stats Cards */}
+  const handleReset = async () => {
+    if (!activeWorkoutId || exercises.length === 0) return;
+    const previousExercises = [...exercises];
+    setExercises([]);
+    const { error } = await supabase.from('exercises').delete().eq('workout_id', activeWorkoutId);
+    if (error) {
+      toast({ title: "Reset failed", variant: "destructive" });
+      setExercises(previousExercises);
+    } else {
+      toast({ title: "Workout list cleared" });
+    }
+  };
+
+  const handleContinue = () => {
+    const nextItem = exercises.find(ex => !ex.completed);
+    if (nextItem) {
+      setFocusedExerciseId(nextItem.id);
+      setRestTime(60); // Start 60s rest
+      toast({ title: "Rest Started", description: `60s rest. Next: ${nextItem.name}` });
+    } else {
+      toast({ title: "Workout Complete!", description: "All sets finished." });
+    }
+  };
+
+  const updateDayWorkout = async (id: string, newName: string) => {
+    setWeeklyPlan(prev => prev.map(day => day.id === id ? { ...day, workout_name: newName } : day));
+    setEditingDayId(null);
+    await supabase.from('workouts').update({ workout_name: newName } as any).eq('id', id);
+    toast({ title: "Plan updated" });
+  };
+
+  const deleteSingleExercise = async (id: string) => {
+    setExercises(prev => prev.filter(ex => ex.id !== id));
+    await supabase.from('exercises').delete().eq('id', id);
+  };
+
+  if (loading) return (
+    <div className="flex h-screen items-center justify-center bg-[#0b0f13]">
+      <Loader2 className="w-8 h-8 animate-spin text-[#2dd4bf]" />
+    </div>
+  );
+
+  return (
+    <div className="max-w-7xl mx-auto p-6 space-y-8 bg-[#0b0f13] min-h-screen text-white font-sans">
+      
+      {/* HEADER */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight mb-1">Fitness Tracking</h1>
+          <p className="text-[14px] text-slate-400">Log workouts and crush your goals</p>
+        </div>
+        <Button onClick={() => setIsLogOpen(true)} className="bg-[#2dd4bf] hover:bg-[#26b4a2] text-black font-bold h-10 px-6 rounded-lg flex items-center gap-2">
+          <Plus className="w-4 h-4" /> Log Workout
+        </Button>
+      </div>
+
+      {/* STATS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, index) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="bg-card border border-border rounded-xl p-5 shadow-sm"
-          >
-            <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">{stat.label}</p>
-            <div className="flex items-baseline gap-1 mb-2">
-              <span className="text-2xl font-display font-bold">{stat.value}</span>
-              <span className="text-muted-foreground font-medium text-sm">{stat.unit}</span>
+        {bodyStats.map((stat) => (
+          <div key={stat.label} className="bg-[#161b22] border border-slate-800 p-5 rounded-xl">
+            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">{stat.label}</p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold">{stat.value}</span>
+              <span className="text-[13px] text-slate-500 font-bold">{stat.unit}</span>
             </div>
-            <div className={`text-[10px] font-bold ${
-              stat.change < 0 ? "text-emerald-500" : "text-blue-500"
-            }`}>
-              {stat.change > 0 ? "+" : ""}{stat.change} from last week
-            </div>
-          </motion.div>
+            <p className={`text-[11px] font-bold mt-2 ${stat.change < 0 ? "text-emerald-500" : "text-blue-500"}`}>
+              {stat.change > 0 ? "+" : ""}{stat.change} this week
+            </p>
+          </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Today's Workout */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="lg:col-span-2 bg-card border border-border rounded-xl p-6 shadow-sm flex flex-col"
-        >
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-2">
-              <Dumbbell className="w-5 h-5 text-primary" />
-              <h3 className="font-display font-bold text-lg">Today's Workout</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* TODAY'S WORKOUT */}
+        <div className="lg:col-span-2 bg-[#161b22] border border-slate-800 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2 text-[#2dd4bf]">
+              <Dumbbell className="w-5 h-5" />
+              <h3 className="font-bold text-[16px] tracking-tight">Today's Workout</h3>
             </div>
-            <Badge variant="outline" className="text-[10px] uppercase font-bold border-primary/20 text-primary">
-              Upper Body Strength
-            </Badge>
+            {restTime > 0 && (
+              <Badge className="bg-orange-500/20 text-orange-500 border-none animate-pulse">
+                Rest: {restTime}s
+              </Badge>
+            )}
           </div>
 
-          <div className="mb-6">
+          <div className="mb-8">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-muted-foreground font-medium">
-                {completedExercises}/{exercises.length} exercises completed
-              </span>
-              <span className="text-xs font-bold">{Math.round(progress)}%</span>
+              <span className="text-[12px] text-slate-400 font-medium">{exercises.filter(e => e.completed).length}/{exercises.length} sets done</span>
+              <span className="text-[13px] font-bold">{Math.round(progress)}%</span>
             </div>
-            <Progress value={progress} className="h-1.5" />
+            <Progress value={progress} className="h-1.5 bg-slate-800" />
           </div>
 
-          <div className="space-y-3 flex-1 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+          <div className="space-y-3">
             <AnimatePresence mode="popLayout">
               {exercises.map((exercise) => (
                 <motion.div
                   key={exercise.id}
                   layout
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className={`flex items-center gap-4 p-4 rounded-lg border transition-all ${
-                    exercise.completed
-                      ? "bg-emerald-500/5 border-emerald-500/20"
-                      : "bg-muted/50 border-transparent hover:border-primary/20 shadow-sm"
+                  className={`group flex items-center gap-4 p-4 rounded-xl transition-all border ${
+                    focusedExerciseId === exercise.id 
+                      ? "border-[#2dd4bf] ring-1 ring-[#2dd4bf] shadow-[0_0_15px_rgba(45,212,191,0.1)]" 
+                      : exercise.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-[#0d1117] border-slate-800"
                   }`}
                 >
-                  <button
-                    onClick={() => toggleExercise(exercise.id)}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                      exercise.completed
-                        ? "bg-emerald-500 text-white"
-                        : "bg-transparent border-2 border-muted-foreground/30 hover:border-primary"
-                    }`}
-                  >
-                    {exercise.completed && <Check className="w-4 h-4" />}
+                  <button onClick={() => toggleExercise(exercise.id, exercise.completed)} className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all ${exercise.completed ? "bg-emerald-500 text-black" : "border-2 border-slate-700 hover:border-[#2dd4bf]"}`}>
+                    {exercise.completed ? <Check className="w-5 h-5 stroke-[3px]" /> : <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />}
                   </button>
                   <div className="flex-1">
-                    <p className={`text-sm font-bold ${exercise.completed ? "line-through text-muted-foreground" : ""}`}>
-                      {exercise.name}
-                    </p>
-                    <p className="text-[11px] font-medium text-muted-foreground uppercase">
-                      {exercise.sets} Sets × {exercise.reps} Reps @ {exercise.weight}
-                    </p>
+                    <p className={`text-[15px] font-bold ${exercise.completed ? "text-slate-500 line-through" : "text-white"}`}>{exercise.name}</p>
+                    <p className="text-[11px] text-slate-500 uppercase font-bold">{exercise.sets} sets × {exercise.reps} reps • {exercise.weight_kg || 0}kg</p>
                   </div>
-                  {!exercise.completed && (
-                    <button 
-                      onClick={() => toggleExercise(exercise.id)} 
-                      className="text-xs font-bold text-foreground hover:text-primary transition-colors"
-                    >
-                      Start
-                    </button>
-                  )}
+                  <button onClick={() => deleteSingleExercise(exercise.id)} className="opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -208,110 +242,54 @@ export default function Fitness() {
 
           <div className="flex gap-4 mt-8">
             <Button 
-              onClick={handleContinue}
-              className="flex-1 bg-primary text-primary-foreground font-bold h-11"
+              onClick={handleContinue} 
+              disabled={exercises.length === 0 || restTime > 0} 
+              className="flex-1 bg-[#2dd4bf] hover:bg-[#26b4a2] text-black font-bold h-12 rounded-xl text-[13px] uppercase tracking-wider"
             >
-              <Timer className="w-4 h-4 mr-2" />
-              Continue Workout
+              {restTime > 0 ? `Resting (${restTime}s)...` : <><Timer className="w-4 h-4 mr-2" /> Continue Workout</>}
             </Button>
-            <Button variant="outline" onClick={handleReset} className="h-11 px-6 font-bold">
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Reset
+            <Button onClick={handleReset} variant="outline" className="h-12 px-6 rounded-xl border-slate-800 font-bold text-slate-400 text-[13px] uppercase hover:text-red-500">
+              <RotateCcw className="w-4 h-4 mr-2" /> Reset
             </Button>
           </div>
-        </motion.div>
+        </div>
 
-        {/* Weekly Plan */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="bg-card border border-border rounded-xl p-6 shadow-sm"
-        >
-          <div className="flex items-center gap-2 mb-6">
-            <Target className="w-5 h-5 text-primary" />
-            <h3 className="font-display font-bold text-lg">Weekly Plan</h3>
+        {/* WEEKLY PLAN */}
+        <div className="bg-[#161b22] border border-slate-800 rounded-2xl p-6 h-fit">
+          <div className="flex items-center gap-2 mb-8">
+            <Target className="w-5 h-5 text-[#2dd4bf]" />
+            <h3 className="font-bold text-[16px]">Weekly Plan</h3>
           </div>
-
-          <div className="space-y-2">
-            {[
-              { day: "Monday", workout: "Upper Body", completed: true },
-              { day: "Tuesday", workout: "Cardio HIIT", completed: true },
-              { day: "Wednesday", workout: "Lower Body", completed: true },
-              { day: "Thursday", workout: "Rest Day", completed: false, isRest: true },
-              { day: "Friday", workout: "Full Body", completed: false },
-            ].map((day) => (
-              <div
-                key={day.day}
-                className={`flex items-center justify-between p-3 rounded-lg ${
-                  day.completed ? "bg-emerald-500/5" : "bg-muted/30"
-                }`}
-              >
-                <div>
-                  <p className="font-bold text-sm">{day.day}</p>
-                  <p className="text-[11px] text-muted-foreground">{day.workout}</p>
-                </div>
-                {day.completed && (
-                  <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
-                    <Check className="w-3 h-3 text-white" />
-                  </div>
+          <div className="space-y-3">
+            {weeklyPlan.map((day) => (
+              <div key={day.id} onClick={() => isEditingPlan && setEditingDayId(day.id)} className={`p-4 rounded-xl border transition-all ${day.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-[#0d1117] border-transparent"} ${isEditingPlan ? "cursor-pointer border-dashed border-slate-700 hover:border-[#2dd4bf]" : ""}`}>
+                <p className={`text-[13px] font-bold ${day.completed ? "text-emerald-500" : "text-white"}`}>{day.day_name}</p>
+                {editingDayId === day.id ? (
+                  <input autoFocus className="bg-transparent border-b border-[#2dd4bf] text-[11px] outline-none text-white w-full mt-1" defaultValue={day.workout_name} onBlur={(e) => updateDayWorkout(day.id, e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateDayWorkout(day.id, e.currentTarget.value)} />
+                ) : (
+                  <p className="text-[11px] text-slate-500 uppercase font-bold">{day.workout_name || 'Rest Day'}</p>
                 )}
               </div>
             ))}
           </div>
-
-          <Button 
-            variant="ghost" 
-            onClick={() => setIsLogOpen(true)}
-            className="w-full mt-6 text-xs font-bold text-muted-foreground hover:text-primary"
-          >
-            Edit Weekly Plan
-            <ChevronRight className="w-4 h-4 ml-1" />
+          <Button variant="ghost" onClick={() => setIsEditingPlan(!isEditingPlan)} className="w-full mt-6 text-[12px] font-bold text-slate-500 hover:text-white">
+            {isEditingPlan ? "Finish Editing" : "Edit Plan"} <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
-        </motion.div>
+        </div>
       </div>
 
-      {/* MODAL */}
+      {/* LOG MODAL */}
       <AnimatePresence>
         {isLogOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setIsLogOpen(false)}
-            />
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="relative bg-card border border-border rounded-xl p-6 w-full max-w-md shadow-2xl"
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold font-display">Log Exercise</h3>
-                <Button variant="ghost" size="icon" onClick={() => setIsLogOpen(false)}><X className="w-4 h-4" /></Button>
-              </div>
-
-              <div className="relative mb-6">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input 
-                  type="text"
-                  placeholder="Search exercise library..."
-                  className="w-full bg-muted/50 border border-border rounded-lg py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all font-medium"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  autoFocus
-                />
-              </div>
-
-              <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
-                {filteredLibrary.map((item) => (
-                  <div 
-                    key={item.name} 
-                    className="flex justify-between items-center p-3 bg-muted/30 hover:bg-muted/60 rounded-lg cursor-pointer transition-all group"
-                    onClick={() => addExercise(item)}
-                  >
-                    <div>
-                      <p className="text-sm font-bold">{item.name}</p>
-                      <p className="text-[11px] text-muted-foreground uppercase">{item.sets}x{item.reps} • {item.weight}</p>
-                    </div>
-                    <Plus className="w-4 h-4 text-primary" />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-[#161b22] border border-slate-800 p-6 w-full max-w-md rounded-2xl relative shadow-2xl">
+              <button onClick={() => setIsLogOpen(false)} className="absolute top-4 right-4 text-slate-500"><X className="w-6 h-6" /></button>
+              <h3 className="text-xl font-bold mb-6">Add Exercise</h3>
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {exerciseLibrary.map((item) => (
+                  <div key={item.name} className="p-4 bg-[#0d1117] border border-slate-800 rounded-xl hover:border-[#2dd4bf] cursor-pointer" onClick={() => addExercise(item)}>
+                    <p className="font-bold text-[14px]">{item.name}</p>
+                    <p className="text-[11px] text-slate-500 uppercase">{item.sets} Sets • {item.reps} Reps</p>
                   </div>
                 ))}
               </div>

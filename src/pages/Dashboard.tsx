@@ -10,7 +10,7 @@ import {
 import { StatCard } from "@/components/dashboard/StatCard";
 import { UpcomingSessions } from "@/components/dashboard/UpcomingSessions";
 import { NutritionWidget } from "@/components/dashboard/NutritionWidget";
-import { WorkoutProgress } from "@/components/dashboard/WorkoutProgress";
+import WorkoutProgress from "@/components/dashboard/WorkoutProgress";
 import { ProgressChart } from "@/components/dashboard/ProgressChart";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
