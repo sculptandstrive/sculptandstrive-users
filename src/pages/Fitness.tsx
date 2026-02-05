@@ -59,7 +59,7 @@ export default function Fitness() {
     { label: "BMI", value: "24.1", unit: "", change: -0.1 },
   ];
 
-  // Rest Timer Effect
+  // Timer 
   useEffect(() => {
     let interval: any;
     if (restTime > 0) {
@@ -82,7 +82,6 @@ export default function Fitness() {
         console.error("Error inserting default workouts:", error);
         return null;
       }
-      //  Workout name 
       return data?.map(d => ({ ...d, workout_name: d.name })) || null;
     } catch (err) {
       console.error("Unexpected error creating default workouts:", err);
@@ -114,7 +113,6 @@ export default function Fitness() {
             plan = created;
           }
         } else {
-          
           const mappedPlan = plan.map(p => ({
             ...p,
             workout_name: p.name
@@ -164,9 +162,12 @@ export default function Fitness() {
 
   // --- HANDLERS ---
   const toggleExercise = async (id: string, currentStatus: boolean) => {
-    setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, completed: !currentStatus } : ex));
-    if (!currentStatus) setFocusedExerciseId(null);
-    await supabase.from('exercises').update({ completed: !currentStatus }).eq('id', id);
+    const nextStatus = !currentStatus;
+    setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, completed: nextStatus } : ex));
+    
+    if (nextStatus) setFocusedExerciseId(null);
+    
+    await supabase.from('exercises').update({ completed: nextStatus }).eq('id', id);
   };
 
   const addExercise = async (template: typeof exerciseLibrary[0]) => {
@@ -181,20 +182,24 @@ export default function Fitness() {
     }
   };
 
+  // stops timer
   const handleReset = async () => {
     if (!activeWorkoutId || exercises.length === 0) return;
     const previousExercises = [...exercises];
-    setExercises([]);
     setRestTime(0); 
     setFocusedExerciseId(null);
-
+    setExercises(prev => prev.map(ex => ({ ...ex, completed: false })));
     try {
-      const { error } = await supabase.from('exercises').delete().eq('workout_id', activeWorkoutId);
+      const { error } = await supabase
+        .from('exercises')
+        .update({ completed: false })
+        .eq('workout_id', activeWorkoutId);
+
       if (error) {
         setExercises(previousExercises);
         toast({ title: "Reset failed", variant: "destructive" });
       } else {
-        toast({ title: "Workout list cleared" });
+        toast({ title: "Workout progress reset" });
       }
     } catch (err) {
       setExercises(previousExercises);
@@ -213,11 +218,8 @@ export default function Fitness() {
   };
 
   const updateDayWorkout = async (id: string, newName: string) => {
-    
     setWeeklyPlan(prev => prev.map(day => day.id === id ? { ...day, workout_name: newName } : day));
     setEditingDayId(null);
-    
-    // Update Database 
     const { error } = await supabase
       .from('workouts')
       .update({ name: newName }) 
@@ -226,7 +228,6 @@ export default function Fitness() {
     if (error) {
       console.error("Update error:", error);
       toast({ title: "Failed to save", variant: "destructive" });
-     
       fetchWorkoutData();
     } else {
       toast({ title: "Plan updated" });
@@ -283,7 +284,7 @@ export default function Fitness() {
                 className="bg-orange-500/20 text-orange-500 border-none cursor-pointer hover:bg-orange-500/30 transition-colors"
                 onClick={() => setRestTime(0)}
               >
-                Rest: {restTime}s (Click to Skip)
+                Rest: {restTime}s
               </Badge>
             )}
           </div>
