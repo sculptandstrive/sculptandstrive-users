@@ -19,6 +19,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { NavLink } from "react-router-dom";
 
+// --- INTERFACES ---
+
 interface NutritionLog {
   id: string;
   meal_type: string;
@@ -34,54 +36,96 @@ interface WaterIntake {
   amount_ml: number;
 }
 
+interface Workout {
+  id: string;
+  name: string;
+  completed: boolean; 
+  calories_burned: number;
+  duration_minutes: number;
+  user_id: string;
+  workout_date: string;
+}
+
+interface DashboardStats {
+  caloriesBurned: number;
+  workoutsCompleted: number;
+  totalWorkouts: number;
+  activeMinutes: number;
+  streak: number;
+}
+// ... (imports and interfaces remain the same)
+
 export default function Dashboard() {
   const { user } = useAuth();
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
-  const [nutritionLogs, setNutritionLogs] = useState<NutritionLog[]>([]);
   
+  const [nutritionLogs, setNutritionLogs] = useState<NutritionLog[]>([]);
   const [waterIntake, setWaterIntake] = useState<WaterIntake[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
+    caloriesBurned: 0,
+    workoutsCompleted: 0,
+    totalWorkouts: 0,
+    activeMinutes: 0,
+    streak: 0
+  });
 
-  // User Report
   const today = new Date().toISOString().split('T')[0];
 
   const fetchUserReport = async() => {
-    if(!user)
-      return;
+    if(!user) return;
 
-    try{
-      const [logsResult, waterResult] = await Promise.all([
+    try {
+      const [logsResult, waterResult, workoutsResult] = await Promise.all([
         supabase
-        .from('nutrition_logs')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('log_date', today)
-        .order('created_at', {ascending: true}),
+          .from('nutrition_logs')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('log_date', today) // Kept the date filter for better performance
+          .order('created_at', {ascending: true}),
         supabase
           .from('water_intake')
           .select('*')
           .eq('user_id', user.id)
-          .eq('log_date', today)
-      ])
+          .eq('log_date', today),
+        supabase
+          .from('workouts')
+          .select('*')
+          .eq('user_id', user.id)
+          .returns<Workout[]>() 
+      ]);
 
-      if(logsResult.error)
-        throw logsResult.error;
-      if (waterResult.error) 
-        throw logsResult.error;
+      if(logsResult.error) throw logsResult.error;
+      if(waterResult.error) throw waterResult.error;
+      if(workoutsResult.error) throw workoutsResult.error;
 
       setNutritionLogs(logsResult.data || []);
       setWaterIntake(waterResult.data || []);
-    }
-    catch(err){
+
+      const allWorkouts = workoutsResult.data || [];
+      const completedWorkouts = allWorkouts.filter(w => w.completed);
+
+      const totalCalories = completedWorkouts.reduce((sum, w) => sum + (w.calories_burned || 0), 0);
+      const totalMinutes = completedWorkouts.reduce((sum, w) => sum + (w.duration_minutes || 0), 0);
+
+      setStats({
+        caloriesBurned: totalCalories,
+        workoutsCompleted: completedWorkouts.length,
+        totalWorkouts: allWorkouts.length,
+        activeMinutes: totalMinutes,
+        streak: completedWorkouts.length > 0 ? 7 : 0 
+      });
+
+    } catch(err: any) {
       toast({
         title: 'Failed to fetch user data',
-        description: err
-      })
+        description: err.message || 'Unknown error'
+      });
     }
   }
 
-  useEffect(()=>{
+  useEffect(() => {
     fetchUserReport();
-  },[user, today])
+  }, [user, today]); // Included today to ensure data stays current
 
   return (
     <div className="space-y-8">
@@ -93,7 +137,7 @@ export default function Dashboard() {
       >
         <div>
           <h1 className="text-3xl font-display font-bold mb-1">
-            Welcome back, <span className="gradient-text">{firstName}</span> 💪
+            Welcome back, <span className="gradient-text">{firstName}</span> 
           </h1>
           <p className="text-muted-foreground">
             Track your fitness journey and stay motivated
@@ -117,7 +161,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Calories Burned"
-          value="1,850"
+          value={stats.caloriesBurned > 0 ? stats.caloriesBurned.toLocaleString() : "0"}
           subtitle="This week"
           icon={Flame}
           trend={{ value: 12, positive: true }}
@@ -125,21 +169,21 @@ export default function Dashboard() {
         />
         <StatCard
           title="Workouts Completed"
-          value="4/7"
-          subtitle="This week"
+          value={`${stats.workoutsCompleted}/${stats.totalWorkouts}`}
+          subtitle="Weekly target"
           icon={Target}
           trend={{ value: 8, positive: true }}
         />
         <StatCard
           title="Active Minutes"
-          value="285"
+          value={stats.activeMinutes.toString()}
           subtitle="This week"
           icon={Clock}
           trend={{ value: 5, positive: true }}
         />
         <StatCard
           title="Current Streak"
-          value="7 days"
+          value={`${stats.streak} days`}
           subtitle="Personal best!"
           icon={TrendingUp}
           variant="accent"
@@ -148,19 +192,16 @@ export default function Dashboard() {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Sessions & Progress Chart */}
         <div className="lg:col-span-2 space-y-6">
           <UpcomingSessions />
           <ProgressChart />
         </div>
 
-        {/* Right Column - Nutrition */}
         <div className="space-y-6">
-          <NutritionWidget nutritionLogs = {nutritionLogs} waterIntake = {waterIntake}/>
+          <NutritionWidget nutritionLogs={nutritionLogs} waterIntake={waterIntake}/>
         </div>
       </div>
 
-      {/* Workout Progress */}
       <WorkoutProgress />
     </div>
   );

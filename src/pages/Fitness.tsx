@@ -11,7 +11,6 @@ import {
   Loader2,
   ChevronRight,
   Trash2,
-  Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -60,7 +59,7 @@ export default function Fitness() {
     { label: "BMI", value: "24.1", unit: "", change: -0.1 },
   ];
 
-  // Rest Timer Effect
+  // Timer 
   useEffect(() => {
     let interval: any;
     if (restTime > 0) {
@@ -69,7 +68,26 @@ export default function Fitness() {
     return () => clearInterval(interval);
   }, [restTime]);
 
-  // Create a default weekly plan for a new user (returns inserted rows or null on error)
+  // fetch exercises separately
+  const fetchExercisesForWorkout = async (workoutId: string) => {
+    const { data: exData, error: exError } = await supabase
+      .from("exercises")
+      .select("*")
+      .eq("workout_id", workoutId)
+      .order("created_at", { ascending: true });
+
+    if (!exError) setExercises(exData || []);
+  };
+
+
+  const handleSwitchDay = async (workoutId: string) => {
+    if (isEditingPlan) return; 
+    setActiveWorkoutId(workoutId);
+    await fetchExercisesForWorkout(workoutId);
+    setRestTime(0);
+    setFocusedExerciseId(null);
+  };
+
   const createDefaultWorkoutsForUser = async (userId: string) => {
     try {
       const rowsToInsert = DEFAULT_WEEKLY_PLAN.map((d) => ({
@@ -79,12 +97,13 @@ export default function Fitness() {
         order_index: d.order_index,
         completed: false,
       }));
-      const { data, error } = await supabase.from("workouts").insert(rowsToInsert).select();
+      
+      const { data, error } = await supabase.from("workouts").insert(rowsToInsert as any).select();
       if (error) {
         console.error("Error inserting default workouts:", error);
         return null;
       }
-      return data || null;
+      return data?.map(d => ({ ...d, workout_name: (d as any).name })) || null;
     } catch (err) {
       console.error("Unexpected error creating default workouts:", err);
       return null;
@@ -95,17 +114,10 @@ export default function Fitness() {
     setLoading(true);
     try {
       const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError) {
-        console.error("Auth getUser error:", authError);
-        return;
-      }
+      if (authError) return;
       const user = authData?.user;
-      if (!user) {
-        console.warn("No authenticated user — skipping workout fetch");
-        return;
-      }
+      if (!user) return;
 
-      // fetch weekly plan (check error)
       let { data: plan, error: planError } = await supabase
         .from("workouts")
         .select("*")
@@ -113,46 +125,36 @@ export default function Fitness() {
         .order("order_index", { ascending: true });
 
       if (planError) {
-        console.error("Error fetching weekly plan:", planError);
         setWeeklyPlan([]);
       } else {
-        // If the user has no workouts yet, create a default plan for them
         if (!plan || plan.length === 0) {
           const created = await createDefaultWorkoutsForUser(user.id);
-          if (created && created.length > 0) {
-            // Use the newly created plan
+          if (created) {
             setWeeklyPlan(created);
             plan = created;
-          } else {
-            setWeeklyPlan([]);
-            plan = [];
           }
         } else {
-          setWeeklyPlan(plan || []);
+          const mappedPlan = plan.map(p => ({
+            ...p,
+            workout_name: (p as any).name
+          }));
+          setWeeklyPlan(mappedPlan);
         }
       }
 
-      // Choose active workout — prefer the first in order_index
-      const firstWorkout = Array.isArray(plan) && plan.length > 0 ? plan[0] : null;
-      if (firstWorkout && firstWorkout.id) {
-        setActiveWorkoutId(firstWorkout.id);
-        // fetch exercises for this workout
-        const { data: exData, error: exError } = await supabase
-          .from("exercises")
-          .select("*")
-          .eq("workout_id", firstWorkout.id)
-          .order("created_at", { ascending: true });
+  
+      const todayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
+      
+      const todayWorkout = plan?.find((p: any) => p.day_name === todayName);
+      
+      const workoutToShow = todayWorkout || (plan && plan[0]);
 
-        if (exError) {
-          console.error("Error fetching exercises:", exError);
-          setExercises([]);
-        } else {
-          setExercises(exData || []);
-        }
-      } else {
-        setActiveWorkoutId(null);
-        setExercises([]);
+      if (workoutToShow?.id) {
+        setActiveWorkoutId(workoutToShow.id);
+        await fetchExercisesForWorkout(workoutToShow.id);
       }
+      // --- END OF CHANGE ---
+
     } catch (error) {
       console.error("Fetch error:", error);
     } finally {
@@ -160,94 +162,80 @@ export default function Fitness() {
     }
   };
 
-  // Wait for auth/session, fetch when available (avoids race on deployment)
   useEffect(() => {
     let unsub: any = null;
-    let cancelled = false;
-
     const init = async () => {
       const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
-      if (user) {
-        if (!cancelled) await fetchWorkoutData();
-        return;
+      if (authData?.user) {
+        await fetchWorkoutData();
+      } else {
+        const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (session?.user) fetchWorkoutData();
+        });
+        unsub = subscription;
       }
-
-      const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
-        if (session?.user) {
-          fetchWorkoutData();
-        }
-      });
-
-      unsub = subscription;
     };
-
     init();
-
     return () => {
-      cancelled = true;
-      if (unsub && typeof unsub.unsubscribe === "function") {
-        unsub.unsubscribe();
-      } else if (unsub && typeof unsub === "object" && unsub.subscription) {
-        try { supabase.removeChannel(unsub.subscription); } catch (e) {}
-      }
+      if (unsub?.unsubscribe) unsub.unsubscribe();
     };
-    // purposely no dependencies — we want to run this once on mount
   }, []);
 
   const progress = exercises.length > 0 ? (exercises.filter(e => e.completed).length / exercises.length) * 100 : 0;
 
   // --- HANDLERS ---
   const toggleExercise = async (id: string, currentStatus: boolean) => {
-    setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, completed: !currentStatus } : ex));
-    if (!currentStatus) setFocusedExerciseId(null);
-    try {
-      const { error } = await supabase.from('exercises').update({ completed: !currentStatus }).eq('id', id);
-      if (error) console.error("Error updating exercise:", error);
-    } catch (err) {
-      console.error("Toggle error:", err);
+    const nextStatus = !currentStatus;
+    setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, completed: nextStatus } : ex));
+    
+    if (nextStatus) setFocusedExerciseId(null);
+    
+    await supabase.from('exercises').update({ completed: nextStatus }).eq('id', id);
+
+    //  Workout Status exercises are done mark the day as completed
+    if (activeWorkoutId) {
+        const updatedExs = exercises.map(ex => ex.id === id ? { ...ex, completed: nextStatus } : ex);
+        const allCompleted = updatedExs.length > 0 && updatedExs.every(e => e.completed);
+        await supabase.from('workouts').update({ completed: allCompleted } as any).eq('id', activeWorkoutId);
+        setWeeklyPlan(prev => prev.map(day => day.id === activeWorkoutId ? { ...day, completed: allCompleted } : day));
     }
   };
 
   const addExercise = async (template: typeof exerciseLibrary[0]) => {
-    try {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError) {
-        console.error("Auth getUser error:", authError);
-        return;
-      }
-      const user = authData?.user;
-      if (!user || !activeWorkoutId) return;
-      const { data, error } = await supabase.from('exercises').insert([{ ...template, completed: false, user_id: user.id, workout_id: activeWorkoutId }]).select();
-      if (error) {
-        console.error("Error inserting exercise:", error);
-      } else if (data) {
-        setExercises(prev => [...prev, ...data]);
-        setIsLogOpen(false);
-        toast({ title: `${template.name} added!` });
-      }
-    } catch (err) {
-      console.error("Add exercise error:", err);
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData?.user;
+    if (!user || !activeWorkoutId) return;
+    const { data, error } = await supabase.from('exercises').insert([{ ...template, completed: false, user_id: user.id, workout_id: activeWorkoutId }]).select();
+    if (!error && data) {
+      setExercises(prev => [...prev, ...data]);
+      setIsLogOpen(false);
+      toast({ title: `${template.name} added!` });
     }
   };
 
   const handleReset = async () => {
     if (!activeWorkoutId || exercises.length === 0) return;
     const previousExercises = [...exercises];
-    setExercises([]);
+    setRestTime(0); 
+    setFocusedExerciseId(null);
+    setExercises(prev => prev.map(ex => ({ ...ex, completed: false })));
     try {
-      const { error } = await supabase.from('exercises').delete().eq('workout_id', activeWorkoutId);
+      const { error } = await supabase
+        .from('exercises')
+        .update({ completed: false })
+        .eq('workout_id', activeWorkoutId);
+
       if (error) {
-        console.error("Reset delete error:", error);
-        toast({ title: "Reset failed", variant: "destructive" });
         setExercises(previousExercises);
+        toast({ title: "Reset failed", variant: "destructive" });
       } else {
-        toast({ title: "Workout list cleared" });
+        toast({ title: "Workout progress reset" });
+        // update the workout completion row
+        await supabase.from('workouts').update({ completed: false } as any).eq('id', activeWorkoutId);
+        setWeeklyPlan(prev => prev.map(day => day.id === activeWorkoutId ? { ...day, completed: false } : day));
       }
     } catch (err) {
-      console.error("Reset error:", err);
       setExercises(previousExercises);
-      toast({ title: "Reset failed", variant: "destructive" });
     }
   };
 
@@ -256,32 +244,32 @@ export default function Fitness() {
     if (nextItem) {
       setFocusedExerciseId(nextItem.id);
       setRestTime(60);
-      toast({ title: "Rest Started", description: `60s rest. Next: ${nextItem.name}` });
+      toast({ title: "Rest Started", description: `Next: ${nextItem.name}` });
     } else {
-      toast({ title: "Workout Complete!", description: "All sets finished." });
+      toast({ title: "Workout Complete!" });
     }
   };
 
   const updateDayWorkout = async (id: string, newName: string) => {
     setWeeklyPlan(prev => prev.map(day => day.id === id ? { ...day, workout_name: newName } : day));
     setEditingDayId(null);
-    try {
-      const { error } = await supabase.from('workouts').update({ workout_name: newName } as any).eq('id', id);
-      if (error) console.error("Error updating workout name:", error);
-      else toast({ title: "Plan updated" });
-    } catch (err) {
-      console.error("Update day workout error:", err);
+    const { error } = await supabase
+      .from('workouts')
+      .update({ name: newName }) 
+      .eq('id', id);
+
+    if (error) {
+      console.error("Update error:", error);
+      toast({ title: "Failed to save", variant: "destructive" });
+      fetchWorkoutData();
+    } else {
+      toast({ title: "Plan updated" });
     }
   };
 
   const deleteSingleExercise = async (id: string) => {
     setExercises(prev => prev.filter(ex => ex.id !== id));
-    try {
-      const { error } = await supabase.from('exercises').delete().eq('id', id);
-      if (error) console.error("Error deleting exercise:", error);
-    } catch (err) {
-      console.error("Delete exercise error:", err);
-    }
+    await supabase.from('exercises').delete().eq('id', id);
   };
 
   if (loading) return (
@@ -292,7 +280,6 @@ export default function Fitness() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8 bg-[#0b0f13] min-h-screen text-white font-sans">
-      {/* HEADER */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-1">Fitness Tracking</h1>
@@ -303,7 +290,6 @@ export default function Fitness() {
         </Button>
       </div>
 
-      {/* STATS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {bodyStats.map((stat) => (
           <div key={stat.label} className="bg-[#161b22] border border-slate-800 p-5 rounded-xl">
@@ -320,15 +306,20 @@ export default function Fitness() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* TODAY'S WORKOUT */}
         <div className="lg:col-span-2 bg-[#161b22] border border-slate-800 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2 text-[#2dd4bf]">
               <Dumbbell className="w-5 h-5" />
-              <h3 className="font-bold text-[16px] tracking-tight">Today's Workout</h3>
+              {/* --- CHANGE: Dynamic Header Name --- */}
+              <h3 className="font-bold text-[16px] tracking-tight">
+                {weeklyPlan.find(d => d.id === activeWorkoutId)?.day_name || "Today"}'s Workout
+              </h3>
             </div>
             {restTime > 0 && (
-              <Badge className="bg-orange-500/20 text-orange-500 border-none animate-pulse">
+              <Badge 
+                className="bg-orange-500/20 text-orange-500 border-none cursor-pointer hover:bg-orange-500/30 transition-colors"
+                onClick={() => setRestTime(0)}
+              >
                 Rest: {restTime}s
               </Badge>
             )}
@@ -350,7 +341,7 @@ export default function Fitness() {
                   layout
                   className={`group flex items-center gap-4 p-4 rounded-xl transition-all border ${
                     focusedExerciseId === exercise.id 
-                      ? "border-[#2dd4bf] ring-1 ring-[#2dd4bf] shadow-[0_0_15px_rgba(45,212,191,0.1)]" 
+                      ? "border-[#2dd4bf] ring-1 ring-[#2dd4bf]" 
                       : exercise.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-[#0d1117] border-slate-800"
                   }`}
                 >
@@ -364,6 +355,12 @@ export default function Fitness() {
                   <button onClick={() => deleteSingleExercise(exercise.id)} className="opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                 </motion.div>
               ))}
+              {/* ---  Empty State UI --- */}
+              {exercises.length === 0 && (
+                <div className="text-center py-10 text-slate-500 border border-dashed border-slate-800 rounded-xl">
+                  No exercises added for this day.
+                </div>
+              )}
             </AnimatePresence>
           </div>
 
@@ -381,7 +378,6 @@ export default function Fitness() {
           </div>
         </div>
 
-        {/* WEEKLY PLAN */}
         <div className="bg-[#161b22] border border-slate-800 rounded-2xl p-6 h-fit">
           <div className="flex items-center gap-2 mb-8">
             <Target className="w-5 h-5 text-[#2dd4bf]" />
@@ -389,10 +385,19 @@ export default function Fitness() {
           </div>
           <div className="space-y-3">
             {weeklyPlan.map((day) => (
-              <div key={day.id} onClick={() => isEditingPlan && setEditingDayId(day.id)} className={`p-4 rounded-xl border transition-all ${day.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-[#0d1117] border-transparent"} ${isEditingPlan ? "cursor-pointer border-dashed border-slate-700 hover:border-[#2dd4bf]" : ""}`}>
-                <p className={`text-[13px] font-bold ${day.completed ? "text-emerald-500" : "text-white"}`}>{day.day_name}</p>
+              <div 
+                key={day.id} 
+                
+                onClick={() => isEditingPlan ? setEditingDayId(day.id) : handleSwitchDay(day.id)} 
+                className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                   activeWorkoutId === day.id 
+                    ? "border-[#2dd4bf] bg-[#2dd4bf]/5 shadow-[0_0_15px_rgba(45,212,191,0.1)]" 
+                    : day.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-[#0d1117] border-transparent"
+                } ${isEditingPlan ? "border-dashed border-slate-700 hover:border-[#2dd4bf]" : "hover:border-slate-800"}`}
+              >
+                <p className={`text-[13px] font-bold ${day.completed ? "text-emerald-500" : "text-white"}`}>{(day as any).day_name}</p>
                 {editingDayId === day.id ? (
-                  <input autoFocus className="bg-transparent border-b border-[#2dd4bf] text-[11px] outline-none text-white w-full mt-1" defaultValue={day.workout_name} onBlur={(e) => updateDayWorkout(day.id, e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateDayWorkout(day.id, e.currentTarget.value)} />
+                  <input autoFocus className="bg-transparent border-b border-[#2dd4bf] text-[11px] outline-none text-white w-full mt-1" defaultValue={day.workout_name} onBlur={(e) => updateDayWorkout(day.id, e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateDayWorkout(day.id, (e.currentTarget as any).value)} />
                 ) : (
                   <p className="text-[11px] text-slate-500 uppercase font-bold">{day.workout_name || 'Rest Day'}</p>
                 )}
@@ -400,12 +405,11 @@ export default function Fitness() {
             ))}
           </div>
           <Button variant="ghost" onClick={() => setIsEditingPlan(!isEditingPlan)} className="w-full mt-6 text-[12px] font-bold text-slate-500 hover:text-white">
-            {isEditingPlan ? "Finish Editing" : "Edit Plan"} <ChevronRight className="w-4 h-4 ml-1" />
+            {isEditingPlan ? "Finish Editing" : "Edit Plan Names"} <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
       </div>
 
-      {/* LOG MODAL */}
       <AnimatePresence>
         {isLogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
