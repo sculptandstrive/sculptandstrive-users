@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { NavLink } from "react-router-dom";
 
 interface NutritionLog {
   id: string;
@@ -37,6 +38,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
   const [nutritionLogs, setNutritionLogs] = useState<NutritionLog[]>([]);
+  
   const [waterIntake, setWaterIntake] = useState<WaterIntake[]>([]);
 
   // User Report
@@ -52,6 +54,7 @@ export default function Dashboard() {
         .from('nutrition_logs')
         .select('*')
         .eq('user_id', user.id)
+        .eq('log_date', today)
         .order('created_at', {ascending: true}),
         supabase
           .from('water_intake')
@@ -78,7 +81,7 @@ export default function Dashboard() {
 
   useEffect(()=>{
     fetchUserReport();
-  },[])
+  },[user, today])
 
   return (
     <div className="space-y-8">
@@ -101,10 +104,12 @@ export default function Dashboard() {
             <Bell className="w-5 h-5" />
             <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full" />
           </Button>
-          <Button className="bg-gradient-primary hover:opacity-90 text-primary-foreground">
-            Start Workout
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
+          <NavLink to = "/fitness">
+            <Button className="bg-gradient-primary hover:opacity-90 text-primary-foreground">
+              Start Workout
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </NavLink>
         </div>
       </motion.div>
 

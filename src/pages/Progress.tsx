@@ -33,8 +33,7 @@ import { useAuth } from "@/contexts/AuthContext";
 type ProgressPhoto = {
   date: string;
   label: string;
-  image: string | null;
-  imagePath?: string | null;
+  imagePath: string | null;
 };
 
 
@@ -87,22 +86,17 @@ const measurements = [
 export default function Progress() {
   const [uploading, setUploading] = useState(false);
   const [progressPhotos, setProgressPhotos] = useState([
-    { date: "Jan 1", label: "Start", image: null },
-    { date: "Feb 1", label: "Month 1", image: null },
-    { date: "Mar 1", label: "Month 2", image: null },
+    { date: "Jan 1", label: "Start", imagePath: null },
+    { date: "Feb 1", label: "Month 1", imagePath: null },
+    { date: "Mar 1", label: "Month 2", imagePath: null },
   ]);
   const {user} = useAuth();
 
   useEffect(()=>{
     const getUserData = async () => {
       if(!user){
-        console.log(user);
         return ;
       }
-
-      console.log(user);
-
-      console.log("Set user");
 
       const {data: photos, error: photosError} = await supabase.from('progress_photos').select('image_path, label, taken_at').eq('user_id', user.id);
 
@@ -119,7 +113,7 @@ export default function Progress() {
 
         return {
           ...slot,
-          image: signed?.signedUrl ?? null
+          imagePath: signed?.signedUrl ?? null
         }
       })
     )
@@ -133,14 +127,12 @@ export default function Progress() {
   const handleAddProgressPhoto = async(e:React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0];
     if(!file){
-      console.log("Returning From No File");
       return;
     }
     
     setUploading(true);
 
     if(!user){
-      console.log("Returning From Not User Found");
       setUploading(false);
       return;
     }
@@ -152,7 +144,6 @@ export default function Progress() {
     
 
     if(uploadError){
-      console.log("Upload Error Received");
       toast({
         title: "Upload Failed",
         description: uploadError.message,
@@ -173,13 +164,72 @@ export default function Progress() {
     setProgressPhotos((photos) => 
       photos.map((photo, i) =>
          i == index ? 
-        {...photo, image: signed?.signedUrl} : photo
+        {...photo, imagePath: signed?.signedUrl} : photo
       ));
 
     toast({
       title: 'Image Uploaded',
       description: 'You have uploaded image successfully'
     })
+  }
+
+  const handleRemoveProgressPhoto = async(index: number) => {
+    if(!user)
+      return ;
+
+    const photo = progressPhotos[index];
+    if(!photo?.imagePath)
+      return;
+
+    try{
+      setUploading(true);
+
+      const {error: storageError} = await supabase.storage.from 
+        ('progress-photos')
+        .remove([photo.imagePath]);
+
+      if(storageError){
+        toast({
+          title: 'Delete Failed',
+          description: storageError.message,
+          variant: "destructive"
+        })
+        setUploading(false);
+        return;
+      }
+
+      const {error: dbError} = await supabase.from
+        ('progress_photos')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('label', photo.label)
+
+      if(dbError){
+        toast({
+          title: 'Database Error',
+          description: dbError.message,
+          variant: 'destructive'
+        })
+        setUploading(false);
+        return;
+      }
+      
+      setProgressPhotos((photos)=>
+          photos.map((p, i) => i === index 
+            ? {...p, imagePath: null}
+            : p
+        )
+      )
+
+      toast({
+        title: 'Image Removed',
+        description: 'Progress Image Deleted Successfully'
+      });
+    }
+    catch(err){ 
+      setUploading(false);
+    }
+
   }
 
   return (
@@ -203,6 +253,7 @@ export default function Progress() {
             <Calendar className="w-4 h-4 mr-2" />
             Date Range
           </Button>
+          
           <Button className="bg-gradient-primary hover:opacity-90 text-primary-foreground">
             <Camera className="w-4 h-4 mr-2" />
             Add Photo
@@ -496,19 +547,28 @@ export default function Progress() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {progressPhotos.map((photo, index) =>
-                photo.image ? (
+                photo.imagePath ? (
                   <motion.div
                     key={photo.date}
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: index * 0.1 }}
-                    className="aspect-[3/4] rounded-xl overflow-hidden border"
+                    className="aspect-[3/4] rounded-xl overflow-hidden border relative"
                   >
                     <img
-                      src={photo.image}
+                      src={photo.imagePath}
                       alt={photo.label}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover "
                     />
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bottom-10 left-[30%] absolute z-100"
+                      onClick={() => handleRemoveProgressPhoto(index)}
+                    >
+                      Remove Photo
+                    </Button>
                   </motion.div>
                 ) : (
                   <motion.div

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import LogoImage from '../assets/logo.png'
 
 const emailSchema = z.string().email("Please enter a valid email address");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
@@ -118,8 +119,9 @@ export default function Auth() {
       >
         {/* Logo & Title */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-gradient-to-br from-primary to-info flex items-center justify-center">
-            <Dumbbell className="w-8 h-8 text-primary-foreground" />
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full  flex items-center justify-center">
+            <img src = {LogoImage} className="w-full h-full text-primary-foreground"/>
+            {/* <Dumbbell className="w-8 h-8 text-primary-foreground" /> */}
           </div>
           <h1 className="text-3xl font-display font-bold mb-2">
             <span className="gradient-text">Sculpt</span> & Strive

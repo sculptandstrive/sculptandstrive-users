@@ -21,8 +21,6 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Searching for foods: ${query}`);
-
     // Search Open Food Facts API
     const searchUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=20`;
     
@@ -58,8 +56,6 @@ serve(async (req) => {
           fiber: Math.round((nutriments.fiber_100g || nutriments.fiber || 0) * 10) / 10,
         };
       });
-
-    console.log(`Found ${foods.length} foods for query: ${query}`);
 
     return new Response(
       JSON.stringify({ foods }),

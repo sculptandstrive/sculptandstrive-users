@@ -45,7 +45,6 @@ export function NutritionWidget({ nutritionLogs, waterIntake }: NutritionWidgetP
   ];
 
   const GLASS_ML = 250;
-  console.log(waterIntake);
 
   const waterConsumed = Math.floor(
     waterIntake.reduce((sum, w) => sum + w.amount_ml, 0) / GLASS_ML,
@@ -129,7 +128,7 @@ export function NutritionWidget({ nutritionLogs, waterIntake }: NutritionWidgetP
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-muted-foreground">{macro.name}</span>
                 <span className="font-medium">
-                  {macro.value}g / {macro.target}g
+                  {Math.round(macro.value)}g / {macro.target}g
                 </span>
               </div>
 
