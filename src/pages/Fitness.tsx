@@ -68,6 +68,26 @@ export default function Fitness() {
     return () => clearInterval(interval);
   }, [restTime]);
 
+  // fetch exercises separately
+  const fetchExercisesForWorkout = async (workoutId: string) => {
+    const { data: exData, error: exError } = await supabase
+      .from("exercises")
+      .select("*")
+      .eq("workout_id", workoutId)
+      .order("created_at", { ascending: true });
+
+    if (!exError) setExercises(exData || []);
+  };
+
+
+  const handleSwitchDay = async (workoutId: string) => {
+    if (isEditingPlan) return; 
+    setActiveWorkoutId(workoutId);
+    await fetchExercisesForWorkout(workoutId);
+    setRestTime(0);
+    setFocusedExerciseId(null);
+  };
+
   const createDefaultWorkoutsForUser = async (userId: string) => {
     try {
       const rowsToInsert = DEFAULT_WEEKLY_PLAN.map((d) => ({
@@ -77,12 +97,13 @@ export default function Fitness() {
         order_index: d.order_index,
         completed: false,
       }));
-      const { data, error } = await supabase.from("workouts").insert(rowsToInsert).select();
+      
+      const { data, error } = await supabase.from("workouts").insert(rowsToInsert as any).select();
       if (error) {
         console.error("Error inserting default workouts:", error);
         return null;
       }
-      return data?.map(d => ({ ...d, workout_name: d.name })) || null;
+      return data?.map(d => ({ ...d, workout_name: (d as any).name })) || null;
     } catch (err) {
       console.error("Unexpected error creating default workouts:", err);
       return null;
@@ -115,23 +136,25 @@ export default function Fitness() {
         } else {
           const mappedPlan = plan.map(p => ({
             ...p,
-            workout_name: p.name
+            workout_name: (p as any).name
           }));
           setWeeklyPlan(mappedPlan);
         }
       }
 
-      const firstWorkout = Array.isArray(plan) && plan.length > 0 ? plan[0] : null;
-      if (firstWorkout?.id) {
-        setActiveWorkoutId(firstWorkout.id);
-        const { data: exData, error: exError } = await supabase
-          .from("exercises")
-          .select("*")
-          .eq("workout_id", firstWorkout.id)
-          .order("created_at", { ascending: true });
+  
+      const todayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
+      
+      const todayWorkout = plan?.find((p: any) => p.day_name === todayName);
+      
+      const workoutToShow = todayWorkout || (plan && plan[0]);
 
-        if (!exError) setExercises(exData || []);
+      if (workoutToShow?.id) {
+        setActiveWorkoutId(workoutToShow.id);
+        await fetchExercisesForWorkout(workoutToShow.id);
       }
+      // --- END OF CHANGE ---
+
     } catch (error) {
       console.error("Fetch error:", error);
     } finally {
@@ -168,6 +191,14 @@ export default function Fitness() {
     if (nextStatus) setFocusedExerciseId(null);
     
     await supabase.from('exercises').update({ completed: nextStatus }).eq('id', id);
+
+    //  Workout Status exercises are done mark the day as completed
+    if (activeWorkoutId) {
+        const updatedExs = exercises.map(ex => ex.id === id ? { ...ex, completed: nextStatus } : ex);
+        const allCompleted = updatedExs.length > 0 && updatedExs.every(e => e.completed);
+        await supabase.from('workouts').update({ completed: allCompleted } as any).eq('id', activeWorkoutId);
+        setWeeklyPlan(prev => prev.map(day => day.id === activeWorkoutId ? { ...day, completed: allCompleted } : day));
+    }
   };
 
   const addExercise = async (template: typeof exerciseLibrary[0]) => {
@@ -182,7 +213,6 @@ export default function Fitness() {
     }
   };
 
-  // stops timer
   const handleReset = async () => {
     if (!activeWorkoutId || exercises.length === 0) return;
     const previousExercises = [...exercises];
@@ -200,6 +230,9 @@ export default function Fitness() {
         toast({ title: "Reset failed", variant: "destructive" });
       } else {
         toast({ title: "Workout progress reset" });
+        // update the workout completion row
+        await supabase.from('workouts').update({ completed: false } as any).eq('id', activeWorkoutId);
+        setWeeklyPlan(prev => prev.map(day => day.id === activeWorkoutId ? { ...day, completed: false } : day));
       }
     } catch (err) {
       setExercises(previousExercises);
@@ -277,7 +310,10 @@ export default function Fitness() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2 text-[#2dd4bf]">
               <Dumbbell className="w-5 h-5" />
-              <h3 className="font-bold text-[16px] tracking-tight">Today's Workout</h3>
+              {/* --- CHANGE: Dynamic Header Name --- */}
+              <h3 className="font-bold text-[16px] tracking-tight">
+                {weeklyPlan.find(d => d.id === activeWorkoutId)?.day_name || "Today"}'s Workout
+              </h3>
             </div>
             {restTime > 0 && (
               <Badge 
@@ -319,6 +355,12 @@ export default function Fitness() {
                   <button onClick={() => deleteSingleExercise(exercise.id)} className="opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                 </motion.div>
               ))}
+              {/* ---  Empty State UI --- */}
+              {exercises.length === 0 && (
+                <div className="text-center py-10 text-slate-500 border border-dashed border-slate-800 rounded-xl">
+                  No exercises added for this day.
+                </div>
+              )}
             </AnimatePresence>
           </div>
 
@@ -343,10 +385,19 @@ export default function Fitness() {
           </div>
           <div className="space-y-3">
             {weeklyPlan.map((day) => (
-              <div key={day.id} onClick={() => isEditingPlan && setEditingDayId(day.id)} className={`p-4 rounded-xl border transition-all ${day.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-[#0d1117] border-transparent"} ${isEditingPlan ? "cursor-pointer border-dashed border-slate-700 hover:border-[#2dd4bf]" : ""}`}>
-                <p className={`text-[13px] font-bold ${day.completed ? "text-emerald-500" : "text-white"}`}>{day.day_name}</p>
+              <div 
+                key={day.id} 
+                
+                onClick={() => isEditingPlan ? setEditingDayId(day.id) : handleSwitchDay(day.id)} 
+                className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                   activeWorkoutId === day.id 
+                    ? "border-[#2dd4bf] bg-[#2dd4bf]/5 shadow-[0_0_15px_rgba(45,212,191,0.1)]" 
+                    : day.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-[#0d1117] border-transparent"
+                } ${isEditingPlan ? "border-dashed border-slate-700 hover:border-[#2dd4bf]" : "hover:border-slate-800"}`}
+              >
+                <p className={`text-[13px] font-bold ${day.completed ? "text-emerald-500" : "text-white"}`}>{(day as any).day_name}</p>
                 {editingDayId === day.id ? (
-                  <input autoFocus className="bg-transparent border-b border-[#2dd4bf] text-[11px] outline-none text-white w-full mt-1" defaultValue={day.workout_name} onBlur={(e) => updateDayWorkout(day.id, e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateDayWorkout(day.id, e.currentTarget.value)} />
+                  <input autoFocus className="bg-transparent border-b border-[#2dd4bf] text-[11px] outline-none text-white w-full mt-1" defaultValue={day.workout_name} onBlur={(e) => updateDayWorkout(day.id, e.target.value)} onKeyDown={(e) => e.key === 'Enter' && updateDayWorkout(day.id, (e.currentTarget as any).value)} />
                 ) : (
                   <p className="text-[11px] text-slate-500 uppercase font-bold">{day.workout_name || 'Rest Day'}</p>
                 )}
@@ -354,7 +405,7 @@ export default function Fitness() {
             ))}
           </div>
           <Button variant="ghost" onClick={() => setIsEditingPlan(!isEditingPlan)} className="w-full mt-6 text-[12px] font-bold text-slate-500 hover:text-white">
-            {isEditingPlan ? "Finish Editing" : "Edit Plan"} <ChevronRight className="w-4 h-4 ml-1" />
+            {isEditingPlan ? "Finish Editing" : "Edit Plan Names"} <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
       </div>
