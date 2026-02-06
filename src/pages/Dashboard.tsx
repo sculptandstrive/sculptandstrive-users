@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { NavLink } from "react-router-dom";
 
 // --- INTERFACES ---
 
@@ -59,7 +60,6 @@ export default function Dashboard() {
   
   const [nutritionLogs, setNutritionLogs] = useState<NutritionLog[]>([]);
   const [waterIntake, setWaterIntake] = useState<WaterIntake[]>([]);
-  
   const [stats, setStats] = useState<DashboardStats>({
     caloriesBurned: 0,
     workoutsCompleted: 0,
@@ -79,6 +79,7 @@ export default function Dashboard() {
           .from('nutrition_logs')
           .select('*')
           .eq('user_id', user.id)
+          .eq('log_date', today)
           .order('created_at', {ascending: true}),
         supabase
           .from('water_intake')
@@ -99,17 +100,15 @@ export default function Dashboard() {
       setNutritionLogs(logsResult.data || []);
       setWaterIntake(waterResult.data || []);
 
-      // --- DYNAMIC CALCULATIONS ---
-      
       const allWorkouts = workoutsResult.data || [];
       const completedWorkouts = allWorkouts.filter(w => w.completed);
 
-      //  calories burned
+      // Calculate calories and minutes from completed workouts
       const totalCalories = completedWorkouts.reduce((sum, w) => sum + (w.calories_burned || 0), 0);
       const totalMinutes = completedWorkouts.reduce((sum, w) => sum + (w.duration_minutes || 0), 0);
 
       setStats({
-        caloriesBurned: totalCalories,//saved calories burned 
+        caloriesBurned: totalCalories,
         workoutsCompleted: completedWorkouts.length,
         totalWorkouts: allWorkouts.length,
         activeMinutes: totalMinutes,
@@ -126,7 +125,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchUserReport();
-  }, [user]);
+  }, [user, today]);
 
   return (
     <div className="space-y-8">
@@ -149,10 +148,12 @@ export default function Dashboard() {
             <Bell className="w-5 h-5" />
             <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full" />
           </Button>
-          <Button className="bg-gradient-primary hover:opacity-90 text-primary-foreground">
-            Start Workout
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
+          <NavLink to="/fitness">
+            <Button className="bg-gradient-primary hover:opacity-90 text-primary-foreground">
+              Start Workout
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </NavLink>
         </div>
       </motion.div>
 

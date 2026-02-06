@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import LogoImage from '../assets/logo.png'
 
 const emailSchema = z.string().email("Please enter a valid email address");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
@@ -24,6 +25,8 @@ export default function Auth() {
   const { user, signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const fullNameRegex = /^(?=.{3,}$)[A-Za-z]+( [A-Za-z]+)*$/;
+  const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -81,6 +84,24 @@ export default function Auth() {
           navigate("/");
         }
       } else {
+        if(!fullNameRegex.test(fullName)){
+          console.log("Entered in this part");
+          toast({
+            title: 'Sign Up Failed',
+            description: "Full Name must have 3 characters and Alphabets Only",
+            variant: 'destructive'
+          })
+          return;
+        }
+        if(!emailRegex.test(email)){
+          console.log("Enter Email Part")
+          toast({
+            title: "Sign Up Failed",
+            description: "Please Input Correct Email",
+            variant: "destructive",
+          });
+          return;
+        }
         const { error } = await signUp(email, password, fullName);
         if (error) {
           if (error.message.includes("already registered")) {
@@ -118,8 +139,9 @@ export default function Auth() {
       >
         {/* Logo & Title */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-gradient-to-br from-primary to-info flex items-center justify-center">
-            <Dumbbell className="w-8 h-8 text-primary-foreground" />
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full  flex items-center justify-center">
+            <img src = {LogoImage} className="w-full h-full text-primary-foreground"/>
+            {/* <Dumbbell className="w-8 h-8 text-primary-foreground" /> */}
           </div>
           <h1 className="text-3xl font-display font-bold mb-2">
             <span className="gradient-text">Sculpt</span> & Strive
