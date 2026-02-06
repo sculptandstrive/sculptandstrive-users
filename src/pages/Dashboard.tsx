@@ -104,16 +104,16 @@ export default function Dashboard() {
       const allWorkouts = workoutsResult.data || [];
       const completedWorkouts = allWorkouts.filter(w => w.completed);
 
-      // Summing up calories and minutes from the actual workout columns
+      //  calories burned
       const totalCalories = completedWorkouts.reduce((sum, w) => sum + (w.calories_burned || 0), 0);
       const totalMinutes = completedWorkouts.reduce((sum, w) => sum + (w.duration_minutes || 0), 0);
 
       setStats({
-        caloriesBurned: totalCalories,
+        caloriesBurned: totalCalories,//saved calories burned 
         workoutsCompleted: completedWorkouts.length,
         totalWorkouts: allWorkouts.length,
         activeMinutes: totalMinutes,
-        streak: completedWorkouts.length > 0 ? 7 : 0 // Placeholder logic for streak
+        streak: completedWorkouts.length > 0 ? 7 : 0 
       });
 
     } catch(err: any) {
