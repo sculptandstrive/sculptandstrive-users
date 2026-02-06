@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Added a timestamp to the URL to bypass any old cached "Access Denied" errors
+
 const LOCAL_JSON_URL = "https://zoxqjjuokxiyxusqapvv.supabase.co/storage/v1/object/public/assets/indian_foods.json?t=" + Date.now();
 const USDA_API_KEY = Deno.env.get("USDA_API_KEY") || "7tq13Cf3Lfxmi497a6Hfnyyq58wB1Gy77XwnT5pP";
 
@@ -20,7 +20,7 @@ serve(async (req: Request) => {
 
     const cleanQuery = query.toLowerCase().trim();
 
-    // 1. Triple Fetch with better error catching for Local JSON
+    
     const usdaUrl = `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${USDA_API_KEY}&query=${encodeURIComponent(cleanQuery)}&dataType=Foundation,SR%20Legacy&pageSize=5`;
     const offUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(cleanQuery)}&search_simple=1&action=process&json=1&page_size=20&lc=en&fields=code,product_name,product_name_en,brands,image_small_url,nutriments,categories_tags`;
 
@@ -38,7 +38,7 @@ serve(async (req: Request) => {
         })
     ]);
 
-    // 2. Local Indian Gym Foods - Improved Filter
+    // Local Indian Gym Foods 
     const localFoods = (Array.isArray(localRes) ? localRes : [])
       .filter((f: any) => 
         f.name.toLowerCase().includes(cleanQuery) || 
@@ -50,7 +50,7 @@ serve(async (req: Request) => {
         score: 110 
       }));
 
-    // 3. Process USDA Results
+    //  USDA Results
     const usdaFoods = (usdaRes.foods || []).map((food: any) => {
       const getNut = (id: number) => food.foodNutrients?.find((n: any) => n.nutrientId === id)?.value || 0;
       return {
@@ -66,7 +66,7 @@ serve(async (req: Request) => {
       };
     });
 
-    // 4. Process OFF Results
+    // Process OFF Results
     const offFoods = (offRes.products || [])
       .filter((p: any) => (p.product_name || p.product_name_en) && p.nutriments?.['energy-kcal_100g'])
       .map((p: any) => ({
