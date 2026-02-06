@@ -54,6 +54,7 @@ interface PasswordForm {
 interface NotificationSetting {
   id: string,
   label: string,
+  description: string,
   rowName: string,
   enabled: boolean
 }
@@ -203,6 +204,8 @@ export default function Settings() {
          "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=200",
      );
 
+     console.log(profileRes);
+     console.log(detailsRes);
      setForm((prev) => ({
        ...prev,
        dob: profileRes.data?.date_of_birth ?? "",

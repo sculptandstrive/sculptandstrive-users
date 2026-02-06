@@ -24,6 +24,8 @@ export default function Auth() {
   const { user, signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const fullNameRegex = /^(?=.{3,}$)[A-Za-z]+( [A-Za-z]+)*$/;
+  const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -81,6 +83,24 @@ export default function Auth() {
           navigate("/");
         }
       } else {
+        if(!fullNameRegex.test(fullName)){
+          console.log("Entered in this part");
+          toast({
+            title: 'Sign Up Failed',
+            description: "Full Name must have 3 characters and Alphabets Only",
+            variant: 'destructive'
+          })
+          return;
+        }
+        if(!emailRegex.test(email)){
+          console.log("Enter Email Part")
+          toast({
+            title: "Sign Up Failed",
+            description: "Please Input Correct Email",
+            variant: "destructive",
+          });
+          return;
+        }
         const { error } = await signUp(email, password, fullName);
         if (error) {
           if (error.message.includes("already registered")) {
