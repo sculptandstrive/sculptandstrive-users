@@ -73,7 +73,7 @@ serve(async (req) => {
       .delete()
       .eq("user_id", userId);
 
-    // 🔥 Delete auth user LAST
+    //  Delete auth user LAST
     await supabaseAdmin.auth.admin.deleteUser(userId);
 
     return new Response(JSON.stringify({ success: true }), {
@@ -89,3 +89,4 @@ serve(async (req) => {
     });
   }
 });
+

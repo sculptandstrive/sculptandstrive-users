@@ -6,10 +6,8 @@ import {
   Search, 
   Filter, 
   ChevronRight, 
-  Users, 
-  Star, 
   Clock,
-  AlertCircle // "Uploading/Missing" 
+  AlertCircle 
 } from "lucide-react";
 import { supabase } from "@/lib/supabase"; 
 import { Button } from "@/components/ui/button";
@@ -66,6 +64,39 @@ export default function Sessions() {
       console.error("Fetch Error:", err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ATTENDANCE RECORD
+  const handleSessionJoin = async (session: any) => {
+    const link = session.meeting_link;
+    if (!link) {
+      return toast.info("The meeting link is being generated. Please wait!");
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        
+        //  if  record exists, it updates it if not, it creates it.
+        const { error } = await supabase
+          .from("session_assignments")
+          .upsert({ 
+            session_id: session.id, 
+            client_id: user.id 
+          });
+        
+        if (error) console.error("Database sync error:", error.message);
+      }
+
+      // Open the session link
+      window.open(link.startsWith('http') ? link : `https://${link}`, '_blank');
+      toast.success("Joining session...");
+
+    } catch (err) {
+      console.error("Attendance error:", err);
+      window.open(link, '_blank');
     }
   };
 
@@ -139,7 +170,6 @@ export default function Sessions() {
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-3">
                           <h3 className="font-bold text-xl">{session.title}</h3>
-                          {/* DYNAMIC BADGE */}
                           <Badge className={`${session.meeting_link ? 'bg-green-500/10 text-green-500' : 'bg-orange-500/10 text-orange-500'} border-none animate-pulse`}>
                             {session.meeting_link ? 'LIVE' : 'PREPARING'}
                           </Badge>
@@ -149,20 +179,13 @@ export default function Sessions() {
 
                       <div className="flex flex-col items-end gap-2">
                          <span className="text-sm font-medium text-primary flex items-center gap-1">
-                           <Clock className="w-4 h-4" /> {session.duration || '45'} min
+                           <Clock className="w-4 h-4" /> {session.duration || '45'} 
                          </span>
                          
-                         {/* CRASH PROTECTION: Prevents window.open(null) */}
                          <Button 
                            variant={session.meeting_link ? "default" : "outline"}
                            className={session.meeting_link ? "bg-primary hover:bg-primary/90" : "opacity-60 cursor-not-allowed"}
-                           onClick={() => {
-                             if (session.meeting_link) {
-                               window.open(session.meeting_link, '_blank');
-                             } else {
-                               toast.info("The meeting link is being generated. Please wait!");
-                             }
-                           }}
+                           onClick={() => handleSessionJoin(session)}
                          >
                            {session.meeting_link ? "Join Session" : "Coming Soon"} 
                            <ChevronRight className="w-4 h-4 ml-2" />
@@ -179,13 +202,7 @@ export default function Sessions() {
                     layout
                     key={session.id} 
                     className="bg-card border border-border rounded-xl overflow-hidden group cursor-pointer hover:shadow-lg transition-all" 
-                    onClick={() => {
-                      if (session.meeting_link) {
-                        window.open(session.meeting_link, '_blank');
-                      } else {
-                        toast.error("Video processing. Please check back later.");
-                      }
-                    }}
+                    onClick={() => handleSessionJoin(session)}
                   >
                     <div className="aspect-video bg-muted relative">
                       <div className="w-full h-full flex items-center justify-center">
@@ -211,4 +228,4 @@ export default function Sessions() {
       </Tabs>
     </div>
   );
-}          
+}             

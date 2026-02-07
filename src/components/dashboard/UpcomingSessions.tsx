@@ -22,7 +22,6 @@ export function UpcomingSessions() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. Fetch sessions 
       const { data, error } = await supabase
         .from("sessions")
         .select(`
@@ -32,6 +31,7 @@ export function UpcomingSessions() {
         .order("start_time", { ascending: true });
 
       if (error) throw error;
+
       const visibleSessions = (data || []).filter(session => {
         const isMass = session.admin_is_mass === true;
         const isAssigned = session.session_assignments?.some(
@@ -39,6 +39,7 @@ export function UpcomingSessions() {
         );
         return isMass || isAssigned;
       });
+
       const uniqueSessions = Array.from(
         new Map(visibleSessions.map(s => [s.id, s])).values()
       ).slice(0, 3);
@@ -50,6 +51,46 @@ export function UpcomingSessions() {
       toast.error("Could not sync sessions");
     } finally {
       setLoading(false);
+    }
+  };
+
+  
+  const handleSessionJoin = async (session: any) => {
+    const link = session.meeting_link;
+    if (!link) {
+      return toast.error("Meeting link not available yet");
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        
+        const { error } = await supabase
+          .from("session_assignments")
+          .upsert({ 
+            session_id: session.id, 
+            client_id: user.id 
+          });
+        
+        if (error) {
+            console.error("Database sync error:", error.message);
+        }
+      }
+
+      if (session.platform === 'whatsapp') {
+        const phone = link.replace(/\D/g, '');
+        window.open(`https://wa.me/${phone}`, '_blank');
+      } else {
+        const url = link.startsWith('http') ? link : `https://${link}`;
+        window.open(url, '_blank');
+      }
+      
+      toast.success("Joining session...");
+
+    } catch (err) {
+      console.error("Join error:", err);
+      window.open(link, '_blank');
     }
   };
 
@@ -74,7 +115,7 @@ export function UpcomingSessions() {
       <div className="space-y-4">
         {sessions.length === 0 ? (
           <div className="text-center py-10 border-2 border-dashed border-muted rounded-xl bg-muted/10">
-             <p className="text-sm text-muted-foreground">No sessions assigned to you yet.</p>
+              <p className="text-sm text-muted-foreground">No sessions assigned to you yet.</p>
           </div>
         ) : (
           sessions.map((session, index) => {
@@ -119,18 +160,7 @@ export function UpcomingSessions() {
                 <Button 
                   size="sm" 
                   className={isWhatsApp ? "bg-[#25D366] hover:bg-[#128C7E] text-white" : "bg-primary"}
-                  onClick={() => {
-                    const link = session.meeting_link;
-                    if (!link) return toast.error("Meeting link not available yet");
-
-                    if (isWhatsApp) {
-                        const phone = link.replace(/\D/g, '');
-                        window.open(`https://wa.me/${phone}`, '_blank');
-                    } else {
-                        const url = link.startsWith('http') ? link : `https://${link}`;
-                        window.open(url, '_blank');
-                    }
-                  }}
+                  onClick={() => handleSessionJoin(session)} 
                 >
                   {isWhatsApp ? (
                     <><MessageCircle className="w-4 h-4 mr-1" /> Contact</>
