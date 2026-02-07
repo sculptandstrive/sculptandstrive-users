@@ -85,7 +85,7 @@ export default function Auth() {
         }
       } else {
         if(!fullNameRegex.test(fullName)){
-          console.log("Entered in this part");
+          // console.log("Entered in this part");
           toast({
             title: 'Sign Up Failed',
             description: "Full Name must have 3 characters and Alphabets Only",
@@ -94,7 +94,7 @@ export default function Auth() {
           return;
         }
         if(!emailRegex.test(email)){
-          console.log("Enter Email Part")
+          // console.log("Enter Email Part")
           toast({
             title: "Sign Up Failed",
             description: "Please Input Correct Email",

@@ -32,7 +32,6 @@ import { useAuth } from "@/contexts/AuthContext";
 
 type ProgressPhoto = {
   date: string;
-  label: string;
   imagePath: string | null;
 };
 
@@ -85,10 +84,11 @@ const measurements = [
 
 export default function Progress() {
   const [uploading, setUploading] = useState(false);
-  const [progressPhotos, setProgressPhotos] = useState([
-    { date: "Jan 1", label: "Start", imagePath: null },
-    { date: "Feb 1", label: "Month 1", imagePath: null },
-    { date: "Mar 1", label: "Month 2", imagePath: null },
+  const [imageLimit, setImageLimit] = useState(3);
+  const [progressPhotos, setProgressPhotos] = useState<ProgressPhoto[]>([
+    { date: "Week 1", imagePath: null },
+    { date: "Week 2", imagePath: null },
+    { date: "Week 3", imagePath: null }
   ]);
   const {user} = useAuth();
 
@@ -99,12 +99,38 @@ export default function Progress() {
       }
 
       const {data: photos, error: photosError} = await supabase.from('progress_photos').select('image_path, label, taken_at').eq('user_id', user.id);
-
-      if(photosError || !photos)
+      
+      if(photosError || !photos || photos.length === 0)
         return;
 
-      const updatedPhotos = await Promise.all(progressPhotos.map(async(slot)=>{
-        const match = photos.find((p)=>p.label == slot.label)
+      const sortedPhotos = [...photos].sort((a, b) => {
+        const weekA = a.label.split(' ')[1];
+        const weekB = b.label.split(' ')[1];
+        return weekA - weekB;
+      })
+
+      console.log(photos);
+      const lastWeek = sortedPhotos[sortedPhotos.length-1].label.split(' ')[1];
+      let newSlots = [...progressPhotos]
+
+      if(lastWeek > 3){
+        const extra = [];
+        for(let i = 4; i <= lastWeek; i++){
+          if (!newSlots.find(s => s.date === `Week ${i}`)) {
+          extra.push({
+            date: `Week ${i}`,
+            imagePath: null
+          });
+        }
+      }
+        newSlots = ([...newSlots, ...extra]);
+        setImageLimit(photos.length);
+      }
+
+      // console.log(newSlots);
+
+      const updatedPhotos = await Promise.all(newSlots.map(async(slot)=>{
+        const match = photos.find((p)=> p.label == slot.date)
 
         if(!match)
             return slot;
@@ -119,6 +145,7 @@ export default function Progress() {
     )
 
       setProgressPhotos(updatedPhotos);
+      // console.log(updatedPhotos);
     }
     getUserData();
   },[])
@@ -138,10 +165,9 @@ export default function Progress() {
     }
 
     const fileExt = file.name.split('.').pop();
-    const filePath = `${user.id}/${progressPhotos[index].label}-${Date.now()}.${fileExt}`;
+    const filePath = `${user.id}/${progressPhotos[index].date}-${Date.now()}.${fileExt}`;
 
     const {error: uploadError} = await supabase.storage.from('progress-photos').upload(filePath, file, {upsert: true});
-    
 
     if(uploadError){
       toast({
@@ -152,12 +178,14 @@ export default function Progress() {
       setUploading(false);
       return ;
     }
-    await supabase.from("progress_photos").upsert({
+    const {error: UrlError} = await supabase.from("progress_photos").upsert({
       user_id: user.id,
       image_path: filePath,
-      label: progressPhotos[index].label,
-      taken_at: new Date(`2026 ${progressPhotos[index].date}`),
+      label: progressPhotos[index].date,
+      taken_at: new Date(),
     });
+
+    // console.log("Error while uploading to database", UrlError);
 
     const {data: signed} = await supabase.storage.from('progress-photos').createSignedUrl(filePath, 60*60);
 
@@ -202,7 +230,7 @@ export default function Progress() {
         ('progress_photos')
         .delete()
         .eq('user_id', user.id)
-        .eq('label', photo.label)
+        .eq('label', photo.date)
 
       if(dbError){
         toast({
@@ -232,6 +260,16 @@ export default function Progress() {
 
   }
 
+  const handleAddMorePhotos = () => {
+    setProgressPhotos([...progressPhotos,
+      {
+        date: `Week ${imageLimit+1}`,
+        imagePath: null
+      }]
+    )
+    setImageLimit(imageLimit+1);
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -253,7 +291,7 @@ export default function Progress() {
             <Calendar className="w-4 h-4 mr-2" />
             Date Range
           </Button>
-          
+
           <Button className="bg-gradient-primary hover:opacity-90 text-primary-foreground">
             <Camera className="w-4 h-4 mr-2" />
             Add Photo
@@ -557,7 +595,7 @@ export default function Progress() {
                   >
                     <img
                       src={photo.imagePath}
-                      alt={photo.label}
+                      alt={photo.date}
                       className="w-full h-full object-cover "
                     />
 
@@ -579,10 +617,7 @@ export default function Progress() {
                     className="aspect-[3/4] rounded-xl bg-muted/50 border border-dashed border-border flex flex-col items-center justify-center"
                   >
                     <Camera className="w-12 h-12 text-muted-foreground mb-3" />
-                    <p className="font-medium">{photo.label}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {photo.date}
-                    </p>
+                    <p className="font-medium">{photo.date}</p>
 
                     {/* Hidden file input */}
                     <input
@@ -605,6 +640,28 @@ export default function Progress() {
                   </motion.div>
                 ),
               )}
+              {imageLimit < 12
+               && 
+              <motion.div
+              // key={photo.date}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+                // transition={{ delay: index * 0.1 }}
+                className="aspect-[3/4] rounded-xl bg-muted/50 border border-dashed border-border flex flex-col items-center justify-center"
+              >
+                <Camera className="w-12 h-12 text-muted-foreground mb-3" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={() =>
+                    handleAddMorePhotos()
+                  }
+                  >
+                  Add More Images
+                </Button>
+              </motion.div>
+              }
             </div>
           </motion.div>
         </TabsContent>

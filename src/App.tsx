@@ -15,6 +15,7 @@ import Support from "./pages/Support";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import FitnessAppFlow from "./components/dashboard/LoginQuestionare";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            {/* Need Reviews */}
+            <Route path = '/fitnessFlow' element = {<FitnessAppFlow/>}/>
             <Route
               path="/*"
               element={

@@ -55,7 +55,6 @@ interface NotificationSetting {
   id: string,
   label: string,
   description: string,
-  description: string,
   enabled: boolean
   rowName: string,
 }
@@ -205,8 +204,8 @@ export default function Settings() {
          "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=200",
      );
 
-     console.log(profileRes);
-     console.log(detailsRes);
+    //  console.log(profileRes);
+    //  console.log(detailsRes);
      setForm((prev) => ({
        ...prev,
        dob: profileRes.data?.date_of_birth ?? "",
@@ -395,7 +394,7 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
         },
       );
 
-      console.log(res);
+      // console.log(res);
 
       const data = await res.json();
 

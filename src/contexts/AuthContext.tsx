@@ -48,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: redirectUrl,
         data: {
           full_name: fullName,
+          signup_source: 'user'
         },
       },
     });
@@ -56,12 +57,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: AuthData, error: AuthError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+
+    if(AuthError){
+      return {error: AuthError}
+    }
+
+    const { data: profileData, error: RoleError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", AuthData.user.id)
+      .maybeSingle();
+
+    if (RoleError) {
+      await supabase.auth.signOut();
+      return { error: RoleError };
+    }
+
+    // console.log(profileData);
+
+    if (!profileData || profileData.role !== 'user') {
+      await supabase.auth.signOut();
+      return {
+        error: { message: "You are not authorized for this role" } as Error,
+      };
+    }
     
-    return { error: error as Error | null };
+    return { error: AuthError as Error | null };
   };
 
   const signOut = async () => {
