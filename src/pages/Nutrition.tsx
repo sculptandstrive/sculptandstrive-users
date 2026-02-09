@@ -51,7 +51,6 @@ export default function Nutrition() {
   const [nutritionLogs, setNutritionLogs] = useState<NutritionLog[]>([]);
   const [waterIntake, setWaterIntake] = useState<WaterIntake[]>([]);
   const [searchMealType, setSearchMealType] = useState<"breakfast" | "lunch" | "dinner" | "snack" | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -81,8 +80,6 @@ export default function Nutrition() {
       setWaterIntake(waterResult.data || []);
     } catch (error) {
       console.error("Error fetching nutrition data:", error);
-    } finally {
-      setIsLoading(false);
     }
   }, [user, today]);
 
@@ -90,29 +87,35 @@ export default function Nutrition() {
     fetchData();
   }, [fetchData]);
 
-  const addWater = async () => {
+    const totalWaterMl = waterIntake.reduce((sum, w) => sum + w.amount_ml, 0);
+  const totalLitres = (totalWaterMl / 1000).toFixed(2);
+  const waterTargetMl = 3000;
+  const waterProgress = Math.min((totalWaterMl / waterTargetMl) * 100, 100);
+
+  const addWater = async (ml = 250) => {
     if (!user) return;
 
     try {
-      if(nutritionGoals.water.current >= 16){
-        throw new Error("You have consumed Water 2x of Limit, No More!");
+      if (totalWaterMl >= 4000) {
+        throw new Error("Daily safe limit reached");
       }
+
       const { error } = await supabase.from("water_intake").insert({
         user_id: user.id,
-        amount_ml: 250,
+        amount_ml: ml,
         log_date: today,
       });
 
       if (error) throw error;
+
       fetchData();
-      toast({ title: "Water logged!", description: "Keep hydrating! 💧" });
-    } catch (error) {
+      toast({ title: "Water logged!", description: `${ml}ml added 💧` });
+    } catch (error: any) {
       toast({
-        title: 'Max Limit Reached',
+        title: "Max Limit Reached",
         description: error.message,
-        variant: 'destructive'
-      })
-      console.error("Error adding water:", error);
+        variant: "destructive",
+      });
     }
   };
 
@@ -164,7 +167,9 @@ export default function Nutrition() {
         className="flex flex-col lg:flex-row lg:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-3xl font-display font-bold mb-1">Nutrition Tracking</h1>
+          <h1 className="text-3xl font-display font-bold mb-1">
+            Nutrition Tracking
+          </h1>
           <p className="text-muted-foreground">
             Monitor your diet and stay on track with your goals
           </p>
@@ -189,7 +194,9 @@ export default function Nutrition() {
         >
           <div className="flex items-center gap-2 mb-6">
             <Apple className="w-5 h-5 text-primary" />
-            <h3 className="font-display font-semibold text-lg">Daily Summary</h3>
+            <h3 className="font-display font-semibold text-lg">
+              Daily Summary
+            </h3>
           </div>
 
           {/* Calorie Circle */}
@@ -214,14 +221,23 @@ export default function Nutrition() {
                   strokeLinecap="round"
                   initial={{ strokeDasharray: "0 478" }}
                   animate={{
-                    strokeDasharray: `${
-                      Math.min((nutritionGoals.calories.current / nutritionGoals.calories.target) * 478, 478)
-                    } 478`,
+                    strokeDasharray: `${Math.min(
+                      (nutritionGoals.calories.current /
+                        nutritionGoals.calories.target) *
+                        478,
+                      478,
+                    )} 478`,
                   }}
                   transition={{ duration: 1, ease: "easeOut" }}
                 />
                 <defs>
-                  <linearGradient id="calorieGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <linearGradient
+                    id="calorieGradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
                     <stop offset="0%" stopColor="hsl(var(--primary))" />
                     <stop offset="100%" stopColor="hsl(var(--info))" />
                   </linearGradient>
@@ -247,11 +263,17 @@ export default function Nutrition() {
                   Protein
                 </span>
                 <span>
-                  {Math.round(nutritionGoals.protein.current)}g / {nutritionGoals.protein.target}g
+                  {Math.round(nutritionGoals.protein.current)}g /{" "}
+                  {nutritionGoals.protein.target}g
                 </span>
               </div>
               <Progress
-                value={Math.min((nutritionGoals.protein.current / nutritionGoals.protein.target) * 100, 100)}
+                value={Math.min(
+                  (nutritionGoals.protein.current /
+                    nutritionGoals.protein.target) *
+                    100,
+                  100,
+                )}
                 className="h-2"
               />
             </div>
@@ -263,11 +285,16 @@ export default function Nutrition() {
                   Carbs
                 </span>
                 <span>
-                  {Math.round(nutritionGoals.carbs.current)}g / {nutritionGoals.carbs.target}g
+                  {Math.round(nutritionGoals.carbs.current)}g /{" "}
+                  {nutritionGoals.carbs.target}g
                 </span>
               </div>
               <Progress
-                value={Math.min((nutritionGoals.carbs.current / nutritionGoals.carbs.target) * 100, 100)}
+                value={Math.min(
+                  (nutritionGoals.carbs.current / nutritionGoals.carbs.target) *
+                    100,
+                  100,
+                )}
                 className="h-2 [&>div]:bg-info"
               />
             </div>
@@ -279,48 +306,47 @@ export default function Nutrition() {
                   Fats
                 </span>
                 <span>
-                  {Math.round(nutritionGoals.fats.current)}g / {nutritionGoals.fats.target}g
+                  {Math.round(nutritionGoals.fats.current)}g /{" "}
+                  {nutritionGoals.fats.target}g
                 </span>
               </div>
               <Progress
-                value={Math.min((nutritionGoals.fats.current / nutritionGoals.fats.target) * 100, 100)}
+                value={Math.min(
+                  (nutritionGoals.fats.current / nutritionGoals.fats.target) *
+                    100,
+                  100,
+                )}
                 className="h-2 [&>div]:bg-accent"
               />
             </div>
           </div>
 
           {/* Water Tracker */}
-          <div className="mt-6 p-4 rounded-lg bg-info/10 border border-info/20">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Droplets className="w-5 h-5 text-info" />
-                <span className="font-medium">Hydration</span>
-              </div>
-              <Button variant="ghost" size="sm" className="text-info h-auto p-0" onClick={addWater}>
-                + Add
-              </Button>
+         <div className="mt-6 p-4 rounded-lg bg-info/10 border">
+            <div className="flex justify-between mb-2">
+              <span className="flex items-center gap-2">
+                <Droplets className="w-5 h-5" />
+                Hydration
+              </span>
+              <span className="text-sm">{totalLitres}L / 3L</span>
             </div>
-            <div className="flex gap-2">
-              {Array.from({ length: nutritionGoals.water.target }).map((_, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: i * 0.05 }}
-                  className={`flex-1 h-8 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                    i < nutritionGoals.water.current
-                      ? "bg-info text-info-foreground"
-                      : "bg-muted hover:bg-info/20"
-                  }`}
-                  onClick={i >= nutritionGoals.water.current ? addWater : undefined}
+
+            <Progress value={waterProgress} className="mb-3" />
+
+            {/* GLASS SIZE BUTTONS */}
+            <div className="grid grid-cols-5 gap-2">
+              {[150, 200, 250, 300, 500].map((ml) => (
+                <Button
+                  key={ml}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => addWater(ml)}
+                  className="text-xs"
                 >
-                  <Droplets className="w-4 h-4" />
-                </motion.div>
+                  {ml}ml
+                </Button>
               ))}
             </div>
-            <p className="text-center text-sm text-muted-foreground mt-2">
-              {nutritionGoals.water.current} of {nutritionGoals.water.target} glasses
-            </p>
           </div>
         </motion.div>
 
@@ -333,10 +359,22 @@ export default function Nutrition() {
         >
           {mealGroups.map((meal, mealIndex) => {
             const MealIcon = meal.icon;
-            const mealCalories = meal.items.reduce((acc, item) => acc + item.calories, 0);
-            const mealProtein = meal.items.reduce((acc, item) => acc + item.protein_g, 0);
-            const mealCarbs = meal.items.reduce((acc, item) => acc + item.carbs_g, 0);
-            const mealFats = meal.items.reduce((acc, item) => acc + item.fats_g, 0);
+            const mealCalories = meal.items.reduce(
+              (acc, item) => acc + item.calories,
+              0,
+            );
+            const mealProtein = meal.items.reduce(
+              (acc, item) => acc + item.protein_g,
+              0,
+            );
+            const mealCarbs = meal.items.reduce(
+              (acc, item) => acc + item.carbs_g,
+              0,
+            );
+            const mealFats = meal.items.reduce(
+              (acc, item) => acc + item.fats_g,
+              0,
+            );
 
             return (
               <motion.div
@@ -352,15 +390,22 @@ export default function Nutrition() {
                       <MealIcon className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-display font-semibold capitalize">{meal.type}</h3>
-                      <p className="text-sm text-muted-foreground">{meal.time}</p>
+                      <h3 className="font-display font-semibold capitalize">
+                        {meal.type}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {meal.time}
+                      </p>
                     </div>
                   </div>
                   {meal.items.length > 0 && (
                     <div className="text-right">
-                      <p className="font-semibold">{Math.round(mealCalories)} kcal</p>
+                      <p className="font-semibold">
+                        {Math.round(mealCalories)} kcal
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        P: {Math.round(mealProtein)}g | C: {Math.round(mealCarbs)}g | F: {Math.round(mealFats)}g
+                        P: {Math.round(mealProtein)}g | C:{" "}
+                        {Math.round(mealCarbs)}g | F: {Math.round(mealFats)}g
                       </p>
                     </div>
                   )}
@@ -373,7 +418,9 @@ export default function Nutrition() {
                         key={item.id}
                         className="flex items-center justify-between p-3 rounded-lg bg-muted/50 group"
                       >
-                        <span className="truncate flex-1">{item.meal_name}</span>
+                        <span className="truncate flex-1">
+                          {item.meal_name}
+                        </span>
                         <div className="flex items-center gap-3 text-sm text-muted-foreground">
                           <span>{item.calories} kcal</span>
                           <Badge variant="secondary" className="text-xs">
@@ -419,7 +466,7 @@ export default function Nutrition() {
             mealType={searchMealType}
             onFoodLogged={fetchData}
             onClose={() => setSearchMealType(null)}
-            nutritionGoals = {nutritionGoals}
+            nutritionGoals={nutritionGoals}
           />
         )}
       </AnimatePresence>

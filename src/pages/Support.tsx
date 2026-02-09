@@ -148,10 +148,6 @@ export default function Support() {
             <MessageCircle className="w-4 h-4 mr-2" />
             Live Chat
           </TabsTrigger>
-          <TabsTrigger value="trainer" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <User className="w-4 h-4 mr-2" />
-            Ask Trainer
-          </TabsTrigger>
         </TabsList>
 
         {/* FAQs Tab */}
@@ -263,45 +259,6 @@ export default function Support() {
           </motion.div>
         </TabsContent>
 
-        {/* Ask Trainer Tab */}
-        <TabsContent value="trainer">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-card border border-border rounded-xl p-6"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 rounded-lg bg-accent/10">
-                <User className="w-6 h-6 text-accent" />
-              </div>
-              <div>
-                <h3 className="font-display font-semibold text-lg">Ask Your Trainer</h3>
-                <p className="text-sm text-muted-foreground">
-                  Send non-urgent questions to your assigned trainer
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block">Subject</label>
-                <Input placeholder="Brief summary of your question" className="bg-muted border-border" />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block">Message</label>
-                <Textarea
-                  placeholder="Describe your question in detail..."
-                  className="resize-none bg-muted border-border"
-                  rows={4}
-                />
-              </div>
-              <Button className="w-full bg-gradient-accent hover:opacity-90 text-accent-foreground">
-                <Mail className="w-4 h-4 mr-2" />
-                Send to Trainer
-              </Button>
-            </div>
-          </motion.div>
-        </TabsContent>
       </Tabs>
     </div>
   );

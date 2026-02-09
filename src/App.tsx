@@ -17,6 +17,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import FitnessAppFlow from "./components/dashboard/LoginQuestionare";
 import ResetPassword from "./pages/ResetPassword";
+import WaterTracker from "./components/dashboard/WaterTracker";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path = '/reset-password' element = {<ResetPassword/>} />
+           
             {/* Need Reviews */}
             <Route path = '/fitnessFlow' element = {<FitnessAppFlow/>}/>
             <Route

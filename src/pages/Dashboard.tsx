@@ -96,7 +96,6 @@ export default function Dashboard() {
     setNotifications(data || []);
   };
 
-
   const fetchDailyNotifications = async () => {
     const { data: existing, error: checkError } = await supabase
       .from("notifications")
