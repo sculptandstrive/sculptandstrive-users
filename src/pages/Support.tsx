@@ -60,7 +60,7 @@ const faqs = [
       },
     ],
   },
-{
+  {
     category: "Nutrition & Diet",
     questions: [
       {
@@ -71,9 +71,9 @@ const faqs = [
         q: "Can I create custom meal plans?",
         a: "Premium members can create custom meal plans. Go to Nutrition > Meal Plans > Create New to build your personalized diet plan.",
       },
-  
+
     ],
-},
+  },
 
 ];
 
@@ -106,11 +106,11 @@ export default function Support() {
       setTutorials(tutorialsData || []);
 
       //  User's Ticket History
-     
+
       const { data: historyData, error: historyError } = await supabase
         .from("tickets")
         .select("*")
-        .eq("user_email", "User") 
+        .eq("user_email", "User")
         .order("created_at", { ascending: false });
 
       if (historyError) throw historyError;
@@ -150,14 +150,14 @@ export default function Support() {
     );
   }, [searchQuery, tutorials]);
 
-  //  Update Video Views 
+  
   const handleVideoSelect = async (tutorial: any) => {
     setSelectedVideo(tutorial);
     const { error } = await supabase
       .from("tutorials")
       .update({ views: (tutorial.views || 0) + 1 })
       .eq("id", tutorial.id);
-    
+
     if (!error) {
       setTutorials(prev => prev.map(t => t.id === tutorial.id ? { ...t, views: (t.views || 0) + 1 } : t));
     }
@@ -170,20 +170,20 @@ export default function Support() {
 
     setIsSending(true);
     try {
-      
+
       const { data, error } = await supabase.from("tickets").insert([
         {
           message: chatMessage,
-          user_email: "User", 
+          user_email: "User",
           status: "open",
           created_at: new Date().toISOString(),
         },
-      ]).select(); 
+      ]).select();
 
       if (error) throw error;
 
       if (data) setTicketHistory(prev => [data[0], ...prev]);
-      
+
       setChatMessage("");
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 5000);
@@ -234,9 +234,8 @@ export default function Support() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
             onClick={() => setActiveTab(item.tab)}
-            className={`bg-card border rounded-xl p-6 hover:border-primary/50 transition-all cursor-pointer group ${
-              activeTab === item.tab ? "border-primary ring-1 ring-primary/20" : "border-border"
-            }`}
+            className={`bg-card border rounded-xl p-6 hover:border-primary/50 transition-all cursor-pointer group ${activeTab === item.tab ? "border-primary ring-1 ring-primary/20" : "border-border"
+              }`}
           >
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-lg bg-primary/10 group-hover:bg-primary/20">
@@ -289,8 +288,8 @@ export default function Support() {
           ) : filteredTutorials.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredTutorials.map((tutorial) => (
-                <Card 
-                  key={tutorial.id} 
+                <Card
+                  key={tutorial.id}
                   className="p-4 hover:border-primary/50 transition-all cursor-pointer group"
                   onClick={() => handleVideoSelect(tutorial)}
                 >
@@ -302,7 +301,7 @@ export default function Support() {
                       <h4 className="font-medium">{tutorial.title}</h4>
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {tutorial.duration}</span>
-                        <span>{tutorial.views?.toLocaleString() || 0} views</span>
+                        {/* VIEW COUNT REMOVED FROM HERE */}
                       </div>
                     </div>
                   </div>
@@ -367,9 +366,8 @@ export default function Support() {
                   ticketHistory.map((ticket) => (
                     <div key={ticket.id} className="p-3 rounded-lg border bg-card text-sm space-y-1">
                       <div className="flex justify-between items-start">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          ticket.status === 'open' ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${ticket.status === 'open' ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'
+                          }`}>
                           {ticket.status}
                         </span>
                         <span className="text-[10px] text-muted-foreground">
@@ -399,16 +397,17 @@ export default function Support() {
                 <X className="w-6 h-6" />
               </Button>
               <div className="aspect-video bg-black">
-                <iframe 
-                  src={selectedVideo.url.includes("watch?v=") ? selectedVideo.url.replace("watch?v=", "embed/").split("&")[0] : selectedVideo.url} 
-                  className="w-full h-full" 
-                  allowFullScreen 
+                <iframe
+                  src={selectedVideo.url.includes("watch?v=") ? selectedVideo.url.replace("watch?v=", "embed/").split("&")[0] : selectedVideo.url}
+                  className="w-full h-full"
+                  allowFullScreen
                   title={selectedVideo.title}
                 />
               </div>
               <div className="p-6 bg-card border-t">
                 <h2 className="text-xl font-bold">{selectedVideo.title}</h2>
-                <p className="text-muted-foreground text-sm mt-1">Duration: {selectedVideo.duration} • {selectedVideo.views} views</p>
+                <p className="text-muted-foreground text-sm mt-1">Duration: {selectedVideo.duration}</p>
+                {/* VIEW COUNT REMOVED FROM MODAL AS WELL */}
               </div>
             </motion.div>
           </div>
