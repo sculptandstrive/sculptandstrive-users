@@ -82,7 +82,7 @@ export default function Auth() {
             title: "Welcome back!",
             description: "You have successfully logged in.",
           });
-          navigate("/");
+          navigate("/post-measurement");
         }
       } else {
         if(!fullNameRegex.test(fullName)){
@@ -118,12 +118,13 @@ export default function Auth() {
               variant: "destructive",
             });
           }
+
         } else {
           toast({
             title: "Account created!",
             description: "Welcome to Sculpt & Strive!",
           });
-          navigate("/");
+          navigate("/pre-measurement");
         }
       }
     } finally {

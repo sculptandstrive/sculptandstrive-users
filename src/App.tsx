@@ -18,6 +18,8 @@ import NotFound from "./pages/NotFound";
 import FitnessAppFlow from "./components/dashboard/LoginQuestionare";
 import ResetPassword from "./pages/ResetPassword";
 import WaterLog from "./components/nutrition/WaterLog";
+import Prequestion from "./components/dashboard/PreQuestion";
+import PostQuestion from "./pages/PostQuestion";
 
 const queryClient = new QueryClient();
 
@@ -30,9 +32,11 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route path = '/reset-password' element = {<ResetPassword/>} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             {/* Need Reviews */}
-            <Route path = '/fitnessFlow' element = {<FitnessAppFlow/>}/>
+            <Route path="/fitnessFlow" element={<FitnessAppFlow />} />
+            <Route path="/pre-measurement" element={<Prequestion />} />
+            <Route path = '/post-measurement' element = {<PostQuestion/>} />
             <Route
               path="/*"
               element={
@@ -46,6 +50,7 @@ const App = () => (
                       <Route path="/progress" element={<Progress />} />
                       <Route path="/support" element={<Support />} />
                       <Route path="/settings" element={<Settings />} />
+
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </DashboardLayout>

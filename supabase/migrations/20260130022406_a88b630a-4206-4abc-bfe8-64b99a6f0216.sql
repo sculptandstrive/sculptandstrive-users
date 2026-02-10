@@ -372,3 +372,84 @@ WHERE id NOT IN (
   SELECT user_id FROM public.nutrition_requirements
 );
 
+-----------------------------------User Starting Weights
+CREATE TABLE starting_measurements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+
+    weight_kg DECIMAL(5,2),
+    height_cm DECIMAL(5,2),
+    chest_cm DECIMAL(5,2),
+    waist_cm DECIMAL(5,2),
+    hips_cm DECIMAL(5,2),
+    arms_cm DECIMAL(5,2),
+    thighs_cm DECIMAL(5,2),
+
+    measured_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_starting_measurements_user_id 
+ON starting_measurements(user_id);
+
+CREATE INDEX idx_starting_measurements_measured_at 
+ON starting_measurements(measured_at);
+
+ALTER TABLE starting_measurements ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can insert their measurements"
+ON starting_measurements
+FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can view their measurements"
+ON starting_measurements
+FOR SELECT
+USING (auth.uid() = user_id);
+
+
+----User Current Measurements-----
+CREATE TABLE current_measurements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+
+    weight_kg DECIMAL(5,2),
+    height_cm DECIMAL(5,2),
+    chest_cm DECIMAL(5,2),
+    waist_cm DECIMAL(5,2),
+    hips_cm DECIMAL(5,2),
+    arms_cm DECIMAL(5,2),
+    thighs_cm DECIMAL(5,2),
+
+    measured_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_current_measurements_user_id 
+ON current_measurements(user_id);
+
+CREATE INDEX idx_current_measurements_measured_at 
+ON current_measurements(measured_at);
+
+ALTER TABLE current_measurements ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can insert their measurements"
+ON current_measurements
+FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can view their measurements"
+ON current_measurements
+FOR SELECT
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their measurements"
+ON current_measurements
+FOR UPDATE
+USING (auth.uid() = user_id);
+
+
+
+

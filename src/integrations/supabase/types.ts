@@ -383,10 +383,10 @@ export type Database = {
         Insert: {
           calories_requirement?: number;
           water_requirement?: number;
-          created_at?:string;
-          id?:string;
-          updated_at?:string;
-          user_id:string;
+          created_at?: string;
+          id?: string;
+          updated_at?: string;
+          user_id: string;
         };
         Update: {
           calories_requirement?: number;
@@ -396,6 +396,110 @@ export type Database = {
           updated_at?: string;
           user_id?: string;
         };
+        Relationships: [];
+      };
+      starting_measurements: {
+        Row: {
+          id: string;
+          user_id: string;
+
+          weight_kg: number | null;
+          height_cm: number | null;
+          chest_cm: number | null;
+          waist_cm: number | null;
+          hips_cm: number | null;
+          arms_cm: number | null;
+          thighs_cm: number | null;
+
+          measured_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+
+        Insert: {
+          user_id: string;
+
+          weight_kg?: number | null;
+          height_cm?: number | null;
+          chest_cm?: number | null;
+          waist_cm?: number | null;
+          hips_cm?: number | null;
+          arms_cm?: number | null;
+          thighs_cm?: number | null;
+
+          id?: string;
+          measured_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          weight_kg?: number | null;
+          height_cm?: number | null;
+          chest_cm?: number | null;
+          waist_cm?: number | null;
+          hips_cm?: number | null;
+          arms_cm?: number | null;
+          thighs_cm?: number | null;
+
+          measured_at?: string;
+          created_at?: string;
+          updated_at?: string;
+          user_id?: string;
+          id?: string;
+        };
+
+        Relationships: [];
+      };
+      current_measurements: {
+        Row: {
+          id: string;
+          user_id: string;
+
+          weight_kg: number | null;
+          height_cm: number | null;
+          chest_cm: number | null;
+          waist_cm: number | null;
+          hips_cm: number | null;
+          arms_cm: number | null;
+          thighs_cm: number | null;
+
+          measured_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+
+        Insert: {
+          user_id: string;
+
+          weight_kg?: number | null;
+          height_cm?: number | null;
+          chest_cm?: number | null;
+          waist_cm?: number | null;
+          hips_cm?: number | null;
+          arms_cm?: number | null;
+          thighs_cm?: number | null;
+
+          id?: string;
+          measured_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          weight_kg?: number | null;
+          height_cm?: number | null;
+          chest_cm?: number | null;
+          waist_cm?: number | null;
+          hips_cm?: number | null;
+          arms_cm?: number | null;
+          thighs_cm?: number | null;
+
+          measured_at?: string;
+          created_at?: string;
+          updated_at?: string;
+          user_id?: string;
+          id?: string;
+        };
+
         Relationships: [];
       };
     };
