@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, useNavigate } from "react-router-dom";
 
-export default function Prequestion() {
+export default function PreQuestion() {
   const [measurements, setMeasurements] = useState({
     weight_kg: "",
     height_cm: "",
