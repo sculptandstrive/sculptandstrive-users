@@ -313,3 +313,62 @@ CREATE INDEX idx_nutrition_logs_date ON public.nutrition_logs(log_date);
 CREATE INDEX idx_water_intake_user_date ON public.water_intake(user_id, log_date);
 CREATE INDEX idx_progress_records_user_id ON public.progress_records(user_id);
 CREATE INDEX idx_progress_records_date ON public.progress_records(record_date);
+
+
+-- Nutrition Requirements
+CREATE TABLE nutrition_requirements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+
+  calories_requirement INTEGER NOT NULL DEFAULT 2200,
+  water_requirement INTEGER NOT NULL DEFAULT 3000,
+
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()  
+);
+
+ALTER TABLE nutrition_requirements
+ADD CONSTRAINT unique_user_nutrition UNIQUE (user_id);
+
+ALTER TABLE nutrition_requirements ENABLE ROW LEVEL SECURITY;
+
+
+--Policies 
+
+CREATE POLICY "Users can see their own nutrition requirements"
+ON nutrition_requirements
+FOR SELECT
+USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own nutrition requirements"
+ON nutrition_requirements
+FOR INSERT
+WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own nutrition requirements"
+ON nutrition_requirements
+FOR UPDATE
+USING (auth.uid() = user_id);
+
+CREATE OR REPLACE FUNCTION public.handle_new_user_nutrition()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.nutrition_requirements (user_id)
+  VALUES (NEW.id);
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created_nutrition
+AFTER INSERT ON auth.users
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_new_user_nutrition();
+
+INSERT INTO public.nutrition_requirements (user_id)
+SELECT id
+FROM auth.users
+WHERE id NOT IN (
+  SELECT user_id FROM public.nutrition_requirements
+);
+

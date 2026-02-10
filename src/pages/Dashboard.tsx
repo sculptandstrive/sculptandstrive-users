@@ -76,6 +76,7 @@ export default function Dashboard() {
     activeMinutes: 0,
     streak: 0
   });
+  const [dailyWaterGoal, setWaterGoal] = useState<number>(3);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -173,7 +174,7 @@ export default function Dashboard() {
   const fetchUserReport = async() => {
     if(!user) return;
     try {
-      const [logsResult, waterResult, workoutsResult] = await Promise.all([
+      const [logsResult, waterResult, workoutsResult, waterRequirement] = await Promise.all([
         supabase
           .from('nutrition_logs')
           .select('*')
@@ -189,7 +190,8 @@ export default function Dashboard() {
           .from('workouts')
           .select('*')
           .eq('user_id', user.id)
-          .returns<Workout[]>() 
+          .returns<Workout[]>(),
+        supabase.from('nutrition_requirements').select('water_requirement').eq('user_id', user.id).single()
       ]);
 
       if(logsResult.error) throw logsResult.error;
@@ -205,6 +207,8 @@ export default function Dashboard() {
       // Calculate calories and minutes from completed workouts
       const totalCalories = completedWorkouts.reduce((sum, w) => sum + (w.calories_burned || 0), 0);
       const totalMinutes = completedWorkouts.reduce((sum, w) => sum + (w.duration_minutes || 0), 0);
+
+      setWaterGoal(waterRequirement.data.water_requirement); 
 
       setStats({
         caloriesBurned: totalCalories,
@@ -238,14 +242,19 @@ export default function Dashboard() {
       >
         <div>
           <h1 className="text-3xl font-display font-bold mb-1">
-            Welcome back, <span className="gradient-text">{firstName}</span> 
+            Welcome back, <span className="gradient-text">{firstName}</span>
           </h1>
           <p className="text-muted-foreground">
             Track your fitness journey and stay motivated
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="icon" className="relative" onClick={()=>setNotificationWindow(true)}>
+          <Button
+            variant="outline"
+            size="icon"
+            className="relative"
+            onClick={() => setNotificationWindow(true)}
+          >
             <Bell className="w-5 h-5" />
             <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full" />
           </Button>
@@ -262,7 +271,11 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Calories Burned"
-          value={stats.caloriesBurned > 0 ? stats.caloriesBurned.toLocaleString() : "0"}
+          value={
+            stats.caloriesBurned > 0
+              ? stats.caloriesBurned.toLocaleString()
+              : "0"
+          }
           subtitle="This week"
           icon={Flame}
           trend={{ value: 12, positive: true }}
@@ -299,15 +312,21 @@ export default function Dashboard() {
         </div>
 
         <div className="space-y-6">
-          <NutritionWidget nutritionLogs={nutritionLogs} waterIntake={waterIntake}/>
+          <NutritionWidget
+            nutritionLogs={nutritionLogs}
+            waterIntake={waterIntake}
+            waterRequirement={dailyWaterGoal}
+          />
         </div>
       </div>
 
       <WorkoutProgress />
       <AnimatePresence>
         {notificationWindow && (
-          <Notification  setNotificationWindow={setNotificationWindow}
-  notifications={notifications}/>
+          <Notification
+            setNotificationWindow={setNotificationWindow}
+            notifications={notifications}
+          />
         )}
       </AnimatePresence>
     </div>

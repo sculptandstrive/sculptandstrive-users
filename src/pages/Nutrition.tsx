@@ -18,6 +18,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
+import WaterLog from "@/components/nutrition/WaterLog";
+
 interface NutritionLog {
   id: string;
   meal_type: string;
@@ -33,24 +35,40 @@ interface WaterIntake {
   amount_ml: number;
 }
 
+interface NutritionRequirement{
+  calories_requirement: number,
+  water_requirement: number
+}
+
 const mealIcons = {
   breakfast: Coffee,
+  mid_morning_snack: UtensilsCrossed,
   lunch: Sun,
+  evening_snack: UtensilsCrossed,
   dinner: Moon,
-  snack: UtensilsCrossed,
 };
 
 const mealTimes = {
   breakfast: "8:00 AM",
+  mid_morning_snack: '11:00 AM',
   lunch: "1:00 PM",
+  evening_snack: "4:00 PM",
   dinner: "7:00 PM",
-  snack: "Throughout day",
 };
 
 export default function Nutrition() {
   const [nutritionLogs, setNutritionLogs] = useState<NutritionLog[]>([]);
   const [waterIntake, setWaterIntake] = useState<WaterIntake[]>([]);
-  const [searchMealType, setSearchMealType] = useState<"breakfast" | "lunch" | "dinner" | "snack" | null>(null);
+  const [nutritionRequirement, setNutritionRequirement] = useState<NutritionRequirement | null>(null);
+  const [searchMealType, setSearchMealType] = useState<
+    | "breakfast"
+    | "mid_morning_snack"
+    | "lunch"
+    | "evening_snack"
+    | "dinner"
+    | null
+  >(null);
+  const [waterBar, setWaterBar] = useState<Boolean>(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -59,7 +77,7 @@ export default function Nutrition() {
   const fetchData = useCallback(async () => {
     if (!user) return;
     try {
-      const [logsResult, waterResult] = await Promise.all([
+      const [logsResult, waterResult, nutritionRequired] = await Promise.all([
         supabase
           .from("nutrition_logs")
           .select("*")
@@ -71,53 +89,31 @@ export default function Nutrition() {
           .select("*")
           .eq("user_id", user.id)
           .eq("log_date", today),
+        supabase
+          .from('nutrition_requirements')
+          .select('calories_requirement, water_requirement').eq('user_id', user.id).single()
       ]);
-
       if (logsResult.error) throw logsResult.error;
       if (waterResult.error) throw waterResult.error;
+      if(nutritionRequired.error)
+        throw nutritionRequired.error;
 
       setNutritionLogs(logsResult.data || []);
       setWaterIntake(waterResult.data || []);
+      setNutritionRequirement(nutritionRequired.data || null);
     } catch (error) {
       console.error("Error fetching nutrition data:", error);
     }
-  }, [user, today]);
+  }, [user, today, waterBar]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-    const totalWaterMl = waterIntake.reduce((sum, w) => sum + w.amount_ml, 0);
+  const totalWaterMl = waterIntake.reduce((sum, w) => sum + w.amount_ml, 0);
   const totalLitres = (totalWaterMl / 1000).toFixed(2);
-  const waterTargetMl = 3000;
+  const waterTargetMl = nutritionRequirement?.water_requirement || 3000;
   const waterProgress = Math.min((totalWaterMl / waterTargetMl) * 100, 100);
-
-  const addWater = async (ml = 250) => {
-    if (!user) return;
-
-    try {
-      if (totalWaterMl >= 4000) {
-        throw new Error("Daily safe limit reached");
-      }
-
-      const { error } = await supabase.from("water_intake").insert({
-        user_id: user.id,
-        amount_ml: ml,
-        log_date: today,
-      });
-
-      if (error) throw error;
-
-      fetchData();
-      toast({ title: "Water logged!", description: `${ml}ml added 💧` });
-    } catch (error: any) {
-      toast({
-        title: "Max Limit Reached",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
 
   const deleteFood = async (id: string) => {
     try {
@@ -150,7 +146,7 @@ export default function Nutrition() {
   };
 
   // Group logs by meal type
-  const mealTypes: Array<"breakfast" | "lunch" | "dinner" | "snack"> = ["breakfast", "lunch", "dinner", "snack"];
+  const mealTypes: Array<"breakfast" | "mid_morning_snack" | "lunch" | "evening_snack" | "dinner" > = ["breakfast", "mid_morning_snack", "lunch", "evening_snack", "dinner"];
   const mealGroups = mealTypes.map((type) => ({
     type,
     icon: mealIcons[type],
@@ -175,7 +171,7 @@ export default function Nutrition() {
           </p>
         </div>
         <Button
-          onClick={() => setSearchMealType("snack")}
+          onClick={() => setSearchMealType("evening_snack")}
           className="bg-gradient-primary hover:opacity-90 text-primary-foreground"
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -328,24 +324,14 @@ export default function Nutrition() {
                 <Droplets className="w-5 h-5" />
                 Hydration
               </span>
-              <span className="text-sm">{totalLitres}L / 3L</span>
+              <span className="text-sm">{totalLitres}L / {waterTargetMl/1000}</span>
             </div>
-
+            
             <Progress value={waterProgress} className="mb-3" />
-
-            {/* GLASS SIZE BUTTONS */}
-            <div className="grid grid-cols-5 gap-2">
-              {[150, 200, 250, 300, 500].map((ml) => (
-                <Button
-                  key={ml}
-                  size="sm"
-                  variant="outline"
-                  onClick={() => addWater(ml)}
-                  className="text-xs"
-                >
-                  {ml}ml
-                </Button>
-              ))}
+            
+            <div className="flex justify-between">
+                <div></div>
+                <Button className="text-sm" onClick={()=>setWaterBar(true)}>{"Add +"}</Button>
             </div>
           </div>
         </motion.div>
@@ -391,7 +377,7 @@ export default function Nutrition() {
                     </div>
                     <div>
                       <h3 className="font-display font-semibold capitalize">
-                        {meal.type}
+                        {meal.type.split('_').join(' ')}
                       </h3>
                       <p className="text-sm text-muted-foreground">
                         {meal.time}
@@ -469,6 +455,13 @@ export default function Nutrition() {
             nutritionGoals={nutritionGoals}
           />
         )}
+        {
+          waterBar && (
+            <WaterLog 
+            onWaterLogged = {fetchData}
+            onClose = {()=>setWaterBar(false)}/>
+          )
+        }
       </AnimatePresence>
     </div>
   );

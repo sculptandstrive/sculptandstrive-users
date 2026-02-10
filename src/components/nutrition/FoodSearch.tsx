@@ -30,7 +30,8 @@ interface NutritionGoals {
 }
 
 interface FoodSearchProps {
-  mealType: "breakfast" | "lunch" | "dinner" | "snack";
+  mealType: "breakfast" | "lunch" | "dinner" | "evening_snack" | 
+  "mid_morning_snack";
   onFoodLogged: () => void;
   onClose: () => void;
   nutritionGoals: NutritionGoals;
@@ -151,7 +152,7 @@ export function FoodSearch({ mealType, onFoodLogged, onClose, nutritionGoals }: 
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Apple className="w-5 h-5 text-primary" />
-              <h3 className="font-display font-semibold">Add to {mealType}</h3>
+              <h3 className="font-display font-semibold">Add to {mealType.split('_').join(' ')}</h3>
             </div>
             <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="w-4 h-4" />

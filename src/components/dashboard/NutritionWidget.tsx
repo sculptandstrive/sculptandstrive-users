@@ -28,6 +28,7 @@ interface NutritionWidgetProps {
   nutritionLogs: NutritionLog[];
   waterIntake: WaterIntake[];
   targets?: NutritionTargets;
+  waterRequirement: number
 }
 
 const DEFAULT_TARGETS: NutritionTargets = {
@@ -42,6 +43,7 @@ export function NutritionWidget({
   nutritionLogs = [],
   waterIntake = [],
   targets = DEFAULT_TARGETS,
+  waterRequirement
 }: NutritionWidgetProps) {
 
   const caloriesConsumed = nutritionLogs.reduce(
@@ -79,7 +81,8 @@ export function NutritionWidget({
 
   const waterConsumed = Math.floor(totalWaterMl / GLASS_ML);
   const totalLitres = (totalWaterMl / 1000).toFixed(2);
-  const waterProgress = Math.min((totalWaterMl / WATER_TARGET_ML) * 100, 100);
+  const waterProgress = Math.min((totalWaterMl / waterRequirement) * 100, 100);
+
 
   return (
     <motion.div
@@ -194,7 +197,7 @@ export function NutritionWidget({
           </div>
 
           <span className="text-xs font-medium text-info">
-            {totalLitres}L / 3L
+            {totalLitres}L / {waterRequirement/1000}
           </span>
         </div>
 
