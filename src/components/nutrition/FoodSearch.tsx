@@ -1,260 +1,188 @@
-import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Search, Plus, Loader2, X, Apple } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import React, { useState } from "react";
+import { Search, Plus, X, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
-interface Food {
-  id: string;
-  name: string;
-  brand: string;
-  image: string | null;
-  serving_size: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fats: number;
-  fiber: number;
-}
-
-interface NutritionGoals {
- calories: {current: number | null, target: number};
- protein: {current: number | null, target: number};
- carbs: {current: number | null, target: number};
- fats: {current: number | null, target: number};
- water: {current: number | null, target: number};
-}
-
 interface FoodSearchProps {
-  mealType: "breakfast" | "lunch" | "dinner" | "evening_snack" | 
-  "mid_morning_snack";
+  mealType: string;
   onFoodLogged: () => void;
   onClose: () => void;
-  nutritionGoals: NutritionGoals;
+  // Optional( Add nutritionGoals if  want to show the impact  progress bars)
+  nutritionGoals?: any; 
 }
 
 export function FoodSearch({ mealType, onFoodLogged, onClose, nutritionGoals }: FoodSearchProps) {
   const [query, setQuery] = useState("");
-  const [foods, setFoods] = useState<Food[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isLogging, setIsLogging] = useState<string | null>(null);
-  const { user } = useAuth();
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [customWeights, setCustomWeights] = useState<Record<string, number>>({});
   const { toast } = useToast();
 
-  const searchFoods = useCallback(async () => {
-    if (query.trim().length < 2) {
-      toast({
-        title: "Search too short",
-        description: "Please enter at least 2 characters",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSearching(true);
+  const handleSearch = async () => {
+    if (!query.trim()) return;
+    setLoading(true);
     try {
+      
       const { data, error } = await supabase.functions.invoke("search-foods", {
-        body: { query: query.trim() },
+        body: { query },
       });
 
       if (error) throw error;
-      setFoods(data.foods || []);
       
-      if (data.foods?.length === 0) {
-        toast({
-          title: "No results",
-          description: "Try a different search term",
-        });
-      }
-    } catch (error) {
-      console.error("Search error:", error);
-      toast({
-        title: "Search failed",
-        description: "Could not search foods. Please try again.",
-        variant: "destructive",
+      setResults(data?.foods || []);
+    } catch (err: any) {
+      console.error("Search error:", err);
+      toast({ 
+        title: "Search failed", 
+        variant: "destructive", 
+        description: err.message || "Could not connect to nutrition database." 
       });
     } finally {
-      setIsSearching(false);
-    }
-  }, [query, toast]);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      searchFoods();
+      setLoading(false);
     }
   };
 
-  const logFood = async (food: Food) => {
-    if (!user) return;
+  const logFood = async (food: any) => {
+    // Get weight (default to 100g)
+    const weight = customWeights[food.id] || 100; 
+    const multiplier = weight / 100;
 
-    setIsLogging(food.id);
     try {
-      if(nutritionGoals.calories.current >= nutritionGoals.calories.target * 2){
-        toast({
-          title: 'Max Calories Reached',
-          description: 'You have consumed max of your calories',
-          variant: 'destructive'
-        })
-        return;
-      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
 
-      const { error } = await supabase.from("nutrition_logs").insert({
+      const foodData = {
         user_id: user.id,
         meal_type: mealType,
-        meal_name: food.brand ? `${food.name} (${food.brand})` : food.name,
-        calories: food.calories,
-        protein_g: food.protein,
-        carbs_g: food.carbs,
-        fats_g: food.fats,
+        meal_name: food.name,
+        calories: Math.round(food.calories * multiplier),
+        protein_g: Number((food.protein * multiplier).toFixed(1)),
+        carbs_g: Number((food.carbs * multiplier).toFixed(1)),
+        fats_g: Number((food.fats * multiplier).toFixed(1)),
         log_date: new Date().toISOString().split("T")[0],
-      });
+      };
+
+      const { error } = await supabase.from("nutrition_logs").insert(foodData);
 
       if (error) throw error;
 
-      toast({
-        title: "Food logged!",
-        description: `${food.name} added to ${mealType}`,
+      toast({ 
+        title: "Food Logged", 
+        description: `${food.name} (${weight}g) added to ${mealType.replace('_', ' ')}` 
       });
+      
       onFoodLogged();
-    } catch (error) {
-      console.error("Log error:", error);
-      toast({
-        title: "Failed to log food",
-        description: "Please try again",
-        variant: "destructive",
+      onClose();
+    } catch (err: any) {
+      console.error("Log error:", err);
+      toast({ 
+        title: "Error", 
+        variant: "destructive", 
+        description: "Failed to save to your log." 
       });
-    } finally {
-      setIsLogging(null);
     }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <motion.div 
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-[#1A1F2C] border border-white/10 w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl"
       >
         {/* Header */}
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Apple className="w-5 h-5 text-primary" />
-              <h3 className="font-display font-semibold">Add to {mealType.split('_').join(' ')}</h3>
-            </div>
-            <Button variant="ghost" size="icon" onClick={onClose}>
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-
-          {/* Search Input */}
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search foods (e.g., chicken, apple, rice)"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="pl-10"
-                autoFocus
-              />
-            </div>
-            <Button
-              onClick={searchFoods}
-              disabled={isSearching}
-              className="bg-gradient-primary hover:opacity-90"
-            >
-              {isSearching ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "Search"
-              )}
-            </Button>
-          </div>
+        <div className="p-4 border-b border-white/5 flex items-center justify-between bg-[#222831]">
+          <h2 className="text-lg font-semibold capitalize text-white">Add to {mealType.replace(/_/g, ' ')}</h2>
+          <Button variant="ghost" size="icon" onClick={onClose} className="text-gray-400 hover:text-white">
+            <X className="w-5 h-5" />
+          </Button>
         </div>
 
-        {/* Results */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {foods.length === 0 && !isSearching && (
-            <div className="text-center py-12 text-muted-foreground">
-              <Search className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>Search for foods to log</p>
-              <p className="text-sm mt-1">Try "chicken breast", "banana", or "oatmeal"</p>
+        <div className="p-4 space-y-4">
+          {/* Search Bar */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <Input
+                placeholder="Search food "
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                className="pl-10 bg-black/20 border-white/10 text-white placeholder:text-gray-600"
+              />
             </div>
-          )}
+            <Button onClick={handleSearch} disabled={loading} className="bg-[#00D1B2] hover:bg-[#00BFA5] text-white">
+              {loading ? <Loader2 className="animate-spin w-4 h-4" /> : "Search"}
+            </Button>
+          </div>
 
-          <AnimatePresence>
-            <div className="space-y-2">
-              {foods.map((food, index) => (
-                <motion.div
-                  key={food.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.03 }}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                >
-                  {/* Food Image */}
-                  {food.image ? (
-                    <img
-                      src={food.image}
-                      alt={food.name}
-                      className="w-12 h-12 rounded-lg object-cover bg-background"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Apple className="w-6 h-6 text-primary" />
+          {/* Results Area */}
+          <div className="max-h-[400px] overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-white/10">
+            {!loading && results.length === 0 && query && (
+              <p className="text-center text-gray-500 py-8">Try a different search term.</p>
+            )}
+            
+            {results.map((food) => {
+              const weight = customWeights[food.id] || 100;
+              const ratio = weight / 100;
+
+              return (
+                <div key={food.id} className="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-[#00D1B2]/30 transition-all">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <h4 className="font-bold text-sm text-gray-100 line-clamp-1">{food.name}</h4>
+                      <p className="text-[10px] text-gray-400 uppercase tracking-widest">
+                        {food.brand || 'Standard Reference'}
+                      </p>
                     </div>
-                  )}
-
-                  {/* Food Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{food.name}</p>
-                    {food.brand && (
-                      <p className="text-xs text-muted-foreground truncate">{food.brand}</p>
-                    )}
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                        {food.calories} kcal
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        P: {food.protein}g • C: {food.carbs}g • F: {food.fats}g
+                    <div className="text-right min-w-[60px]">
+                      <span className="text-lg font-bold text-[#00D1B2]">
+                        {Math.round(food.calories * ratio)}
                       </span>
+                      <span className="text-[10px] ml-1 text-gray-400">kcal</span>
                     </div>
                   </div>
 
-                  {/* Add Button */}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => logFood(food)}
-                    disabled={isLogging === food.id}
-                    className="shrink-0"
-                  >
-                    {isLogging === food.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Plus className="w-4 h-4" />
-                    )}
-                  </Button>
-                </motion.div>
-              ))}
-            </div>
-          </AnimatePresence>
+                  <div className="flex items-center justify-between gap-4">
+                    {/* Weight Input */}
+                    <div className="flex items-center gap-2 bg-black/40 px-2 py-1 rounded-lg border border-white/5">
+                      <input
+                        type="number"
+                        min="1"
+                        defaultValue="100"
+                        className="w-12 bg-transparent border-none text-center text-xs text-white focus:outline-none"
+                        onChange={(e) => setCustomWeights({
+                          ...customWeights, 
+                          [food.id]: Number(e.target.value) || 0
+                        })}
+                      />
+                      <span className="text-[10px] font-bold text-gray-500">G</span>
+                    </div>
+
+                    {/* Macros Display */}
+                    <div className="flex gap-3 text-[11px] text-gray-300">
+                      <span>P: <b>{(food.protein * ratio).toFixed(1)}g</b></span>
+                      <span>C: <b>{(food.carbs * ratio).toFixed(1)}g</b></span>
+                      <span>F: <b>{(food.fats * ratio).toFixed(1)}g</b></span>
+                    </div>
+
+                    <Button 
+                      size="sm" 
+                      onClick={() => logFood(food)} 
+                      className="h-8 w-8 rounded-full p-0 bg-[#00D1B2] hover:bg-[#00BFA5] shrink-0"
+                    >
+                      <Plus className="w-4 h-4 text-white" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }
