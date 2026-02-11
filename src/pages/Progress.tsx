@@ -7,6 +7,7 @@ import {
   Activity,
   Camera,
   Calendar,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -248,55 +249,71 @@ export default function Progress() {
         });
         setBodyFatData(bodyFatChartData);
 
-        // FIXED: Fetch workouts for current week (Monday-Sunday)
+        // FIXED: Fetch workouts and count completed exercises per day
         const { monday, sunday } = getCurrentWeekRange();
 
+        // Fetch all workouts for the user (they're organized by day_name, not date)
         const { data: workouts, error: workoutsError } = await supabase
           .from("workouts")
           .select("*")
           .eq("user_id", user.id)
-          .gte("workout_date", monday.toISOString().split("T")[0])
-          .lte("workout_date", sunday.toISOString().split("T")[0])
-          .order("workout_date", { ascending: true });
+          .order("order_index", { ascending: true });
 
-        console.log("Workouts for current week:", workouts);
+        console.log("All workouts:", workouts);
 
         if (!workoutsError && workouts) {
-          // IMPROVEMENT: Group workouts by date with proper aggregation
-          const workoutsByDate = workouts.reduce((acc: any, workout: any) => {
-            const date = workout.workout_date;
-            if (!acc[date]) {
-              acc[date] = {
-                date: date,
-                workouts: 0,
-                calories: 0,
-              };
-            }
-            if (workout.completed) {
-              acc[date].workouts += 1;
-              acc[date].calories += workout.calories_burned || 0;
-            }
-            return acc;
-          }, {});
-
-          // IMPROVEMENT: Create complete Monday-Sunday chart with day names
+          // IMPROVEMENT: For each day, count the number of completed exercises
           const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+          const fullDayNames = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+          ];
           const workoutChartData: WorkoutChartData[] = [];
 
+          // Fetch all exercises for all workouts
           for (let i = 0; i < 7; i++) {
             const date = new Date(monday);
             date.setDate(monday.getDate() + i);
-            const dateStr = date.toISOString().split("T")[0];
+            const fullDayName = fullDayNames[i];
 
-            const existingData = workoutsByDate[dateStr];
+            // Find the workout for this day
+            const dayWorkout = workouts.find(
+              (w: any) => w.day_name === fullDayName,
+            );
+
+            let completedExercisesCount = 0;
+            let estimatedCalories = 0;
+
+            if (dayWorkout?.id) {
+              // Fetch exercises for this workout
+              const { data: exercises, error: exercisesError } = await supabase
+                .from("exercises")
+                .select("*")
+                .eq("workout_id", dayWorkout.id);
+
+              if (!exercisesError && exercises) {
+                // Count how many exercises are completed
+                completedExercisesCount = exercises.filter(
+                  (ex: any) => ex.completed,
+                ).length;
+                // Estimate calories: ~20 calories per completed exercise
+                estimatedCalories = completedExercisesCount * 20;
+              }
+            }
+
             workoutChartData.push({
               date: date.toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
               }),
               day: daysOfWeek[i],
-              workouts: existingData?.workouts || 0,
-              calories: existingData?.calories || 0,
+              workouts: completedExercisesCount,
+              calories: estimatedCalories,
             });
           }
 
@@ -543,8 +560,8 @@ export default function Progress() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-muted-foreground">Loading progress data...</p>
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#2dd4bf]" />
       </div>
     );
   }
@@ -833,7 +850,7 @@ export default function Progress() {
           </motion.div>
         </TabsContent>
 
-        {/* IMPROVED: Workouts Tab with Monday-Sunday display */}
+        {/* IMPROVED: Workouts Tab with Monday-Sunday display based on workout completion */}
         <TabsContent value="workouts">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -841,7 +858,7 @@ export default function Progress() {
             className="bg-card border border-border rounded-xl p-6"
           >
             <h3 className="font-display font-semibold text-lg mb-6">
-              This Week's Workouts (Mon-Sun)
+              This Week's Exercise Activity (Mon-Sun)
             </h3>
             {workoutData.length > 0 ? (
               <div className="space-y-6">
@@ -861,6 +878,7 @@ export default function Progress() {
                       <YAxis
                         stroke="hsl(215 20% 55%)"
                         tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
+                        allowDecimals={false}
                       />
                       <Tooltip
                         contentStyle={{
@@ -874,12 +892,21 @@ export default function Progress() {
                           }
                           return value;
                         }}
+                        formatter={(value: any, name: string) => {
+                          if (name === "workouts") {
+                            return [value, "Exercises Completed"];
+                          }
+                          if (name === "calories") {
+                            return [value, "Calories Burned"];
+                          }
+                          return [value, name];
+                        }}
                       />
                       <Bar
                         dataKey="workouts"
                         fill="hsl(174 72% 46%)"
                         radius={[4, 4, 0, 0]}
-                        name="Workouts Completed"
+                        name="Exercises Completed"
                       />
                     </BarChart>
                   </ResponsiveContainer>
@@ -889,7 +916,7 @@ export default function Progress() {
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t border-border">
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground mb-1">
-                      Total Workouts
+                      Total Exercises
                     </p>
                     <p className="text-2xl font-bold">
                       {workoutData.reduce((sum, day) => sum + day.workouts, 0)}

@@ -18,7 +18,7 @@ import NotFound from "./pages/NotFound";
 import FitnessAppFlow from "./components/dashboard/LoginQuestionare";
 import ResetPassword from "./pages/ResetPassword";
 import WaterLog from "./components/nutrition/WaterLog";
-import PreQuestion from "./components/dashboard/PreQuestion";
+import PreQuestion from "./pages/PreQuestion";
 import PostQuestion from "./pages/PostQuestion";
 
 const queryClient = new QueryClient();

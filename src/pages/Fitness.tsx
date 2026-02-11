@@ -133,6 +133,7 @@ export default function Fitness() {
       .select("*")
       .eq("workout_id", workoutId)
       .order("created_at", { ascending: true });
+      console.log(exData);
 
     if (!exError) setExercises(exData || []);
   };
@@ -170,6 +171,7 @@ export default function Fitness() {
         .select("*")
         .eq("user_id", user.id)
         .order("order_index", { ascending: true });
+
 
       let mappedPlan: any[] = [];
 

@@ -916,7 +916,7 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
             </div>
 
             {/* 2FA */}
-            <div className="bg-card border border-border rounded-xl p-6">
+            {/* <div className="bg-card border border-border rounded-xl p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="p-3 rounded-lg bg-success/10">
@@ -931,7 +931,7 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
                 </div>
                 <Button variant="outline">Enable 2FA</Button>
               </div>
-            </div>
+            </div> */}
 
             {/* Account Deletion */}
             <div className="bg-card border border-destructive/30 rounded-xl p-6">
