@@ -188,7 +188,7 @@ export function NutritionWidget({
         })}
       </div>
 
-      {/* Hydration (Dashboard Style - Read Only) */}
+      {/* Hydration  */}
       <div className="p-4 rounded-lg bg-info/5 border border-info/20">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
