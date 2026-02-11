@@ -410,6 +410,7 @@ export type Database = {
           hips_cm: number | null;
           arms_cm: number | null;
           thighs_cm: number | null;
+          age: number | null;
 
           measured_at: string;
           created_at: string;
@@ -426,6 +427,7 @@ export type Database = {
           hips_cm?: number | null;
           arms_cm?: number | null;
           thighs_cm?: number | null;
+          age?: number | null;
 
           id?: string;
           measured_at?: string;
@@ -440,6 +442,7 @@ export type Database = {
           hips_cm?: number | null;
           arms_cm?: number | null;
           thighs_cm?: number | null;
+          age?: number | null;
 
           measured_at?: string;
           created_at?: string;
@@ -462,6 +465,7 @@ export type Database = {
           hips_cm: number | null;
           arms_cm: number | null;
           thighs_cm: number | null;
+          age: number | null;
 
           measured_at: string;
           created_at: string;
@@ -478,6 +482,7 @@ export type Database = {
           hips_cm?: number | null;
           arms_cm?: number | null;
           thighs_cm?: number | null;
+          age?: number | null;
 
           id?: string;
           measured_at?: string;
@@ -492,6 +497,7 @@ export type Database = {
           hips_cm?: number | null;
           arms_cm?: number | null;
           thighs_cm?: number | null;
+          age?: number | null;
 
           measured_at?: string;
           created_at?: string;

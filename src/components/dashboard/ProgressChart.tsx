@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, TrendingDown } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -11,19 +11,107 @@ import {
   Area,
   AreaChart,
 } from "recharts";
-
-const weightData = [
-  { week: "Week 1", weight: 85 },
-  { week: "Week 2", weight: 84.2 },
-  { week: "Week 3", weight: 83.8 },
-  { week: "Week 4", weight: 83.1 },
-  { week: "Week 5", weight: 82.5 },
-  { week: "Week 6", weight: 81.8 },
-  { week: "Week 7", weight: 81.2 },
-  { week: "Week 8", weight: 80.5 },
-];
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function ProgressChart() {
+  const { user } = useAuth();
+  const [weightData, setWeightData] = useState<any[]>([]);
+  const [weightLost, setWeightLost] = useState<number>(0);
+  const [daysCount, setDaysCount] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchWeightData = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // Fetch all measurements ordered by date
+        const { data: allMeasurements, error: measurementsError } =
+          await supabase
+            .from("current_measurements")
+            .select("weight_kg, created_at")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: true });
+
+        if (measurementsError) {
+          console.error("Error fetching measurements:", measurementsError);
+          setLoading(false);
+          return;
+        }
+
+        if (!allMeasurements || allMeasurements.length === 0) {
+          setLoading(false);
+          return;
+        }
+
+        // Calculate weight lost
+        const startingWeight = allMeasurements[0].weight_kg;
+        const currentWeight = allMeasurements[allMeasurements.length - 1].weight_kg;
+        const totalWeightLost = startingWeight - currentWeight;
+        setWeightLost(totalWeightLost);
+
+        // Calculate weeks elapsed
+        const startDate = new Date(allMeasurements[0].created_at);
+        const endDate = new Date(allMeasurements[allMeasurements.length - 1].created_at);
+        const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
+        setDaysCount(days || 1); // At least 1 day
+
+        // Format data for chart
+        const chartData = allMeasurements.map((m, index) => ({
+          week: `Day ${index + 1}`,
+          weight: m.weight_kg,
+          date: new Date(m.created_at).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+        }));
+
+        setWeightData(chartData);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error in fetchWeightData:", error);
+        setLoading(false);
+      }
+    };
+
+    fetchWeightData();
+  }, [user]);
+
+  if (loading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.4 }}
+        className="bg-card rounded-xl border border-border p-6"
+      >
+        <div className="h-64 flex items-center justify-center">
+          <p className="text-muted-foreground">Loading weight data...</p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (weightData.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.4 }}
+        className="bg-card rounded-xl border border-border p-6"
+      >
+        <div className="h-64 flex items-center justify-center">
+          <p className="text-muted-foreground">No weight data available</p>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -33,24 +121,42 @@ export function ProgressChart() {
     >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-primary" />
+          {weightLost > 0 ? (
+            <TrendingDown className="w-5 h-5 text-success" />
+          ) : (
+            <TrendingUp className="w-5 h-5 text-warning" />
+          )}
           <h3 className="font-display font-semibold text-lg">Weight Progress</h3>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-2xl font-display font-bold gradient-text">
-            -4.5 kg
+          <span
+            className={`text-2xl font-display font-bold ${
+              weightLost > 0 ? "text-success" : "text-warning"
+            }`}
+          >
+            {weightLost > 0 ? "-" : "+"}
+            {Math.abs(weightLost).toFixed(1)} kg
           </span>
-          <span className="text-sm text-muted-foreground">in 8 weeks</span>
+          <span className="text-sm text-muted-foreground">
+            in {daysCount} {daysCount === 1 ? "day" : "days"}
+          </span>
         </div>
       </div>
-
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={weightData}>
             <defs>
               <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(174 72% 46%)" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="hsl(174 72% 46%)" stopOpacity={0} />
+                <stop
+                  offset="5%"
+                  stopColor="hsl(174 72% 46%)"
+                  stopOpacity={0.3}
+                />
+                <stop
+                  offset="95%"
+                  stopColor="hsl(174 72% 46%)"
+                  stopOpacity={0}
+                />
               </linearGradient>
             </defs>
             <CartesianGrid
@@ -59,7 +165,7 @@ export function ProgressChart() {
               vertical={false}
             />
             <XAxis
-              dataKey="week"
+              dataKey="date"
               stroke="hsl(215 20% 55%)"
               tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
               axisLine={false}

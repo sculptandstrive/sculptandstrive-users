@@ -17,6 +17,7 @@ export default function Prequestion() {
     hips_cm: "",
     arms_cm: "",
     thighs_cm: "",
+    age: ""
   });
 
     const navigate = useNavigate();
@@ -42,22 +43,24 @@ export default function Prequestion() {
         waist_cm: Number(measurements.waist_cm), 
         hips_cm: Number(measurements.hips_cm ),
         arms_cm: Number(measurements.arms_cm ),
-        thighs_cm: Number(measurements.thighs_cm) 
+        thighs_cm: Number(measurements.thighs_cm),
+        age: Number(measurements.age)
         }
         ])
         
          await supabase.from("current_measurements").insert([
-          {
-            user_id: user.id,
-            weight_kg: Number(measurements.weight_kg),
-            height_cm: Number(measurements.height_cm),
-            chest_cm: Number(measurements.chest_cm),
-            waist_cm: Number(measurements.waist_cm),
-            hips_cm: Number(measurements.hips_cm),
-            arms_cm: Number(measurements.arms_cm),
-            thighs_cm: Number(measurements.thighs_cm),
-          },
-        ]);
+           {
+             user_id: user.id,
+             weight_kg: Number(measurements.weight_kg),
+             height_cm: Number(measurements.height_cm),
+             chest_cm: Number(measurements.chest_cm),
+             waist_cm: Number(measurements.waist_cm),
+             hips_cm: Number(measurements.hips_cm),
+             arms_cm: Number(measurements.arms_cm),
+             thighs_cm: Number(measurements.thighs_cm),
+             age: Number(measurements.age)
+           },
+         ]);
         navigate('/');
     } else {
       toast({description: 'All Fields are required'})
@@ -164,6 +167,18 @@ export default function Prequestion() {
                     placeholder="e.g., 60"
                     value={measurements.thighs_cm}
                     onChange={(e) => handleChange("thighs_cm", e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-500 block mb-1">
+                    Age
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g., 60"
+                    value={measurements.age}
+                    onChange={(e) => handleChange("age", e.target.value)}
                   />
                 </div>
               </div>

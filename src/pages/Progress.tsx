@@ -7,7 +7,6 @@ import {
   Activity,
   Camera,
   Calendar,
-  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +29,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
+// IMPROVEMENT: Better type definitions
 type ProgressPhoto = {
   date: string;
   imagePath: string | null;
@@ -61,14 +61,13 @@ type Measurement = {
   unit: string;
 };
 
-const workoutData = [
-  { week: "Week 1", workouts: 4, duration: 180 },
-  { week: "Week 2", workouts: 5, duration: 225 },
-  { week: "Week 3", workouts: 4, duration: 200 },
-  { week: "Week 4", workouts: 6, duration: 300 },
-  { week: "Week 5", workouts: 5, duration: 250 },
-  { week: "Week 6", workouts: 5, duration: 275 },
-];
+// IMPROVEMENT: Add proper type for workout data
+type WorkoutChartData = {
+  date: string;
+  day: string;
+  workouts: number;
+  calories: number;
+};
 
 export default function Progress() {
   const [uploading, setUploading] = useState(false);
@@ -80,7 +79,6 @@ export default function Progress() {
   ]);
   const { user } = useAuth();
 
-  // State for dynamic data
   const [stats, setStats] = useState<Stats>({
     startingWeight: 0,
     currentWeight: 0,
@@ -90,7 +88,27 @@ export default function Progress() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [weightData, setWeightData] = useState<any[]>([]);
   const [bodyFatData, setBodyFatData] = useState<any[]>([]);
+  const [workoutData, setWorkoutData] = useState<WorkoutChartData[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // IMPROVEMENT: Helper function to get current week date range (Monday-Sunday)
+  const getCurrentWeekRange = () => {
+    const today = new Date();
+    const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+    // Calculate days to subtract to get to Monday
+    const daysToMonday = currentDay === 0 ? 6 : currentDay - 1;
+
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - daysToMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    return { monday, sunday };
+  };
 
   useEffect(() => {
     const getUserData = async () => {
@@ -107,6 +125,13 @@ export default function Progress() {
             .eq("user_id", user.id)
             .order("created_at", { ascending: true });
 
+        // Fetch gender and age from profile
+        const { data: profileData, error: profileError } = await supabase
+          .from("profile_details")
+          .select("gender, age")
+          .eq("user_id", user.id)
+          .single();
+
         if (measurementsError) {
           console.error("Error fetching measurements:", measurementsError);
           setLoading(false);
@@ -122,17 +147,48 @@ export default function Progress() {
         const startingMeasurement = allMeasurements[0];
         const currentMeasurement = allMeasurements[allMeasurements.length - 1];
 
-        // Calculate stats
+        // Calculate Body Fat Percentage
+        const calculateBodyFat = (
+          weight: number,
+          height: number,
+          age: number,
+          gender: string,
+        ): number => {
+          const heightInMeters = height / 100;
+          const bmi = weight / (heightInMeters * heightInMeters);
+
+          let bodyFat: number;
+          if (
+            gender?.toLowerCase() === "female" ||
+            gender?.toLowerCase() === "woman"
+          ) {
+            bodyFat = 1.2 * bmi + 0.23 * age - 5.4;
+          } else {
+            bodyFat = 1.2 * bmi + 0.23 * age - 16.2;
+          }
+
+          return Math.max(0, parseFloat(bodyFat.toFixed(1)));
+        };
+
+        const userGender = profileData?.gender || "male";
+        const userAge = profileData?.age || 25;
+
+        const currentBodyFat = calculateBodyFat(
+          currentMeasurement.weight_kg,
+          currentMeasurement.height_cm,
+          userAge,
+          userGender,
+        );
+
         const weightLost =
           startingMeasurement.weight_kg - currentMeasurement.weight_kg;
         setStats({
           startingWeight: startingMeasurement.weight_kg,
           currentWeight: currentMeasurement.weight_kg,
           weightLost: weightLost,
-          bodyFat: currentMeasurement.body_fat_percentage || null,
+          bodyFat: currentBodyFat,
         });
 
-        // Set measurements with changes from starting values
         setMeasurements([
           {
             label: "Chest",
@@ -166,7 +222,6 @@ export default function Progress() {
           },
         ]);
 
-        // Prepare weight chart data
         const weightChartData = allMeasurements.map((m) => ({
           date: new Date(m.created_at).toLocaleDateString("en-US", {
             month: "short",
@@ -176,17 +231,78 @@ export default function Progress() {
         }));
         setWeightData(weightChartData);
 
-        // Prepare body fat chart data (if available)
-        const bodyFatChartData = allMeasurements
-          .filter((m) => m.body_fat_percentage)
-          .map((m) => ({
+        const bodyFatChartData = allMeasurements.map((m) => {
+          const bodyFatValue = calculateBodyFat(
+            m.weight_kg,
+            m.height_cm,
+            userAge,
+            userGender,
+          );
+          return {
             date: new Date(m.created_at).toLocaleDateString("en-US", {
               month: "short",
               day: "numeric",
             }),
-            value: m.body_fat_percentage,
-          }));
+            value: bodyFatValue,
+          };
+        });
         setBodyFatData(bodyFatChartData);
+
+        // FIXED: Fetch workouts for current week (Monday-Sunday)
+        const { monday, sunday } = getCurrentWeekRange();
+
+        const { data: workouts, error: workoutsError } = await supabase
+          .from("workouts")
+          .select("*")
+          .eq("user_id", user.id)
+          .gte("workout_date", monday.toISOString().split("T")[0])
+          .lte("workout_date", sunday.toISOString().split("T")[0])
+          .order("workout_date", { ascending: true });
+
+        console.log("Workouts for current week:", workouts);
+
+        if (!workoutsError && workouts) {
+          // IMPROVEMENT: Group workouts by date with proper aggregation
+          const workoutsByDate = workouts.reduce((acc: any, workout: any) => {
+            const date = workout.workout_date;
+            if (!acc[date]) {
+              acc[date] = {
+                date: date,
+                workouts: 0,
+                calories: 0,
+              };
+            }
+            if (workout.completed) {
+              acc[date].workouts += 1;
+              acc[date].calories += workout.calories_burned || 0;
+            }
+            return acc;
+          }, {});
+
+          // IMPROVEMENT: Create complete Monday-Sunday chart with day names
+          const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+          const workoutChartData: WorkoutChartData[] = [];
+
+          for (let i = 0; i < 7; i++) {
+            const date = new Date(monday);
+            date.setDate(monday.getDate() + i);
+            const dateStr = date.toISOString().split("T")[0];
+
+            const existingData = workoutsByDate[dateStr];
+            workoutChartData.push({
+              date: date.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              }),
+              day: daysOfWeek[i],
+              workouts: existingData?.workouts || 0,
+              calories: existingData?.calories || 0,
+            });
+          }
+
+          console.log("Formatted workout data:", workoutChartData);
+          setWorkoutData(workoutChartData);
+        }
 
         setLoading(false);
       } catch (error) {
@@ -211,7 +327,6 @@ export default function Progress() {
 
       if (photosError || !photos || photos.length === 0) return;
 
-      // Sorting Photos According to Last Week Available
       const sortedPhotos = [...photos].sort((a, b) => {
         const weekA = parseInt(a.label.split(" ")[1]);
         const weekB = parseInt(b.label.split(" ")[1]);
@@ -223,7 +338,6 @@ export default function Progress() {
       );
       let newSlots = [...progressPhotos];
 
-      // If Images Present more than Last Week then this function will run
       if (lastWeek > 3) {
         const extra = [];
         let i = 4;
@@ -239,7 +353,6 @@ export default function Progress() {
         setImageLimit(i - 1);
       }
 
-      // If more than 3 Weeks Images Available
       const updatedPhotos = await Promise.all(
         newSlots.map(async (slot) => {
           const match = photos.find((p) => p.label == slot.date);
@@ -262,7 +375,6 @@ export default function Progress() {
     getProgressPhotos();
   }, [user]);
 
-  // Handling New Photo Addition
   const handleAddProgressPhoto = async (
     e: React.ChangeEvent<HTMLInputElement>,
     index: number,
@@ -295,12 +407,24 @@ export default function Progress() {
       setUploading(false);
       return;
     }
-    const { error: UrlError } = await supabase.from("progress_photos").upsert({
+
+    // IMPROVEMENT: Handle error from database insert
+    const { error: dbError } = await supabase.from("progress_photos").upsert({
       user_id: user.id,
       image_path: filePath,
       label: progressPhotos[index].date,
-      taken_at: new Date(),
+      taken_at: new Date().toISOString(),
     });
+
+    if (dbError) {
+      toast({
+        title: "Database Error",
+        description: dbError.message,
+        variant: "destructive",
+      });
+      setUploading(false);
+      return;
+    }
 
     const { data: signed } = await supabase.storage
       .from("progress-photos")
@@ -328,7 +452,6 @@ export default function Progress() {
     try {
       setUploading(true);
 
-      // Get the actual file path from database
       const { data: photoData } = await supabase
         .from("progress_photos")
         .select("image_path")
@@ -378,6 +501,7 @@ export default function Progress() {
       });
       setUploading(false);
     } catch (err) {
+      console.error("Error removing photo:", err);
       setUploading(false);
     }
   };
@@ -408,7 +532,7 @@ export default function Progress() {
       label: "Weight Lost",
       value: `${stats.weightLost > 0 ? "-" : "+"}${Math.abs(stats.weightLost).toFixed(1)} kg`,
       icon: stats.weightLost > 0 ? TrendingDown : TrendingUp,
-      highlight: stats.weightLost > 0,
+      highlight: stats.weightLost > 0 ? 1 : -1,
     },
     {
       label: "Body Fat",
@@ -427,7 +551,6 @@ export default function Progress() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -449,7 +572,6 @@ export default function Progress() {
         </div>
       </motion.div>
 
-      {/* Stats Overview */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statsDisplay.map((stat, index) => (
           <motion.div
@@ -458,15 +580,21 @@ export default function Progress() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
             className={`bg-card border rounded-xl p-4 ${
-              stat.highlight
+              stat.highlight === 1
                 ? "border-success/50 bg-success/5 shadow-glow"
-                : "border-border"
+                : stat.highlight === -1
+                  ? "border-warning/50 bg-warning/5 shadow-glow-accent"
+                  : "border-border"
             }`}
           >
             <div className="flex items-center gap-2 mb-2">
               <stat.icon
                 className={`w-4 h-4 ${
-                  stat.highlight ? "text-success" : "text-muted-foreground"
+                  stat.highlight === 1
+                    ? "text-success"
+                    : stat.highlight === -1
+                      ? "text-warning"
+                      : "text-muted-foreground"
                 }`}
               />
               <span className="text-sm text-muted-foreground">
@@ -475,7 +603,11 @@ export default function Progress() {
             </div>
             <p
               className={`text-2xl font-display font-bold ${
-                stat.highlight ? "text-success" : ""
+                stat.highlight === 1
+                  ? "text-success"
+                  : stat.highlight === -1
+                    ? "text-warning"
+                    : ""
               }`}
             >
               {stat.value}
@@ -516,7 +648,6 @@ export default function Progress() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Weight Tab */}
         <TabsContent value="weight">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -528,10 +659,17 @@ export default function Progress() {
                 <h3 className="font-display font-semibold text-lg">
                   Weight Trend
                 </h3>
-                <Badge className="bg-success/10 text-success">
-                  <TrendingDown className="w-3 h-3 mr-1" />
-                  {stats.weightLost.toFixed(1)} kg
-                </Badge>
+                {stats.weightLost < 0 ? (
+                  <Badge className="bg-warning/10 text-warning">
+                    <TrendingUp className="w-3 h-3 mr-1 text-warning" />
+                    {Math.abs(stats.weightLost).toFixed(1)} kg
+                  </Badge>
+                ) : (
+                  <Badge className="bg-success/10 text-success">
+                    <TrendingDown className="w-3 h-3 mr-1 text-success" />
+                    {stats.weightLost.toFixed(1)} kg
+                  </Badge>
+                )}
               </div>
               {weightData.length > 0 ? (
                 <div className="h-72">
@@ -645,7 +783,6 @@ export default function Progress() {
           </motion.div>
         </TabsContent>
 
-        {/* Measurements Tab */}
         <TabsContent value="body">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -696,7 +833,7 @@ export default function Progress() {
           </motion.div>
         </TabsContent>
 
-        {/* Workouts Tab */}
+        {/* IMPROVED: Workouts Tab with Monday-Sunday display */}
         <TabsContent value="workouts">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -704,44 +841,86 @@ export default function Progress() {
             className="bg-card border border-border rounded-xl p-6"
           >
             <h3 className="font-display font-semibold text-lg mb-6">
-              Weekly Workout Summary
+              This Week's Workouts (Mon-Sun)
             </h3>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={workoutData}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="hsl(222 20% 20%)"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="week"
-                    stroke="hsl(215 20% 55%)"
-                    tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
-                  />
-                  <YAxis
-                    stroke="hsl(215 20% 55%)"
-                    tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(222 25% 12%)",
-                      border: "1px solid hsl(222 20% 20%)",
-                      borderRadius: "8px",
-                    }}
-                  />
-                  <Bar
-                    dataKey="workouts"
-                    fill="hsl(174 72% 46%)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            {workoutData.length > 0 ? (
+              <div className="space-y-6">
+                <div className="h-72">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={workoutData}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="hsl(222 20% 20%)"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="day"
+                        stroke="hsl(215 20% 55%)"
+                        tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
+                      />
+                      <YAxis
+                        stroke="hsl(215 20% 55%)"
+                        tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "hsl(222 25% 12%)",
+                          border: "1px solid hsl(222 20% 20%)",
+                          borderRadius: "8px",
+                        }}
+                        labelFormatter={(value, payload) => {
+                          if (payload && payload.length > 0) {
+                            return payload[0].payload.date;
+                          }
+                          return value;
+                        }}
+                      />
+                      <Bar
+                        dataKey="workouts"
+                        fill="hsl(174 72% 46%)"
+                        radius={[4, 4, 0, 0]}
+                        name="Workouts Completed"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* IMPROVEMENT: Add summary stats */}
+                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-border">
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-1">
+                      Total Workouts
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {workoutData.reduce((sum, day) => sum + day.workouts, 0)}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-1">
+                      Total Calories
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {workoutData.reduce((sum, day) => sum + day.calories, 0)}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground mb-1">
+                      Days Active
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {workoutData.filter((day) => day.workouts > 0).length}/7
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="h-72 flex items-center justify-center text-muted-foreground">
+                No workout data available for this week
+              </div>
+            )}
           </motion.div>
         </TabsContent>
 
-        {/* Photos Tab */}
         <TabsContent value="photos">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -788,7 +967,6 @@ export default function Progress() {
                     <Camera className="w-12 h-12 text-muted-foreground mb-3" />
                     <p className="font-medium">{photo.date}</p>
 
-                    {/* Hidden file input */}
                     <input
                       type="file"
                       accept="image/*"

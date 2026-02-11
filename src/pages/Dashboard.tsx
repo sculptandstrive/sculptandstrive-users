@@ -94,7 +94,6 @@ export default function Dashboard() {
       console.error("Fetch notifications error:", error);
       return;
     }
-    console.log(data);
     setNotifications(data || []);
   };
 
@@ -200,6 +199,8 @@ export default function Dashboard() {
       if(logsResult.error) throw logsResult.error;
       if(waterResult.error) throw waterResult.error;
       if(workoutsResult.error) throw workoutsResult.error;
+
+      console.log(workoutsResult);
 
       setNutritionLogs(logsResult.data || []);
       setWaterIntake(waterResult.data || []);

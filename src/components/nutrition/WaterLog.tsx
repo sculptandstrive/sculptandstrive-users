@@ -27,7 +27,8 @@ export default function WaterLog({ onWaterLogged, onClose }: WaterLogProps) {
     if (!user) return;
 
     try {
-      if (totalMl >= 4000) {
+      if (totalMl >= goalLitres*1000) {
+        console.log(totalMl, goalLitres);
         throw new Error("Daily safe limit reached");
       }
 

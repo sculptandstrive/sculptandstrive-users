@@ -44,7 +44,7 @@ export default function PostQuestion() {
         // PGRST116 is "no rows returned" which is fine for first entry
         console.error("Error fetching previous measurements:", fetchError);
       }
-      
+
       const newMeasurement = {
         user_id: user.id,
         weight_kg: measurements.weight_kg
@@ -68,7 +68,10 @@ export default function PostQuestion() {
         thighs_cm: measurements.thighs_cm
           ? Number(measurements.thighs_cm)
           : previousMeasurement?.thighs_cm || null,
+        age: previousMeasurement?.age || null,
       };
+
+      console.log(newMeasurement);
 
       // Insert the new measurement
       const { error: insertError } = await supabase
