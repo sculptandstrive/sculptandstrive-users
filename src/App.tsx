@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+
 import Dashboard from "./pages/Dashboard";
 import Sessions from "./pages/Sessions";
 import Fitness from "./pages/Fitness";
@@ -15,9 +16,7 @@ import Support from "./pages/Support";
 import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import FitnessAppFlow from "./components/dashboard/LoginQuestionare";
 import ResetPassword from "./pages/ResetPassword";
-import WaterLog from "./components/nutrition/WaterLog";
 import PreQuestion from "./pages/PreQuestion";
 import PostQuestion from "./pages/PostQuestion";
 
@@ -29,12 +28,25 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+
         <BrowserRouter>
           <Routes>
+            {/* Public routes */}
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/pre-measurement" element={<PreQuestion />} />
-            <Route path = '/post-measurement' element = {<PostQuestion/>} />
+
+            {/* Protected route WITHOUT dashboard layout */}
+            <Route
+              path="/post-measurement"
+              element={
+                <ProtectedRoute>
+                  <PostQuestion />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Protected routes WITH dashboard layout */}
             <Route
               path="/*"
               element={
@@ -48,7 +60,6 @@ const App = () => (
                       <Route path="/progress" element={<Progress />} />
                       <Route path="/support" element={<Support />} />
                       <Route path="/settings" element={<Settings />} />
-
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </DashboardLayout>

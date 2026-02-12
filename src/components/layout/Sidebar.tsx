@@ -34,7 +34,7 @@ export function Sidebar() {
   const location = useLocation();
   const { user, signOut } = useAuth();
 
-  console.log(user);
+  // console.log(user);
 
   const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const userInitials = userName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);

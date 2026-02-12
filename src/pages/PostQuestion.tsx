@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,16 +19,117 @@ export default function PostQuestion() {
     thighs_cm: "",
   });
 
+  const [loading, setLoading] = useState(true);
+
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // Validation limits for each field (same as PreQuestion)
+  const validationRules = {
+    weight_kg: { min: 30, max: 200, label: "Weight" },
+    height_cm: { min: 50, max: 200, label: "Height" },
+    chest_cm: { min: 50, max: 200, label: "Chest" },
+    waist_cm: { min: 40, max: 200, label: "Waist" },
+    hips_cm: { min: 50, max: 200, label: "Hips" },
+    arms_cm: { min: 15, max: 100, label: "Arms" },
+    thighs_cm: { min: 30, max: 150, label: "Thighs" },
+  };
 
   const handleChange = (field, value) => {
     const sanitized = value.replace(/[^0-9.]/g, "");
     setMeasurements({ ...measurements, [field]: sanitized });
   };
 
+  // Fetch previous measurements on component mount
+  useEffect(() => {
+    const fetchMeasurement = async () => {
+      if (!user) return;
+
+      try {
+        const { data: previousMeasurement, error: fetchError } = await supabase
+          .from("current_measurements")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (fetchError && fetchError.code !== "PGRST116") {
+          console.error("Error fetching previous measurements:", fetchError);
+        }
+
+        // Pre-populate fields with previous measurements if they exist
+        if (previousMeasurement) {
+          setMeasurements({
+            weight_kg: previousMeasurement.weight_kg?.toString() || "",
+            height_cm: previousMeasurement.height_cm?.toString() || "",
+            chest_cm: previousMeasurement.chest_cm?.toString() || "",
+            waist_cm: previousMeasurement.waist_cm?.toString() || "",
+            hips_cm: previousMeasurement.hips_cm?.toString() || "",
+            arms_cm: previousMeasurement.arms_cm?.toString() || "",
+            thighs_cm: previousMeasurement.thighs_cm?.toString() || "",
+          });
+        }
+      } catch (error) {
+        console.error("Unexpected error fetching measurements:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMeasurement();
+  }, [user]);
+
+  const validateMeasurements = () => {
+    // Check if at least one field is filled
+    const anyFilled = Object.values(measurements).some((val) => val !== "");
+    if (!anyFilled) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter at least one measurement or skip",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    // Validate each filled field against min/max limits
+    for (const [field, value] of Object.entries(measurements)) {
+      if (value === "") continue; // Skip empty fields
+
+      const numValue = Number(value);
+      const rules = validationRules[field];
+
+      if (!rules) continue; // Skip fields without validation rules
+
+      if (numValue < rules.min) {
+        toast({
+          title: "Validation Error",
+          description: `${rules.label} must be at least ${rules.min}`,
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      if (numValue > rules.max) {
+        toast({
+          title: "Validation Error",
+          description: `${rules.label} cannot exceed ${rules.max}`,
+          variant: "destructive",
+        });
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const handleSubmit = async () => {
     if (!user) return;
+
+    // Validate before submitting
+    if (!validateMeasurements()) {
+      return;
+    }
 
     try {
       // Fetch the most recent measurement entry for this user
@@ -71,8 +172,6 @@ export default function PostQuestion() {
         age: previousMeasurement?.age || null,
       };
 
-      console.log(newMeasurement);
-
       // Insert the new measurement
       const { error: insertError } = await supabase
         .from("current_measurements")
@@ -102,6 +201,14 @@ export default function PostQuestion() {
     navigate("/");
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <motion.div
@@ -124,6 +231,9 @@ export default function PostQuestion() {
                   value={measurements.weight_kg}
                   onChange={(e) => handleChange("weight_kg", e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Range: 30-200 kg
+                </p>
               </div>
 
               <div>
@@ -136,6 +246,9 @@ export default function PostQuestion() {
                   value={measurements.height_cm}
                   onChange={(e) => handleChange("height_cm", e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Range: 50-200 cm
+                </p>
               </div>
             </div>
 
@@ -155,6 +268,9 @@ export default function PostQuestion() {
                     value={measurements.chest_cm}
                     onChange={(e) => handleChange("chest_cm", e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Range: 50-200 cm
+                  </p>
                 </div>
 
                 <div>
@@ -167,6 +283,9 @@ export default function PostQuestion() {
                     value={measurements.waist_cm}
                     onChange={(e) => handleChange("waist_cm", e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Range: 40-200 cm
+                  </p>
                 </div>
 
                 <div>
@@ -179,6 +298,9 @@ export default function PostQuestion() {
                     value={measurements.hips_cm}
                     onChange={(e) => handleChange("hips_cm", e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Range: 50-200 cm
+                  </p>
                 </div>
 
                 <div>
@@ -191,6 +313,9 @@ export default function PostQuestion() {
                     value={measurements.arms_cm}
                     onChange={(e) => handleChange("arms_cm", e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Range: 15-100 cm
+                  </p>
                 </div>
 
                 <div>
@@ -203,6 +328,9 @@ export default function PostQuestion() {
                     value={measurements.thighs_cm}
                     onChange={(e) => handleChange("thighs_cm", e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Range: 30-150 cm
+                  </p>
                 </div>
               </div>
             </div>
@@ -219,4 +347,3 @@ export default function PostQuestion() {
     </div>
   );
 }
-//f

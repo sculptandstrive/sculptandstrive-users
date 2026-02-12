@@ -30,7 +30,6 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
-// IMPROVEMENT: Better type definitions
 type ProgressPhoto = {
   date: string;
   imagePath: string | null;
@@ -62,7 +61,7 @@ type Measurement = {
   unit: string;
 };
 
-// IMPROVEMENT: Add proper type for workout data
+
 type WorkoutChartData = {
   date: string;
   day: string;
@@ -92,12 +91,11 @@ export default function Progress() {
   const [workoutData, setWorkoutData] = useState<WorkoutChartData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // IMPROVEMENT: Helper function to get current week date range (Monday-Sunday)
+  // Helper function to get current week date range (Monday-Sunday)
   const getCurrentWeekRange = () => {
     const today = new Date();
-    const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const currentDay = today.getDay(); 
 
-    // Calculate days to subtract to get to Monday
     const daysToMonday = currentDay === 0 ? 6 : currentDay - 1;
 
     const monday = new Date(today);
@@ -125,6 +123,8 @@ export default function Progress() {
             .select("*")
             .eq("user_id", user.id)
             .order("created_at", { ascending: true });
+
+        console.log(allMeasurements);
 
         // Fetch gender and age from profile
         const { data: profileData, error: profileError } = await supabase
@@ -249,10 +249,8 @@ export default function Progress() {
         });
         setBodyFatData(bodyFatChartData);
 
-        // FIXED: Fetch workouts and count completed exercises per day
         const { monday, sunday } = getCurrentWeekRange();
 
-        // Fetch all workouts for the user (they're organized by day_name, not date)
         const { data: workouts, error: workoutsError } = await supabase
           .from("workouts")
           .select("*")
@@ -262,7 +260,7 @@ export default function Progress() {
         console.log("All workouts:", workouts);
 
         if (!workoutsError && workouts) {
-          // IMPROVEMENT: For each day, count the number of completed exercises
+        
           const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
           const fullDayNames = [
             "Monday",
@@ -425,7 +423,6 @@ export default function Progress() {
       return;
     }
 
-    // IMPROVEMENT: Handle error from database insert
     const { error: dbError } = await supabase.from("progress_photos").upsert({
       user_id: user.id,
       image_path: filePath,
@@ -830,13 +827,14 @@ export default function Progress() {
                         {m.label}
                       </p>
                       <p className="text-2xl font-display font-bold">
-                        {m.current} {m.unit}
+                        {m.current === 500 ? "NA" : m.current} {m.current !== 500 ? m.unit : ""}
                       </p>
                       <span
                         className={`text-xs ${isPositive ? "text-success" : "text-destructive"}`}
                       >
-                        {change > 0 ? "+" : ""}
-                        {change.toFixed(1)} {m.unit}
+                        
+                        {m.current !== 500 ? change > 0 ? "+" : "" : ""}
+                        {m.current !== 500 ? change.toFixed(1) : ""} {m.current !== 500 ? m.unit : ""}
                       </span>
                     </motion.div>
                   );
@@ -850,7 +848,6 @@ export default function Progress() {
           </motion.div>
         </TabsContent>
 
-        {/* IMPROVED: Workouts Tab with Monday-Sunday display based on workout completion */}
         <TabsContent value="workouts">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -912,7 +909,6 @@ export default function Progress() {
                   </ResponsiveContainer>
                 </div>
 
-                {/* IMPROVEMENT: Add summary stats */}
                 <div className="grid grid-cols-3 gap-4 pt-4 border-t border-border">
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground mb-1">
