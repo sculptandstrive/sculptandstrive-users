@@ -7,7 +7,9 @@ import {
   Filter, 
   ChevronRight, 
   Clock,
-  AlertCircle 
+  AlertCircle,
+  RefreshCw,
+  UserCheck
 } from "lucide-react";
 import { supabase } from "@/lib/supabase"; 
 import { Button } from "@/components/ui/button";
@@ -24,11 +26,14 @@ export default function Sessions() {
 
   useEffect(() => {
     fetchSessions();
-
     const channel = supabase
       .channel('schema-db-changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'sessions' }, 
+        () => fetchSessions() 
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'session_assignments' }, 
         () => fetchSessions() 
       )
       .subscribe();
@@ -43,25 +48,35 @@ export default function Sessions() {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
 
+      if (!user) return;
+
+     
       const { data, error } = await supabase
         .from("sessions")
         .select(`
           *,
           session_assignments!left(client_id)
         `)
-        .order("start_time", { ascending: true, nullsFirst: false });
+        .order("id", { ascending: false });
 
       if (error) throw error;
 
-      const visibleSessions = data.filter(session => {
+      const visibleSessions = (data || []).filter(session => {
+        
         const isMass = session.admin_is_mass === true;
-        const isAssigned = user && session.session_assignments?.some((a: any) => a.client_id === user.id);
+        
+    
+        const isAssigned = session.session_assignments?.some(
+          (a: any) => String(a.client_id) === String(user.id)
+        );
+
         return isMass || isAssigned;
       });
 
       setSessions(visibleSessions);
     } catch (err: any) {
       console.error("Fetch Error:", err.message);
+      toast.error("Failed to sync sessions");
     } finally {
       setLoading(false);
     }
@@ -78,8 +93,6 @@ export default function Sessions() {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        
-        //  if  record exists, it updates it if not, it creates it.
         const { error } = await supabase
           .from("session_assignments")
           .upsert({ 
@@ -101,8 +114,8 @@ export default function Sessions() {
   };
 
   const filteredSessions = sessions.filter(s => 
-    s.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.instructor?.toLowerCase().includes(searchQuery.toLowerCase())
+    (s.title || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (s.instructor || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const liveSessions = filteredSessions.filter(s => s.type === 'live');
@@ -127,7 +140,14 @@ export default function Sessions() {
               className="pl-10 w-64 bg-muted border-border"
             />
           </div>
-          <Button variant="outline" size="icon" onClick={fetchSessions}><Filter className="w-4 h-4" /></Button>
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={fetchSessions}
+            className={loading ? "opacity-50" : ""}
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
         </div>
       </div>
 
@@ -143,7 +163,10 @@ export default function Sessions() {
 
         <AnimatePresence mode="wait">
           {loading ? (
-            <div className="py-20 text-center animate-pulse text-muted-foreground">Syncing studio data...</div>
+            <div className="py-20 text-center animate-pulse text-muted-foreground flex flex-col items-center gap-2">
+              <RefreshCw className="w-8 h-8 animate-spin opacity-20" />
+              Syncing studio data...
+            </div>
           ) : (
             <>
               <TabsContent value="live" className="space-y-4 outline-none">
@@ -158,7 +181,7 @@ export default function Sessions() {
                       initial={{ opacity: 0, y: 10 }} 
                       animate={{ opacity: 1, y: 0 }}
                       key={session.id} 
-                      className="bg-card border border-border rounded-xl p-6 flex flex-col md:flex-row md:items-center gap-6 hover:border-primary/20 transition-all"
+                      className="bg-card border border-border rounded-xl p-6 flex flex-col md:flex-row md:items-center gap-6 hover:border-primary/20 transition-all shadow-sm"
                     >
                       <Avatar className="w-20 h-20 border-2 border-primary/10">
                         <AvatarImage src={session.trainer_image} />
@@ -170,6 +193,11 @@ export default function Sessions() {
                       <div className="flex-1 space-y-2">
                         <div className="flex items-center gap-3">
                           <h3 className="font-bold text-xl">{session.title}</h3>
+                          {!session.admin_is_mass && (
+                            <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 border-none text-[10px] flex gap-1">
+                              <UserCheck className="w-3 h-3" /> PERSONAL
+                            </Badge>
+                          )}
                           <Badge className={`${session.meeting_link ? 'bg-green-500/10 text-green-500' : 'bg-orange-500/10 text-orange-500'} border-none animate-pulse`}>
                             {session.meeting_link ? 'LIVE' : 'PREPARING'}
                           </Badge>
@@ -179,7 +207,7 @@ export default function Sessions() {
 
                       <div className="flex flex-col items-end gap-2">
                          <span className="text-sm font-medium text-primary flex items-center gap-1">
-                           <Clock className="w-4 h-4" /> {session.duration || '45'} 
+                           <Clock className="w-4 h-4" /> {session.duration || '45'}m
                          </span>
                          
                          <Button 
@@ -228,4 +256,4 @@ export default function Sessions() {
       </Tabs>
     </div>
   );
-}             
+}

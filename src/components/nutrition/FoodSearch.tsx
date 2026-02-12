@@ -10,7 +10,7 @@ interface FoodSearchProps {
   mealType: string;
   onFoodLogged: () => void;
   onClose: () => void;
-  // Optional( Add nutritionGoals if  want to show the impact  progress bars)
+  
   nutritionGoals?: any; 
 }
 

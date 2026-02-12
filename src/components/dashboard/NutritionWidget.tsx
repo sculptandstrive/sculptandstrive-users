@@ -28,7 +28,7 @@ interface NutritionWidgetProps {
   nutritionLogs: NutritionLog[];
   waterIntake: WaterIntake[];
   targets?: NutritionTargets;
-  waterRequirement: number
+  waterRequirement: number; // In ml, e.g., 3000
 }
 
 const DEFAULT_TARGETS: NutritionTargets = {
@@ -43,18 +43,20 @@ export function NutritionWidget({
   nutritionLogs = [],
   waterIntake = [],
   targets = DEFAULT_TARGETS,
-  waterRequirement
+  waterRequirement = 3000 // Added fallback value
 }: NutritionWidgetProps) {
 
+  // 1. Accumulate totals with safety checks
   const caloriesConsumed = nutritionLogs.reduce(
-    (sum, log) => sum + (log.calories || 0),
+    (sum, log) => sum + (Number(log.calories) || 0),
     0,
   );
 
-  const protein = nutritionLogs.reduce((s, l) => s + (l.protein_g || 0), 0);
-  const carbs = nutritionLogs.reduce((s, l) => s + (l.carbs_g || 0), 0);
-  const fats = nutritionLogs.reduce((s, l) => s + (l.fats_g || 0), 0);
+  const protein = nutritionLogs.reduce((s, l) => s + (Number(l.protein_g) || 0), 0);
+  const carbs = nutritionLogs.reduce((s, l) => s + (Number(l.carbs_g) || 0), 0);
+  const fats = nutritionLogs.reduce((s, l) => s + (Number(l.fats_g) || 0), 0);
 
+  // 2. Calculate percentages for progress bars
   const caloriesPercent =
     targets.calories > 0
       ? Math.min((caloriesConsumed / targets.calories) * 100, 100)
@@ -71,18 +73,17 @@ export function NutritionWidget({
     { name: "Fats", value: fats, target: targets.fats, color: "bg-accent" },
   ];
 
-  const GLASS_ML = 250;
-  const WATER_TARGET_ML = 3000;
-
+  // 3. Hydration Calculations
   const totalWaterMl = waterIntake.reduce(
-    (sum, w) => sum + (w.amount_ml || 0),
+    (sum, w) => sum + (Number(w.amount_ml) || 0),
     0,
   );
 
-  const waterConsumed = Math.floor(totalWaterMl / GLASS_ML);
   const totalLitres = (totalWaterMl / 1000).toFixed(2);
-  const waterProgress = Math.min((totalWaterMl / waterRequirement) * 100, 100);
-
+  const targetLitres = (waterRequirement / 1000).toFixed(1);
+  const waterProgress = waterRequirement > 0 
+    ? Math.min((totalWaterMl / waterRequirement) * 100, 100) 
+    : 0;
 
   return (
     <motion.div
@@ -168,7 +169,8 @@ export function NutritionWidget({
                   {macro.name}
                 </span>
                 <span className="font-medium tabular-nums">
-                  {Math.round(macro.value)}g{" "}
+                  {/* Using toFixed(1) for precision with Edamam API data */}
+                  {macro.value.toFixed(1)}g{" "}
                   <span className="text-muted-foreground text-xs">
                     / {macro.target}g
                   </span>
@@ -188,7 +190,7 @@ export function NutritionWidget({
         })}
       </div>
 
-      {/* Hydration  */}
+      {/* Hydration Section */}
       <div className="p-4 rounded-lg bg-info/5 border border-info/20">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -197,12 +199,12 @@ export function NutritionWidget({
           </div>
 
           <span className="text-xs font-medium text-info">
-            {totalLitres}L / {waterRequirement/1000}
+            {totalLitres}L / {targetLitres}L
           </span>
         </div>
 
         {/* Progress Bar */}
-        <div className="h-2 bg-muted rounded-full overflow-hidden mb-3">
+        <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
           <motion.div
             className="h-full bg-info"
             initial={{ width: 0 }}
@@ -210,7 +212,9 @@ export function NutritionWidget({
             transition={{ duration: 1 }}
           />
         </div>
-
+        <p className="text-[10px] text-muted-foreground text-center italic">
+          Tracked via water logs
+        </p>
       </div>
     </motion.div>
   );
