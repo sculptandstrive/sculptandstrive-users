@@ -26,7 +26,7 @@ export default function Auth() {
   const { user, signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const fullNameRegex = /^(?=.{1,}$)[A-Za-z]+( [A-Za-z]+)*$/;
+  const fullNameRegex = /^(?=.{1,40}$)[A-Za-z]+( [A-Za-z]+)*$/;
   const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
   const passwordRegex = /^.{6,12}$/
 
@@ -36,23 +36,6 @@ export default function Auth() {
       navigate("/");
     }
   }, [user, navigate]);
-
-  // const validateForm = () => {
-  //   const newErrors: { email?: string; password?: string } = {};
-
-  //   const emailResult = emailSchema.safeParse(email);
-  //   if (!emailResult.success) {
-  //     newErrors.email = emailResult.error.errors[0].message;
-  //   }
-
-  //   const passwordResult = passwordSchema.safeParse(password);
-  //   if (!passwordResult.success) {
-  //     newErrors.password = passwordResult.error.errors[0].message;
-  //   }
-
-  //   // setErrors(newErrors);
-  //   return Object.keys(newErrors).length === 0;
-  // };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -248,6 +231,29 @@ export default function Auth() {
     }
   };
 
+  const handleFullName = (e) => {
+    console.log(e.target.value);
+    if(e.target.value.length > 40){
+      toast({
+        title: "Full Name Error",
+        description: "Max Limit is 40",
+        variant: 'destructive'
+      })
+      return;
+    }
+
+    if(!fullNameRegex.test(e.target.value)){
+      toast({
+        title: "Full Name Error",
+        description: "Only Alphabets are allowed",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setFullName(e.target.value);
+  }
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <motion.div
@@ -258,14 +264,19 @@ export default function Auth() {
         {/* Logo & Title */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full  flex items-center justify-center">
-            <img src = {LogoImage} className="w-full h-full text-primary-foreground"/>
+            <img
+              src={LogoImage}
+              className="w-full h-full text-primary-foreground"
+            />
             {/* <Dumbbell className="w-8 h-8 text-primary-foreground" /> */}
           </div>
           <h1 className="text-3xl font-display font-bold mb-2">
             <span className="gradient-text">Sculpt</span> & Strive
           </h1>
           <p className="text-muted-foreground">
-            {isLogin ? "Welcome back! Log in to continue." : "Create an account to get started."}
+            {isLogin
+              ? "Welcome back! Log in to continue."
+              : "Create an account to get started."}
           </p>
         </div>
 
@@ -282,7 +293,7 @@ export default function Auth() {
                     type="text"
                     placeholder="John Doe"
                     value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
+                    onChange={handleFullName}
                     className="pl-10"
                   />
                 </div>
@@ -314,10 +325,12 @@ export default function Auth() {
               <div className="flex justify-between">
                 <Label htmlFor="password">Password</Label>
                 <button
-                    type="button"
-                    onClick={handleResetPassword}
-                    className="text-sm text-primary hover:underline"
-                  >Reset Password</button>
+                  type="button"
+                  onClick={handleResetPassword}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Reset Password
+                </button>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -337,7 +350,11 @@ export default function Auth() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
               {/* {errors.password && (
@@ -355,8 +372,10 @@ export default function Auth() {
                   <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                   {isLogin ? "Logging in..." : "Creating account..."}
                 </span>
+              ) : isLogin ? (
+                "Log In"
               ) : (
-                isLogin ? "Log In" : "Create Account"
+                "Create Account"
               )}
             </Button>
           </form>
