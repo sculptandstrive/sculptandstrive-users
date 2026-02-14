@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,8 @@ export default function PreQuestion() {
 
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const inputRefs = useRef([]);
 
   // Validation limits for each field
   const validationRules = {
@@ -259,6 +261,13 @@ export default function PreQuestion() {
     }
   };
 
+  const handleEnter = (e, index) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <motion.div
@@ -277,12 +286,14 @@ export default function PreQuestion() {
                 </label>
                 <Input
                   type="text"
+                  ref={(el) => (inputRefs.current[0] = el)}
+                  onKeyDown={(e) => handleEnter(e, 0)}
                   placeholder="e.g., 75.5"
                   value={measurements.weight_kg}
                   onChange={(e) => handleChange("weight_kg", e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Range: 30-300 kg 
+                  Range: 30-300 kg
                 </p>
               </div>
 
@@ -292,12 +303,14 @@ export default function PreQuestion() {
                 </label>
                 <Input
                   type="text"
+                  ref={(el) => (inputRefs.current[1] = el)}
+                  onKeyDown={(e) => handleEnter(e, 1)}
                   placeholder="e.g., 175"
                   value={measurements.height_cm}
                   onChange={(e) => handleChange("height_cm", e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Range: 100-250 cm 
+                  Range: 100-250 cm
                 </p>
               </div>
             </div>
@@ -314,12 +327,14 @@ export default function PreQuestion() {
                   </label>
                   <Input
                     type="text"
+                    ref={(el) => (inputRefs.current[2] = el)}
+                    onKeyDown={(e) => handleEnter(e, 2)}
                     placeholder="e.g., 95"
                     value={measurements.chest_cm}
                     onChange={(e) => handleChange("chest_cm", e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Range: 50-200 cm 
+                    Range: 50-200 cm
                   </p>
                 </div>
 
@@ -329,12 +344,14 @@ export default function PreQuestion() {
                   </label>
                   <Input
                     type="text"
+                    ref={(el) => (inputRefs.current[3] = el)}
+                    onKeyDown={(e) => handleEnter(e, 3)}
                     placeholder="e.g., 85"
                     value={measurements.waist_cm}
                     onChange={(e) => handleChange("waist_cm", e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Range: 40-200 cm 
+                    Range: 40-200 cm
                   </p>
                 </div>
 
@@ -344,12 +361,14 @@ export default function PreQuestion() {
                   </label>
                   <Input
                     type="text"
+                    ref={(el) => (inputRefs.current[4] = el)}
+                    onKeyDown={(e) => handleEnter(e, 4)}
                     placeholder="e.g., 100"
                     value={measurements.hips_cm}
                     onChange={(e) => handleChange("hips_cm", e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Range: 50-200 cm 
+                    Range: 50-200 cm
                   </p>
                 </div>
 
@@ -359,12 +378,14 @@ export default function PreQuestion() {
                   </label>
                   <Input
                     type="text"
+                    ref={(el) => (inputRefs.current[5] = el)}
+                    onKeyDown={(e) => handleEnter(e, 5)}
                     placeholder="e.g., 35"
                     value={measurements.arms_cm}
                     onChange={(e) => handleChange("arms_cm", e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Range: 15-100 cm 
+                    Range: 15-100 cm
                   </p>
                 </div>
 
@@ -374,12 +395,14 @@ export default function PreQuestion() {
                   </label>
                   <Input
                     type="text"
+                    ref={(el) => (inputRefs.current[6] = el)}
+                    onKeyDown={(e) => handleEnter(e, 6)}
                     placeholder="e.g., 60"
                     value={measurements.thighs_cm}
                     onChange={(e) => handleChange("thighs_cm", e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Range: 30-150 cm 
+                    Range: 30-150 cm
                   </p>
                 </div>
 
@@ -389,18 +412,24 @@ export default function PreQuestion() {
                   </label>
                   <Input
                     type="text"
+                    ref={(el) => (inputRefs.current[7] = el)}
+                    onKeyDown={(e) => handleEnter(e, 7)}
                     placeholder="e.g., 25"
                     value={measurements.age}
                     onChange={(e) => handleChange("age", e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Range: 10-120 years 
+                    Range: 10-120 years
                   </p>
                 </div>
               </div>
             </div>
 
-            <Button className="w-full" onClick={handleSubmit}>
+            <Button
+              ref={(el) => (inputRefs.current[8] = el)}
+              className="w-full"
+              onClick={handleSubmit}
+            >
               Save Measurements
             </Button>
           </CardContent>

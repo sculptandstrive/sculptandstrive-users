@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,8 @@ export default function PostQuestion() {
 
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  const inputRefs = useRef([]);
 
   // Validation limits for each field (same as PreQuestion)
   const validationRules = {
@@ -178,14 +180,35 @@ export default function PostQuestion() {
 
   const validateMeasurements = () => {
     // Check if at least one field is filled
-    const anyFilled = Object.values(measurements).some((val) => val !== "");
-    if (!anyFilled) {
-      toast({
-        title: "Validation Error",
-        description: "Please enter at least one measurement or skip",
-        variant: "destructive",
-      });
-      return false;
+   const allEmpty = Object.values(measurements).every((val) => val === "");
+   if (allEmpty) {
+     toast({
+       title: "Validation Error",
+       description: "Please fill all the fields",
+       variant: "destructive",
+     });
+     return false;
+   }
+
+    const fieldOrder = [
+      { key: "weight_kg", label: "Weight" },
+      { key: "height_cm", label: "Height" },
+      { key: "chest_cm", label: "Chest" },
+      { key: "waist_cm", label: "Waist" },
+      { key: "hips_cm", label: "Hips" },
+      { key: "arms_cm", label: "Arms" },
+      { key: "thighs_cm", label: "Thighs" },
+    ];
+
+    for (const field of fieldOrder) {
+      if (measurements[field.key] === "") {
+        toast({
+          title: "Validation Error",
+          description: `${field.label} is empty, please fill first`,
+          variant: "destructive",
+        });
+        return false;
+      }
     }
 
     // Validate each filled field against min/max limits
@@ -378,6 +401,16 @@ export default function PostQuestion() {
     navigate("/");
   };
 
+
+   const handleEnter = (e, index) => {
+     if (e.key === "Enter") {
+       e.preventDefault();
+       inputRefs.current[index + 1]?.focus();
+     }
+   };
+
+
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -404,6 +437,8 @@ export default function PostQuestion() {
                 </label>
                 <Input
                   type="text"
+                  ref={(el) => (inputRefs.current[0] = el)}
+                  onKeyDown={(e) => handleEnter(e, 0)}
                   placeholder="e.g., 75.5"
                   value={measurements.weight_kg}
                   onChange={(e) => handleChange("weight_kg", e.target.value)}
@@ -419,6 +454,8 @@ export default function PostQuestion() {
                 </label>
                 <Input
                   type="text"
+                  ref={(el) => (inputRefs.current[1] = el)}
+                  onKeyDown={(e) => handleEnter(e, 1)}
                   placeholder="e.g., 175"
                   value={measurements.height_cm}
                   onChange={(e) => handleChange("height_cm", e.target.value)}
@@ -441,6 +478,8 @@ export default function PostQuestion() {
                   </label>
                   <Input
                     type="text"
+                    ref={(el) => (inputRefs.current[2] = el)}
+                    onKeyDown={(e) => handleEnter(e, 2)}
                     placeholder="e.g., 95"
                     value={measurements.chest_cm}
                     onChange={(e) => handleChange("chest_cm", e.target.value)}
@@ -456,6 +495,8 @@ export default function PostQuestion() {
                   </label>
                   <Input
                     type="text"
+                    ref={(el) => (inputRefs.current[3] = el)}
+                    onKeyDown={(e) => handleEnter(e, 3)}
                     placeholder="e.g., 85"
                     value={measurements.waist_cm}
                     onChange={(e) => handleChange("waist_cm", e.target.value)}
@@ -471,6 +512,8 @@ export default function PostQuestion() {
                   </label>
                   <Input
                     type="text"
+                    ref={(el) => (inputRefs.current[4] = el)}
+                    onKeyDown={(e) => handleEnter(e, 4)}
                     placeholder="e.g., 100"
                     value={measurements.hips_cm}
                     onChange={(e) => handleChange("hips_cm", e.target.value)}
@@ -486,6 +529,8 @@ export default function PostQuestion() {
                   </label>
                   <Input
                     type="text"
+                    ref={(el) => (inputRefs.current[5] = el)}
+                    onKeyDown={(e) => handleEnter(e, 5)}
                     placeholder="e.g., 35"
                     value={measurements.arms_cm}
                     onChange={(e) => handleChange("arms_cm", e.target.value)}
@@ -501,6 +546,8 @@ export default function PostQuestion() {
                   </label>
                   <Input
                     type="text"
+                    ref={(el) => (inputRefs.current[6] = el)}
+                    onKeyDown={(e) => handleEnter(e, 6)}
                     placeholder="e.g., 60"
                     value={measurements.thighs_cm}
                     onChange={(e) => handleChange("thighs_cm", e.target.value)}
@@ -512,7 +559,11 @@ export default function PostQuestion() {
               </div>
             </div>
 
-            <Button className="w-full" onClick={handleSubmit}>
+            <Button
+              className="w-full"
+              ref={(el) => (inputRefs.current[7] = el)}
+              onClick={handleSubmit}
+            >
               Save Measurements
             </Button>
             <Button className="w-full" variant="ghost" onClick={handleSkip}>
