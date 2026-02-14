@@ -255,6 +255,30 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png"];
+    const maxSize = 5 * 1024 * 1024;
+
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Unsupported Image Type",
+        description: "Image Format should be jpg/jpeg, png only",
+        variant: 'destructive'
+      })
+      e.target.value = "";
+      return;
+    }
+
+    if(file.size > maxSize) {
+      toast({
+        title: "Unsupported Image Size",
+        description: "Image Size should be less than 5MB",
+        variant: "destructive",
+      });
+      e.target.value = "";
+      return;
+    }
+
     setUploading(true);
 
     const {
@@ -278,7 +302,6 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
       setUploading(false);
       return;
     }
-
 
     const { data } = supabase.storage
       .from("user-images")
@@ -433,12 +456,15 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
       }
 
       const nameRegex = /^[A-Za-z\s]+$/;
+      if(!form.firstName){
+        throw new Error("First Name Cannot be empty");
+      }
       if (form.firstName) {
         if (form.firstName.length <= 2) {
           throw new Error("First name size should be greater than 2");
         }
         if (!nameRegex.test(form.firstName)) {
-          throw new Error("First name should only contain alphabets");
+          throw new Error("First name should only have alphabets");
         }
       }
 
@@ -446,7 +472,7 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
         if (form.lastName.length <= 2) {
           throw new Error("Last name size should be greater than 2");
         } else if (!nameRegex.test(form.lastName)) {
-          throw new Error("Last name should only Contain Alphabets");
+          throw new Error("Last name should only have Alphabets");
         }
       }
 
@@ -454,7 +480,6 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
       if (form.phone.length > 0) {
         if (!phoneRegex.test(form.phone)) {
           throw new Error("Phone Number should only contain 10 Numbers");
-          return;
         }
       }
 
@@ -507,6 +532,13 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
     });
     await signOut();
   };
+
+  const getMaxDOB = () => {
+    const today = new Date();
+    today.setFullYear(today.getFullYear() - 10);
+    return today.toISOString().split("T")[0];
+  };
+
 
   return (
     <div className="space-y-8">
@@ -574,7 +606,7 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
                   </Avatar>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept=".jpg,.jpeg,.png,image/jpeg,image/png"
                     ref={fileInputRef}
                     hidden
                     onChange={handleFileChange}
@@ -632,11 +664,14 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="phone"
+                        type = "tel"
                         className="bg-muted border-border pl-10"
                         placeholder="Enter Phone Number"
                         value={form.phone}
-                        onChange={(e) =>
-                          setForm({ ...form, phone: e.target.value })
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D{0,10}/g, "");
+                          setForm({ ...form, phone: value })
+                        }
                         }
                       />
                     </div>
@@ -647,6 +682,7 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
                       id="dob"
                       type="date"
                       placeholder="10/12/1980"
+                      max={getMaxDOB()}
                       value={form.dob}
                       className="bg-muted border-border mt-1"
                       onChange={(e) =>
@@ -676,12 +712,20 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
               </div>
 
               <div className="flex justify-end mt-6">
-                <Button
-                  className="bg-gradient-primary hover:opacity-90 text-primary-foreground"
-                  onClick={handleUserDetails}
-                >
-                  {loading ? "Loading....." : "Save Changes"}
-                </Button>
+                {!loading ? (
+                  <Button
+                    className="bg-gradient-primary hover:opacity-90 text-primary-foreground"
+                    onClick={handleUserDetails}
+                  >
+                    Save Changes
+                  </Button>
+                ) : (
+                  <Button
+                    className="bg-gradient-primary hover:opacity-90 text-primary-foreground"
+                  >
+                    Loading
+                  </Button>
+                )}
               </div>
             </div>
 

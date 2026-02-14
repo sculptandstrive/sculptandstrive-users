@@ -40,10 +40,7 @@ export default function Auth() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // if (!validateForm()) return;
-
     setIsLoading(true);
-
     try {
       if (isLogin) {
         if(email === ""){
@@ -187,6 +184,10 @@ export default function Auth() {
           }
 
         } else {
+          if(error){
+            console.log("Error is: ", error);
+          }
+          
           toast({
             title: "Account created!",
             description: "Welcome to Sculpt & Strive!",
@@ -239,13 +240,12 @@ export default function Auth() {
       if (e.target.value.length > 40) {
         toast({
           title: "Full Name Error",
-          description: "Max Limit is 40",
+          description: "Max Limit is 40 Letters",
           variant: "destructive",
         });
         return;
       }
-
-    if(!fullNameRegex.test(e.target.value)){
+    if (!/^[a-zA-Z\s]*$/.test(e.target.value)) {
       toast({
         title: "Full Name Error",
         description: "Only Alphabets are allowed",
