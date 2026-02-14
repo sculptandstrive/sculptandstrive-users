@@ -27,8 +27,7 @@ export default function Sessions() {
   useEffect(() => {
     fetchSessions();
 
-    // REAL-TIME FIX: Listen to both 'sessions' and 'session_assignments'
-    // If the admin assigns a session to jhili, the dashboard needs to refresh.
+   
     const channel = supabase
       .channel('session-updates')
       .on('postgres_changes', 
@@ -54,10 +53,7 @@ export default function Sessions() {
       console.log(user.id);
       if (!user) return;
 
-<<<<<<< HEAD
-=======
-      // Fetch sessions and include the left join for assignments
->>>>>>> 255f963 (nutrition fixed)
+
       const { data, error } = await supabase
         .from("sessions")
         .select(`
@@ -68,20 +64,11 @@ export default function Sessions() {
 
       if (error) throw error;
       const visibleSessions = (data || []).filter(session => {
-<<<<<<< HEAD
-        const isMass = session.admin_is_mass === true;
-=======
-        // 1. Check if it's a mass session (public)
-        const isMass = session.admin_is_mass === true;
-        
-        // 2. Check if jhili (current user) is in the assignments array
-        // String() normalization prevents UUID type mismatches
->>>>>>> 255f963 (nutrition fixed)
+
         const isAssigned = session.session_assignments?.some(
           (a: any) => String(a.client_id) === String(user.id)
         );
-        console.log(isAssigned);
-        return isMass || isAssigned;
+        
       });
 
       console.log(visibleSessions);
