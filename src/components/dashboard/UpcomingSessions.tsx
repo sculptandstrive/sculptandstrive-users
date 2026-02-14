@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Calendar, Clock, Video, MessageCircle, RefreshCw } from "lucide-react";
 import { supabase } from "@/lib/supabase"; 
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,24 @@ export function UpcomingSessions() {
 
   useEffect(() => {
     fetchUserSessions();
+
+    // REAL-TIME SYNC: Listen for changes in both tables so the dashboard 
+    // updates the moment an admin assigns a session.
+    const channel = supabase
+      .channel('upcoming-sessions-sync')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'sessions' }, 
+        () => fetchUserSessions() 
+      )
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'session_assignments' }, 
+        () => fetchUserSessions() 
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchUserSessions = async () => {
@@ -22,8 +40,7 @@ export function UpcomingSessions() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // FIX 1: Sort by ID DESC so the newest created sessions (Yubi/Guru) 
-      // appear at the top of the schedule.
+      // FIX 1: Sort by ID DESC so the newest sessions appear at the top.
       const { data, error } = await supabase
         .from("sessions")
         .select(`
@@ -37,8 +54,7 @@ export function UpcomingSessions() {
       const visibleSessions = (data || []).filter(session => {
         const isMass = session.admin_is_mass === true;
         
-        // FIX 2: Strict String normalization to ensure the authenticated 
-        // user ID matches the database assignment.
+        // FIX 2: Strict String normalization for UUID comparison.
         const isAssigned = session.session_assignments?.some(
           (a: any) => String(a.client_id) === String(user.id)
         );
@@ -47,8 +63,7 @@ export function UpcomingSessions() {
       });
 
       // Show the most relevant 3 sessions
-      const uniqueSessions = visibleSessions.slice(0, 3);
-      setSessions(uniqueSessions);
+      setSessions(visibleSessions.slice(0, 3));
 
     } catch (err: any) {
       console.error("Fetch Error:", err.message);
@@ -67,6 +82,7 @@ export function UpcomingSessions() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        // Record attendance/assignment interaction
         await supabase
           .from("session_assignments")
           .upsert({ 
@@ -120,51 +136,54 @@ export function UpcomingSessions() {
               <p className="text-sm text-muted-foreground">No sessions assigned today.</p>
           </div>
         ) : (
-          sessions.map((session, index) => {
-            const isWhatsApp = session.platform === 'whatsapp';
-            const startTime = session.start_time 
-              ? new Date(session.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-              : "Live";
+          <AnimatePresence>
+            {sessions.map((session, index) => {
+              const isWhatsApp = session.platform === 'whatsapp';
+              const startTime = session.start_time 
+                ? new Date(session.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : "Live";
 
-            return (
-              <motion.div
-                key={session.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all border border-transparent hover:border-primary/10"
-              >
-                <Avatar className="w-10 h-10 border border-border">
-                  <AvatarFallback className="bg-background text-primary text-xs font-bold">
-                    {session.instructor?.[0] || "S"}
-                  </AvatarFallback>
-                </Avatar>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <h4 className="font-bold truncate text-sm">{session.title}</h4>
-                    {session.type === "live" && (
-                      <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                    )}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">Coach {session.instructor || 'Staff'}</p>
-                </div>
-
-                <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground mr-2 font-medium">
-                  <Clock className="w-3 h-3" />
-                  <span>{startTime}</span>
-                </div>
-
-                <Button 
-                  size="sm" 
-                  className={`h-8 px-3 text-xs ${isWhatsApp ? "bg-[#25D366] hover:bg-[#128C7E]" : "bg-primary"}`}
-                  onClick={() => handleSessionJoin(session)} 
+              return (
+                <motion.div
+                  key={session.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all border border-transparent hover:border-primary/10"
                 >
-                  {isWhatsApp ? "Contact" : "Join"}
-                </Button>
-              </motion.div>
-            );
-          })
+                  <Avatar className="w-10 h-10 border border-border">
+                    <AvatarFallback className="bg-background text-primary text-xs font-bold">
+                      {session.instructor?.[0] || "S"}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <h4 className="font-bold truncate text-sm">{session.title}</h4>
+                      {session.type === "live" && (
+                        <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Coach {session.instructor || 'Staff'}</p>
+                  </div>
+
+                  <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground mr-2 font-medium">
+                    <Clock className="w-3 h-3" />
+                    <span>{startTime}</span>
+                  </div>
+
+                  <Button 
+                    size="sm" 
+                    className={`h-8 px-3 text-xs ${isWhatsApp ? "bg-[#25D366] hover:bg-[#128C7E]" : "bg-primary"}`}
+                    onClick={() => handleSessionJoin(session)} 
+                  >
+                    {isWhatsApp ? "Contact" : "Join"}
+                  </Button>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         )}
       </div>
     </motion.div>

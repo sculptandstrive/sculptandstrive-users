@@ -5,64 +5,62 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOCAL_JSON_URL = "https://zoxqjjuokxiyxusqapvv.supabase.co/storage/v1/object/public/assets/indian_foods.json";
-
 serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-
-  // 1. Retrieve the updated secrets
-  const appId = Deno.env.get("EDAMAM_APP_ID");
-  const appKey = Deno.env.get("EDAMAM_APP_KEY");
+  // Handle CORS
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
 
   try {
     const { query } = await req.json();
     const cleanQuery = query?.toLowerCase().trim();
-    if (!cleanQuery) return new Response(JSON.stringify({ foods: [] }), { headers: corsHeaders });
 
-    //  Local Indian Foods + Edamam API
-    const [localRes, edamamRes] = await Promise.allSettled([
-      fetch(`${LOCAL_JSON_URL}?t=${Date.now()}`).then(r => r.json()),
-      fetch(`https://api.edamam.com/api/food-database/v2/parser?app_id=${appId}&app_key=${appKey}&ingr=${encodeURIComponent(cleanQuery)}`)
-        .then(async r => {
-          if (!r.ok) {
-            const err = await r.json();
-            throw new Error(`Edamam Error ${r.status}: ${err.message || 'Unauthorized'}`);
-          }
-          return r.json();
-        })
-    ]);
-
-    // 3. Process Local Results
-    const localFoods = (localRes.status === 'fulfilled' ? localRes.value : [])
-      .filter((f: any) => f.name.toLowerCase().includes(cleanQuery))
-      .map((f: any) => ({ ...f, id: `local-${f.id}`, score: 200 }));
-
-    // 4. Process API Results
-    let apiFoods = [];
-    if (edamamRes.status === 'fulfilled') {
-      apiFoods = (edamamRes.value.hints || []).map((h: any) => ({
-        id: `edamam-${h.food.foodId}`,
-        name: h.food.label.toUpperCase(),
-        brand: h.food.brand || "Standard Reference",
-        calories: Math.round(h.food.nutrients.ENERC_KCAL || 0),
-        protein: parseFloat((h.food.nutrients.PROCNT || 0).toFixed(1)),
-        carbs: parseFloat((h.food.nutrients.CHOCDF || 0).toFixed(1)),
-        fats: parseFloat((h.food.nutrients.FAT || 0).toFixed(1)),
-        score: 100
-      }));
+    if (!cleanQuery) {
+      return new Response(JSON.stringify({ foods: [] }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
     }
 
-    const combined = [...localFoods, ...apiFoods].sort((a, b) => b.score - a.score);
+    const appId = Deno.env.get("EDAMAM_APP_ID");
+    const appKey = Deno.env.get("EDAMAM_APP_KEY");
 
-    return new Response(JSON.stringify({ foods: combined.slice(0, 25) }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    //  URL 
+    const apiUrl = `https://api.edamam.com/api/food-database/v2/parser?app_id=${appId}&app_key=${appKey}&ingr=${encodeURIComponent(cleanQuery)}`;
+
+    // Fetch with error handling
+    const response = await fetch(apiUrl);
+    const contentType = response.headers.get("content-type");
+    if (!response.ok || !contentType?.includes("application/json")) {
+      const errorText = await response.text();
+      console.error("Edamam API returned non-JSON response:", errorText.substring(0, 100));
+      throw new Error(`API Error: ${response.status}. Check your API keys and Search term.`);
+    }
+
+    const data = await response.json();
+    const apiFoods = (data.hints || []).map((h: any) => ({
+      id: `edamam-${h.food.foodId}`,
+      name: h.food.label.toUpperCase(),
+      brand: h.food.brand || "Standard Reference",
+      calories: Math.round(h.food.nutrients.ENERC_KCAL || 0),
+      protein: parseFloat((h.food.nutrients.PROCNT || 0).toFixed(1)),
+      carbs: parseFloat((h.food.nutrients.CHOCDF || 0).toFixed(1)),
+      fats: parseFloat((h.food.nutrients.FAT || 0).toFixed(1)),
+    }));
+
+    return new Response(JSON.stringify({ foods: apiFoods }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200
     });
 
   } catch (error) {
     console.error("Function Error:", error.message);
-    return new Response(JSON.stringify({ error: "Search failed", details: error.message }), { 
-      headers: corsHeaders,
-      status: 500
+    return new Response(JSON.stringify({ 
+      error: "Search failed", 
+      details: error.message,
+      foods: [] 
+    }), { 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200 
     });
   }
 });

@@ -1,5 +1,7 @@
 import { motion } from "framer-motion";
 import { Apple, Droplets } from "lucide-react";
+// 1. Import the utility functions to ensure consistency across the app
+import { calculateNutritionTotals, getNutritionGoals } from "@/utils/nutritionCalculations";
 
 interface NutritionLog {
   id: string;
@@ -27,53 +29,52 @@ interface NutritionTargets {
 interface NutritionWidgetProps {
   nutritionLogs: NutritionLog[];
   waterIntake: WaterIntake[];
+  assignedPlan?: any; // Added to support admin-assigned plans
+  userRequirements?: any; // Added for profile fallback
   targets?: NutritionTargets;
   waterRequirement: number; // In ml, e.g., 3000
 }
 
-const DEFAULT_TARGETS: NutritionTargets = {
-  calories: 2200,
-  protein: 150,
-  carbs: 250,
-  fats: 70,
-  waterGlasses: 8,
-};
-
 export function NutritionWidget({
   nutritionLogs = [],
   waterIntake = [],
-  targets = DEFAULT_TARGETS,
-  waterRequirement = 3000 // Added fallback value
+  assignedPlan = null,
+  userRequirements = null,
+  waterRequirement = 3000,
 }: NutritionWidgetProps) {
+  
+  
+  const totals = calculateNutritionTotals(nutritionLogs);
+  const dynamicGoals = getNutritionGoals(assignedPlan, userRequirements);
 
-  // 1. Accumulate totals with safety checks
-  const caloriesConsumed = nutritionLogs.reduce(
-    (sum, log) => sum + (Number(log.calories) || 0),
-    0,
-  );
-
-  const protein = nutritionLogs.reduce((s, l) => s + (Number(l.protein_g) || 0), 0);
-  const carbs = nutritionLogs.reduce((s, l) => s + (Number(l.carbs_g) || 0), 0);
-  const fats = nutritionLogs.reduce((s, l) => s + (Number(l.fats_g) || 0), 0);
-
-  // 2. Calculate percentages for progress bars
+  
   const caloriesPercent =
-    targets.calories > 0
-      ? Math.min((caloriesConsumed / targets.calories) * 100, 100)
+    dynamicGoals.calories > 0
+      ? Math.min((totals.calories / dynamicGoals.calories) * 100, 100)
       : 0;
 
   const macros = [
     {
       name: "Protein",
-      value: protein,
-      target: targets.protein,
+      value: totals.protein,
+      target: dynamicGoals.protein,
       color: "bg-primary",
     },
-    { name: "Carbs", value: carbs, target: targets.carbs, color: "bg-info" },
-    { name: "Fats", value: fats, target: targets.fats, color: "bg-accent" },
+    { 
+      name: "Carbs", 
+      value: totals.carbs, 
+      target: dynamicGoals.carbs, 
+      color: "bg-info" 
+    },
+    { 
+      name: "Fats", 
+      value: totals.fats, 
+      target: dynamicGoals.fats, 
+      color: "bg-accent" 
+    },
   ];
 
-  // 3. Hydration Calculations
+  // Hydration Calculations
   const totalWaterMl = waterIntake.reduce(
     (sum, w) => sum + (Number(w.amount_ml) || 0),
     0,
@@ -119,7 +120,7 @@ export function NutritionWidget({
               cy="80"
               r="70"
               fill="none"
-              stroke="url(#calorieGradient)"
+              stroke="url(#calorieGradientWidget)"
               strokeWidth="12"
               strokeLinecap="round"
               initial={{ strokeDashoffset: 440 }}
@@ -131,7 +132,7 @@ export function NutritionWidget({
             />
             <defs>
               <linearGradient
-                id="calorieGradient"
+                id="calorieGradientWidget"
                 x1="0%"
                 y1="0%"
                 x2="100%"
@@ -145,10 +146,10 @@ export function NutritionWidget({
 
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
             <span className="text-3xl font-display font-bold tabular-nums">
-              {Math.round(caloriesConsumed)}
+              {Math.round(totals.calories)}
             </span>
-            <span className="text-xs text-muted-foreground uppercase tracking-wider">
-              / {targets.calories} kcal
+            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+              / {dynamicGoals.calories} kcal
             </span>
           </div>
         </div>
@@ -164,14 +165,13 @@ export function NutritionWidget({
 
           return (
             <div key={macro.name}>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-muted-foreground font-medium">
+              <div className="flex justify-between text-xs mb-1 uppercase font-bold tracking-tight">
+                <span className="text-muted-foreground">
                   {macro.name}
                 </span>
-                <span className="font-medium tabular-nums">
-                  {/* Using toFixed(1) for precision with Edamam API data */}
+                <span className="tabular-nums">
                   {macro.value.toFixed(1)}g{" "}
-                  <span className="text-muted-foreground text-xs">
+                  <span className="text-muted-foreground text-[10px] font-normal">
                     / {macro.target}g
                   </span>
                 </span>
@@ -195,15 +195,14 @@ export function NutritionWidget({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Droplets className="w-4 h-4 text-info" />
-            <span className="text-sm font-semibold">Hydration</span>
+            <span className="text-xs font-bold uppercase">Hydration</span>
           </div>
 
-          <span className="text-xs font-medium text-info">
+          <span className="text-xs font-bold font-mono text-info">
             {totalLitres}L / {targetLitres}L
           </span>
         </div>
 
-        {/* Progress Bar */}
         <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
           <motion.div
             className="h-full bg-info"
