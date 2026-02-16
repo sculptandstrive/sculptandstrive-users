@@ -57,6 +57,9 @@ export default function Fitness() {
   const [focusedExerciseId, setFocusedExerciseId] = useState<string | null>(null);
   const [restTime, setRestTime] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // prevent double-clicks
+  const [isAdding, setIsAdding] = useState(false);
 
   const [selectedRestDuration, setSelectedRestDuration] = useState(60);
   const [showRestOptions, setShowRestOptions] = useState(false);
@@ -68,7 +71,6 @@ export default function Fitness() {
     { label: "BMI", value: "24.1", unit: "", change: -0.1 },
   ];
 
-  // DATE 
   const todayDayName = useMemo(() => 
     new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date()), []
   );
@@ -133,7 +135,6 @@ export default function Fitness() {
       .select("*")
       .eq("workout_id", workoutId)
       .order("created_at", { ascending: true });
-      console.log(exData);
 
     if (!exError) setExercises(exData || []);
   };
@@ -172,7 +173,6 @@ export default function Fitness() {
         .eq("user_id", user.id)
         .order("order_index", { ascending: true });
 
-
       let mappedPlan: any[] = [];
 
       if (!plan || plan.length === 0) {
@@ -204,7 +204,15 @@ export default function Fitness() {
   };
 
   const updateExerciseField = async (id: string, field: string, value: string) => {
-    const numValue = parseInt(value) || 0;
+    let numValue = parseInt(value) || 0;
+
+    if ((field === 'sets' || field === 'reps') && numValue <= 0) {
+      numValue = 1;
+    }
+    if (field === 'weight_kg' && numValue < 0) {
+      numValue = 0;
+    }
+
     setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, [field]: numValue } : ex));
     
     const { error } = await supabase
@@ -242,16 +250,36 @@ export default function Fitness() {
   };
 
   const addExercise = async (template: typeof exerciseLibrary[0]) => {
-    const isAlreadyAdded = exercises.some(ex => ex.name.toLowerCase() === template.name.toLowerCase());
+    
+    if (isAdding || !activeWorkoutId) return;
+
+    const isAlreadyAdded = exercises.some(
+      (ex) => ex.name.trim().toLowerCase() === template.name.trim().toLowerCase()
+    );
+
     if (isAlreadyAdded) {
-      toast({ title: "Exercise already in list", variant: "destructive" });
+      toast({ 
+        title: "Already Added", 
+        description: `${template.name} is already in your list.`, 
+        variant: "destructive" 
+      });
       return;
     }
 
+    //  Lock the process
+    setIsAdding(true);
+
     const { data: authData } = await supabase.auth.getUser();
     const user = authData?.user;
-    if (!user || !activeWorkoutId) return;
     
+    if (!user) {
+      setIsAdding(false);
+      return;
+    }
+    
+    // Optimistically close modal
+    setIsLogOpen(false);
+
     const { data, error } = await supabase.from('exercises').insert([{ 
       ...template, 
       completed: false, 
@@ -261,10 +289,14 @@ export default function Fitness() {
 
     if (!error && data) {
       setExercises(prev => [...prev, ...data]);
-      setIsLogOpen(false);
       setSearchTerm("");
       toast({ title: `${template.name} added!` });
+    } else if (error) {
+      toast({ title: "Error adding exercise", variant: "destructive" });
     }
+
+    // Unlock the process
+    setIsAdding(false);
   };
 
   const handleReset = async () => {
@@ -316,7 +348,6 @@ export default function Fitness() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8 bg-[#0b0f13] min-h-screen text-white font-sans">
-      {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-1">Fitness Tracking</h1>
@@ -330,7 +361,6 @@ export default function Fitness() {
         </Button>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {bodyStats.map((stat) => (
           <div key={stat.label} className="bg-[#161b22] border border-slate-800 p-5 rounded-xl">
@@ -347,7 +377,6 @@ export default function Fitness() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* Left Column: Exercises */}
         <div className="lg:col-span-2 bg-[#161b22] border border-slate-800 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2 text-[#2dd4bf]">
@@ -448,7 +477,21 @@ export default function Fitness() {
                 <div className="flex flex-col items-center justify-center text-center py-20 text-slate-500 border border-dashed border-slate-800 rounded-xl">
                   {weeklyPlan.find(d => d.id === activeWorkoutId)?.workout_name?.toLowerCase().includes("rest") 
                     ? <><Coffee className="w-10 h-10 mb-3 opacity-20 text-[#2dd4bf]" /> It's a Rest Day! Take it easy.</>
-                    : <><Dumbbell className="w-10 h-10 mb-3 opacity-20" /> No exercises added for this day.</>}
+                    : (
+                      <>
+                        <Dumbbell className="w-10 h-10 mb-3 opacity-20" /> 
+                        <p className="mb-4">No exercises added for this day.</p>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setIsLogOpen(true)}
+                          className="border-[#2dd4bf]/30 text-[#2dd4bf] hover:bg-[#2dd4bf]/10"
+                        >
+                          <Plus className="w-4 h-4 mr-2" /> Add Exercise Shortcut
+                        </Button>
+                      </>
+                    )
+                  }
                 </div>
               )}
             </AnimatePresence>
@@ -515,7 +558,6 @@ export default function Fitness() {
           </div>
         </div>
 
-        {/* Sidebar Plan */}
         <div className="bg-[#161b22] border border-slate-800 rounded-2xl p-6 flex flex-col max-h-[calc(100vh-120px)] sticky top-6">
           <div className="flex items-center justify-between mb-6 shrink-0">
             <div className="flex items-center gap-2">
@@ -594,7 +636,6 @@ export default function Fitness() {
         </div>
       </div>
 
-      {/* Log Modal */}
       <AnimatePresence>
         {isLogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -627,13 +668,20 @@ export default function Fitness() {
                   .map((item) => (
                   <div
                     key={item.name}
-                    className="p-4 bg-[#0d1117] border border-slate-800 rounded-xl hover:border-[#2dd4bf] cursor-pointer transition-colors"
+                    className={`p-4 bg-[#0d1117] border border-slate-800 rounded-xl hover:border-[#2dd4bf] cursor-pointer transition-colors ${isAdding ? "opacity-50 pointer-events-none" : ""}`}
                     onClick={() => addExercise(item)}
                   >
-                    <p className="font-bold text-[14px]">{item.name}</p>
-                    <p className="text-[11px] text-slate-500 uppercase">
-                      {item.sets} Sets • {item.reps} Reps
-                    </p>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-[14px]">{item.name}</p>
+                        <p className="text-[11px] text-slate-500 uppercase">
+                          {item.sets} Sets • {item.reps} Reps
+                        </p>
+                      </div>
+                      {isAdding && searchTerm.toLowerCase() === item.name.toLowerCase() && (
+                        <Loader2 className="w-4 h-4 animate-spin text-[#2dd4bf]" />
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
