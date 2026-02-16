@@ -122,11 +122,9 @@ export default function Fitness() {
       const latest = data[0];
       const prev = data.length > 1 ? data[1] : latest;
 
-      //  calculate Body Fat if not explicitly provided
       const calculateBF = (row: any) => {
         if (row.body_fat_percentage > 0) return row.body_fat_percentage;
         if (!row.waist_cm || !row.neck_cm || !row.height_cm) return 0;
-        //formula navey
         const bf = 495 / (1.03248 - 0.19077 * Math.log10(row.waist_cm - row.neck_cm) + 0.15456 * Math.log10(row.height_cm)) - 450;
         return Math.max(0, bf); 
       };
@@ -139,7 +137,7 @@ export default function Fitness() {
         weight: currentWeight > 0 ? currentWeight.toString() : "---",
         weightChange: Number((currentWeight - (prev.weight_kg || 0)).toFixed(1)),
         bmi: (latest.height_cm > 0 ? (currentWeight / ((latest.height_cm / 100) ** 2)) : 0).toFixed(1),
-        bmiChange: 0, // Calculate similar to weight
+        bmiChange: 0,
         bodyFat: currentBF > 0 ? currentBF.toFixed(1) : "---",
         bodyFatChange: 0,
         muscleMass: currentMuscle > 0 ? currentMuscle.toFixed(1) : "---",
@@ -370,31 +368,31 @@ export default function Fitness() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-8 bg-[#0b0f13] min-h-screen text-white font-sans">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 md:space-y-8 bg-[#0b0f13] min-h-screen text-white font-sans overflow-x-hidden">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-1">Fitness Tracking</h1>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-1">Fitness Tracking</h1>
           <p className="text-[14px] text-slate-400">Log workouts and crush your goals</p>
         </div>
         <Button
           onClick={() => setIsLogOpen(true)}
-          className="bg-[#2dd4bf] hover:bg-[#26b4a2] text-black font-bold h-10 px-6 rounded-lg flex items-center gap-2"
+          className="bg-[#2dd4bf] hover:bg-[#26b4a2] text-black font-bold h-10 px-6 rounded-lg flex items-center gap-2 w-full sm:w-auto justify-center"
         >
           <Plus className="w-4 h-4" /> Add Exercise
         </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats Cards - Wrapped for overflow safety */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {bodyStatsDisplay.map((stat) => (
-          <div key={stat.label} className="bg-[#161b22] border border-slate-800 p-5 rounded-xl">
-            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">{stat.label}</p>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold">{stat.value}</span>
-              <span className="text-[13px] text-slate-500 font-bold">{stat.unit}</span>
+          <div key={stat.label} className="bg-[#161b22] border border-slate-800 p-4 md:p-5 rounded-xl">
+            <p className="text-[10px] md:text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">{stat.label}</p>
+            <div className="flex items-baseline gap-1 flex-wrap">
+              <span className="text-xl md:text-2xl font-bold">{stat.value}</span>
+              <span className="text-[12px] md:text-[13px] text-slate-500 font-bold">{stat.unit}</span>
             </div>
-            <p className={`text-[11px] font-bold mt-2 ${
+            <p className={`text-[10px] md:text-[11px] font-bold mt-2 truncate ${
                 stat.label === "Muscle Mass" 
                 ? (stat.change >= 0 ? "text-blue-500" : "text-red-400")
                 : (stat.change <= 0 ? "text-emerald-500" : "text-red-400")
@@ -405,13 +403,13 @@ export default function Fitness() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 items-start">
         {/* Main Workout Panel */}
-        <div className="lg:col-span-2 bg-[#161b22] border border-slate-800 rounded-2xl p-6">
+        <div className="lg:col-span-2 bg-[#161b22] border border-slate-800 rounded-2xl p-4 md:p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2 text-[#2dd4bf]">
               <Dumbbell className="w-5 h-5" />
-              <h3 className="font-bold text-[16px] tracking-tight">
+              <h3 className="font-bold text-[15px] md:text-[16px] tracking-tight">
                 {weeklyPlan.find(d => d.id === activeWorkoutId)?.day_name === todayDayName ? "Today's" : weeklyPlan.find(d => d.id === activeWorkoutId)?.day_name}'s Workout
               </h3>
             </div>
@@ -425,12 +423,12 @@ export default function Fitness() {
             ) : (
               <div className="flex items-center gap-2">
                 <Settings2 className="w-3.5 h-3.5 text-slate-500" />
-                <span className="text-[11px] text-slate-500 font-bold uppercase tracking-widest">Rest: {selectedRestDuration}s</span>
+                <span className="text-[10px] md:text-[11px] text-slate-500 font-bold uppercase tracking-widest">Rest: {selectedRestDuration}s</span>
               </div>
             )}
           </div>
 
-          <div className="mb-8">
+          <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[12px] text-slate-400 font-medium">
                 {exercises.filter(e => e.completed).length}/{exercises.length} sets done
@@ -446,7 +444,7 @@ export default function Fitness() {
                 <motion.div
                   key={exercise.id}
                   layout
-                  className={`group flex items-center gap-4 p-4 rounded-xl transition-all border ${
+                  className={`group flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-xl transition-all border ${
                     focusedExerciseId === exercise.id
                       ? "border-[#2dd4bf] ring-1 ring-[#2dd4bf]"
                       : exercise.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-[#0d1117] border-slate-800"
@@ -454,40 +452,40 @@ export default function Fitness() {
                 >
                   <button
                     onClick={() => toggleExercise(exercise.id, exercise.completed)}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                    className={`w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center shrink-0 transition-all ${
                       exercise.completed ? "bg-emerald-500 text-black border-emerald-500" : "border-2 border-slate-700 hover:border-[#2dd4bf]"
                     }`}
                   >
-                    {exercise.completed ? <Check className="w-5 h-5 stroke-[3px]" /> : <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />}
+                    {exercise.completed ? <Check className="w-4 h-4 md:w-5 md:h-5 stroke-[3px]" /> : <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />}
                   </button>
-                  <div className="flex-1">
-                    <p className={`text-[15px] font-bold ${exercise.completed ? "text-slate-500 line-through" : "text-white"}`}>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[14px] md:text-[15px] font-bold truncate ${exercise.completed ? "text-slate-500 line-through" : "text-white"}`}>
                       {exercise.name}
                     </p>
-                    <div className="flex items-center gap-4 mt-1.5">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">Sets</span>
+                    <div className="flex items-center gap-2 md:gap-4 mt-1.5 overflow-x-auto no-scrollbar">
+                      <div className="flex flex-col shrink-0">
+                        <span className="text-[8px] md:text-[9px] text-slate-500 font-bold uppercase mb-0.5">Sets</span>
                         <Input 
                           type="number" 
-                          className="h-7 w-12 bg-[#161b22] border-slate-800 text-[12px] p-1 text-center font-bold"
+                          className="h-7 w-10 md:w-12 bg-[#161b22] border-slate-800 text-[11px] md:text-[12px] p-1 text-center font-bold"
                           value={exercise.sets}
                           onChange={(e) => updateExerciseField(exercise.id, 'sets', e.target.value)}
                         />
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">Reps</span>
+                      <div className="flex flex-col shrink-0">
+                        <span className="text-[8px] md:text-[9px] text-slate-500 font-bold uppercase mb-0.5">Reps</span>
                         <Input 
                           type="number" 
-                          className="h-7 w-12 bg-[#161b22] border-slate-800 text-[12px] p-1 text-center font-bold"
+                          className="h-7 w-10 md:w-12 bg-[#161b22] border-slate-800 text-[11px] md:text-[12px] p-1 text-center font-bold"
                           value={exercise.reps}
                           onChange={(e) => updateExerciseField(exercise.id, 'reps', e.target.value)}
                         />
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">Weight (kg)</span>
+                      <div className="flex flex-col shrink-0">
+                        <span className="text-[8px] md:text-[9px] text-slate-500 font-bold uppercase mb-0.5">Weight (kg)</span>
                         <Input 
                           type="number" 
-                          className="h-7 w-16 bg-[#161b22] border-slate-800 text-[12px] p-1 text-center font-bold"
+                          className="h-7 w-14 md:w-16 bg-[#161b22] border-slate-800 text-[11px] md:text-[12px] p-1 text-center font-bold"
                           value={exercise.weight_kg}
                           onChange={(e) => updateExerciseField(exercise.id, 'weight_kg', e.target.value)}
                         />
@@ -496,7 +494,7 @@ export default function Fitness() {
                   </div>
                   <button
                     onClick={() => deleteSingleExercise(exercise.id)}
-                    className="opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-red-500 transition-opacity"
+                    className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 p-2 text-slate-600 hover:text-red-500 transition-opacity shrink-0"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -504,20 +502,20 @@ export default function Fitness() {
               ))}
 
               {exercises.length === 0 && (
-                <div className="flex flex-col items-center justify-center text-center py-20 text-slate-500 border border-dashed border-slate-800 rounded-xl">
+                <div className="flex flex-col items-center justify-center text-center py-12 md:py-20 text-slate-500 border border-dashed border-slate-800 rounded-xl">
                   {weeklyPlan.find(d => d.id === activeWorkoutId)?.workout_name?.toLowerCase().includes("rest") 
                     ? <><Coffee className="w-10 h-10 mb-3 opacity-20 text-[#2dd4bf]" /> It's a Rest Day! Take it easy.</>
                     : (
                       <>
                         <Dumbbell className="w-10 h-10 mb-3 opacity-20" /> 
-                        <p className="mb-4">No exercises added for this day.</p>
+                        <p className="mb-4 text-sm px-4">No exercises added for this day.</p>
                         <Button 
                           variant="outline" 
                           size="sm" 
                           onClick={() => setIsLogOpen(true)}
                           className="border-[#2dd4bf]/30 text-[#2dd4bf] hover:bg-[#2dd4bf]/10"
                         >
-                          <Plus className="w-4 h-4 mr-2" /> Add Exercise Shortcut
+                          <Plus className="w-4 h-4 mr-2" /> Add Exercise
                         </Button>
                       </>
                     )
@@ -527,7 +525,7 @@ export default function Fitness() {
             </AnimatePresence>
           </div>
 
-          <div className="mt-8 space-y-4">
+          <div className="mt-6 md:mt-8 space-y-4">
             <AnimatePresence>
               {showRestOptions && (
                 <motion.div 
@@ -550,7 +548,7 @@ export default function Fitness() {
                     <span className="text-[10px] font-bold text-slate-500 uppercase">Custom:</span>
                     <Input 
                       type="number" 
-                      className="w-16 h-8 bg-black border-slate-800 text-xs text-center"
+                      className="w-14 h-8 bg-black border-slate-800 text-xs text-center"
                       value={selectedRestDuration}
                       onChange={(e) => setSelectedRestDuration(parseInt(e.target.value) || 0)}
                     />
@@ -559,19 +557,19 @@ export default function Fitness() {
               )}
             </AnimatePresence>
 
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 flex gap-2">
                  <Button
                   onClick={handleContinue}
                   disabled={exercises.length === 0 || restTime > 0}
-                  className="flex-1 bg-[#2dd4bf] hover:bg-[#26b4a2] text-black font-bold h-12 rounded-xl text-[13px] uppercase tracking-wider"
+                  className="flex-1 bg-[#2dd4bf] hover:bg-[#26b4a2] text-black font-bold h-12 rounded-xl text-[12px] md:text-[13px] uppercase tracking-wider"
                 >
                   {restTime > 0 ? `Resting (${restTime}s)...` : <><Timer className="w-4 h-4 mr-2" /> Start Rest Timer</>}
                 </Button>
                 <Button 
                   variant="outline"
                   onClick={() => setShowRestOptions(!showRestOptions)}
-                  className={`h-12 w-12 p-0 rounded-xl border-slate-800 ${showRestOptions ? "text-[#2dd4bf] border-[#2dd4bf]/50" : "text-slate-500"}`}
+                  className={`h-12 w-12 p-0 rounded-xl border-slate-800 shrink-0 ${showRestOptions ? "text-[#2dd4bf] border-[#2dd4bf]/50" : "text-slate-500"}`}
                 >
                   <Settings2 className="w-5 h-5" />
                 </Button>
@@ -580,7 +578,7 @@ export default function Fitness() {
               <Button
                 onClick={handleReset}
                 variant="outline"
-                className="h-12 px-6 rounded-xl border-slate-800 font-bold text-slate-400 text-[13px] uppercase hover:text-red-500"
+                className="h-12 px-6 rounded-xl border-slate-800 font-bold text-slate-400 text-[12px] md:text-[13px] uppercase hover:text-red-500 w-full sm:w-auto"
               >
                 <RotateCcw className="w-4 h-4 mr-2" /> Reset
               </Button>
@@ -588,8 +586,8 @@ export default function Fitness() {
           </div>
         </div>
 
-        {/* Weekly Plan Sidebar */}
-        <div className="bg-[#161b22] border border-slate-800 rounded-2xl p-6 flex flex-col max-h-[calc(100vh-120px)] sticky top-6">
+        {/* Weekly Plan Sidebar - Improved for Reading Mode/Tall views */}
+        <div className="bg-[#161b22] border border-slate-800 rounded-2xl p-6 flex flex-col lg:sticky lg:top-6 lg:max-h-[calc(100vh-48px)]">
           <div className="flex items-center justify-between mb-6 shrink-0">
             <div className="flex items-center gap-2">
               <Target className="w-5 h-5 text-[#2dd4bf]" />
@@ -603,12 +601,12 @@ export default function Fitness() {
             </button>
           </div>
           
-          <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-black/40 rounded-lg border border-slate-800/50">
+          <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-black/40 rounded-lg border border-slate-800/50 shrink-0">
             <Calendar className="w-3.5 h-3.5 text-slate-500" />
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">{weekRangeLabel}</span>
           </div>
           
-          <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar">
+          <div className="space-y-3 overflow-y-auto pr-1 flex-1 custom-scrollbar min-h-[300px]">
             {weeklyPlan.map((day) => {
               const dateInfo = weekDates.find(wd => wd.dayName === day.day_name);
               const isToday = dateInfo?.isToday;
@@ -661,7 +659,7 @@ export default function Fitness() {
               );
             })}
           </div>
-          <p className="text-[10px] text-slate-500 mt-4 text-center">
+          <p className="text-[10px] text-slate-500 mt-4 text-center shrink-0">
             {isEditingPlan ? "Click a workout name to rename it." : "Select a day to view its workout."}
           </p>
         </div>
