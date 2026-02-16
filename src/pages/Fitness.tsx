@@ -24,7 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
 
-// --- CONFIGURATION & TYPES ---
+//  CONFIGURATION & TYPES
 
 const exerciseLibrary = [
   { name: "Bench Press", sets: 4, reps: 12, weight_kg: 60 },
@@ -63,7 +63,7 @@ export default function Fitness() {
   const [selectedRestDuration, setSelectedRestDuration] = useState(60);
   const [showRestOptions, setShowRestOptions] = useState(false);
 
-  // --- BODY STATS STATE ---
+  //  BODY STATS STATE 
   const [stats, setStats] = useState({
     weight: "---",
     weightChange: 0,
@@ -98,7 +98,7 @@ export default function Fitness() {
 
   const weekRangeLabel = `${weekDates[0].fullDate} - ${weekDates[6].fullDate}`;
 
-  // --- TIMER LOGIC (FIXED TO PREVENT NEGATIVE NUMBERS) ---
+  //  TIMER LOGIC 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (restTime > 0) {
@@ -109,7 +109,7 @@ export default function Fitness() {
     return () => clearInterval(interval);
   }, [restTime]);
 
-  // --- UTILS ---
+  //  UTILS 
   const getRecommendedRest = (workoutName: string) => {
     const name = workoutName?.toLowerCase() || "";
     if (name.includes("legs") || name.includes("lower") || name.includes("deadlift")) return 90;
@@ -118,7 +118,7 @@ export default function Fitness() {
     return 60;
   };
 
-  // --- DATA FETCHING ---
+  //  DATA FETCHING
   const fetchBodyStats = async (userId: string) => {
     try {
       const { data } = await supabase
@@ -141,7 +141,7 @@ export default function Fitness() {
 
         const currentBF = calculateBF(latest);
         const currentWeight = latest.weight_kg || 0;
-        const prevWeight = prev.weight_kg || currentWeight; // Default to current weight if prev is 0
+        const prevWeight = prev.weight_kg || currentWeight;
         const currentMuscle = currentWeight * (1 - (currentBF / 100));
 
         setStats({
@@ -251,7 +251,7 @@ export default function Fitness() {
     return () => { if (unsub?.unsubscribe) unsub.unsubscribe(); };
   }, []);
 
-  // --- HANDLERS ---
+  //  HANDLERS 
   const updateExerciseField = async (id: string, field: string, value: string) => {
     let numValue = parseInt(value) || 0;
     if ((field === 'sets' || field === 'reps') && numValue <= 0) numValue = 1;
@@ -341,45 +341,30 @@ export default function Fitness() {
     }
   };
 
-  // Locate this function in your code and replace it with this version:
-
-const updateDayWorkout = async (id: string, newName: string) => {
-  if (!newName.trim()) {
-    setEditingDayId(null);
-    return;
-  }
-
-  //  Update the local state immediately
-  setWeeklyPlan((prev) =>
-    prev.map((day) => (day.id === id ? { ...day, workout_name: newName } : day))
-  );
-
-  // Close the input field immediately
-  setEditingDayId(null);
-
-  //  Update the database in the background
-  try {
-    const { error } = await supabase
-      .from("workouts")
-      .update({ name: newName })
-      .eq("id", id);
-
-    if (error) throw error;
-
-    // Update rest duration logic if the active day was changed
-    if (id === activeWorkoutId) {
-      setSelectedRestDuration(getRecommendedRest(newName));
+  const updateDayWorkout = async (id: string, newName: string) => {
+    if (!newName.trim()) {
+      setEditingDayId(null);
+      return;
     }
-  } catch (err) {
-    //  If the DB fails, you could notify the user
-    toast({
-      title: "Sync Failed",
-      description: "Could not save workout name to the cloud.",
-      variant: "destructive",
-    });
-    
-  }
-};
+
+    setWeeklyPlan((prev) =>
+      prev.map((day) => (day.id === id ? { ...day, workout_name: newName } : day))
+    );
+    setEditingDayId(null);
+
+    try {
+      const { error } = await supabase
+        .from("workouts")
+        .update({ name: newName })
+        .eq("id", id);
+      if (error) throw error;
+      if (id === activeWorkoutId) {
+        setSelectedRestDuration(getRecommendedRest(newName));
+      }
+    } catch (err) {
+      toast({ title: "Sync Failed", variant: "destructive" });
+    }
+  };
 
   const deleteSingleExercise = async (id: string) => {
     setExercises(prev => prev.filter(ex => ex.id !== id));
@@ -395,6 +380,10 @@ const updateDayWorkout = async (id: string, newName: string) => {
     { label: "Muscle Mass", value: stats.muscleMass, unit: "kg", change: stats.muscleMassChange },
     { label: "BMI", value: stats.bmi, unit: "", change: stats.bmiChange },
   ];
+
+  const filteredLibrary = exerciseLibrary.filter(ex => 
+    ex.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading) return (
     <div className="flex h-screen items-center justify-center bg-[#0b0f13]">
@@ -570,29 +559,43 @@ const updateDayWorkout = async (id: string, newName: string) => {
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden flex flex-wrap gap-2 p-3 bg-[#0d1117] rounded-xl border border-slate-800"
+                  className="overflow-hidden flex flex-wrap items-center gap-2 p-3 bg-[#0d1117] rounded-xl border border-slate-800"
                 >
-                  {[30, 45, 60, 90, 120].map((sec) => (
-                    <Button
-                      key={sec}
-                      variant="ghost"
-                      onClick={() => {
+                  <div className="flex flex-wrap gap-2">
+                    {[30, 45, 60, 90, 120].map((sec) => (
+                      <Button
+                        key={sec}
+                        variant="ghost"
+                        onClick={() => {
                           setSelectedRestDuration(sec);
                           setShowRestOptions(false);
-                      }}
-                      className={`h-8 text-[11px] font-bold px-3 rounded-lg border ${selectedRestDuration === sec ? "border-[#2dd4bf] text-[#2dd4bf] bg-[#2dd4bf]/5" : "border-slate-800 text-slate-500"}`}
-                    >
-                      {sec}s
-                    </Button>
-                  ))}
-                  <div className="flex items-center gap-2 ml-auto">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Custom:</span>
-                    <Input 
-                      type="number" 
-                      className="w-14 h-8 bg-black border-slate-800 text-xs text-center"
-                      value={selectedRestDuration}
-                      onChange={(e) => setSelectedRestDuration(Math.max(0, parseInt(e.target.value) || 0))}
-                    />
+                        }}
+                        className={`h-9 text-[11px] font-bold px-3 rounded-lg border transition-all ${
+                          selectedRestDuration === sec 
+                            ? "border-[#2dd4bf] text-[#2dd4bf] bg-[#2dd4bf]/5" 
+                            : "border-slate-800 text-slate-500 hover:border-slate-700"
+                        }`}
+                      >
+                        {sec}s
+                      </Button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-3 ml-auto border-l border-slate-800 pl-4 h-9">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider leading-none">
+                      Custom
+                    </span>
+                    <div className="relative flex items-center">
+                      <Input 
+                        type="number" 
+                        className="w-16 h-9 bg-black/40 border-slate-800 text-[12px] text-center font-mono focus-visible:ring-[#2dd4bf] focus-visible:border-[#2dd4bf] pr-4 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        value={selectedRestDuration}
+                        onChange={(e) => setSelectedRestDuration(Math.max(0, parseInt(e.target.value) || 0))}
+                      />
+                      <span className="absolute right-2 text-[10px] text-slate-600 pointer-events-none font-bold">
+                        s
+                      </span>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -727,35 +730,28 @@ const updateDayWorkout = async (id: string, newName: string) => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <Input 
                   placeholder="Search library..." 
-                  className="bg-[#0d1117] border-slate-800 pl-10 h-10 text-white"
+                  className="pl-10 bg-[#0d1117] border-slate-800"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  autoFocus
                 />
               </div>
-
-              <div className="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar">
-                {exerciseLibrary
-                  .filter(ex => ex.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                  .map((item) => (
-                  <div
-                    key={item.name}
-                    className={`p-4 bg-[#0d1117] border border-slate-800 rounded-xl hover:border-[#2dd4bf] cursor-pointer transition-colors group ${isAdding ? "opacity-50 pointer-events-none" : ""}`}
-                    onClick={() => addExercise(item)}
+              <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                {filteredLibrary.map((ex) => (
+                  <button
+                    key={ex.name}
+                    onClick={() => addExercise(ex)}
+                    disabled={isAdding}
+                    className="w-full flex items-center justify-between p-3 rounded-xl bg-[#0d1117] border border-slate-800 hover:border-[#2dd4bf] hover:bg-[#2dd4bf]/5 transition-all group"
                   >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-bold text-[14px] group-hover:text-[#2dd4bf] transition-colors">{item.name}</p>
-                        <p className="text-[11px] text-slate-500 uppercase">
-                          {item.sets} Sets • {item.reps} Reps • {item.weight_kg}kg
-                        </p>
-                      </div>
-                      <Plus className="w-4 h-4 text-slate-600 group-hover:text-[#2dd4bf]" />
+                    <div className="text-left">
+                      <p className="font-bold text-[14px] group-hover:text-[#2dd4bf]">{ex.name}</p>
+                      <p className="text-[11px] text-slate-500">{ex.sets} sets • {ex.reps} reps</p>
                     </div>
-                  </div>
+                    {isAdding ? <Loader2 className="w-4 h-4 animate-spin text-slate-500" /> : <Plus className="w-4 h-4 text-slate-500 group-hover:text-[#2dd4bf]" />}
+                  </button>
                 ))}
-                {exerciseLibrary.filter(ex => ex.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
-                   <p className="text-center py-6 text-slate-500 text-sm italic">No matches found in library.</p>
+                {filteredLibrary.length === 0 && (
+                  <p className="text-center py-8 text-slate-500 text-sm">No exercises found.</p>
                 )}
               </div>
             </motion.div>
