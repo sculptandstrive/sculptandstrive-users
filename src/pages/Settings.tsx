@@ -460,17 +460,24 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
         throw new Error("First Name Cannot be empty");
       }
       if (form.firstName) {
-        if (form.firstName.length <= 2) {
-          throw new Error("First name size should be greater than 2");
-        }
-        if (!nameRegex.test(form.firstName)) {
-          throw new Error("First name should only have alphabets");
-        }
+          if (form.firstName.length <= 2) {
+            throw new Error("First name must be at least 3 characters long.");
+          }
+          if(form.firstName.length >= 15){
+            throw new Error("First name must be less than 15 characters long.");
+          }
+          if (!nameRegex.test(form.firstName)) {
+            throw new Error(
+              "First name should contain only alphabetic characters.",
+            );
+          }
       }
 
       if (form.lastName) {
         if (form.lastName.length <= 2) {
-          throw new Error("Last name size should be greater than 2");
+          throw new Error("Last name must be greater than 2 characters long");
+        } else if (form.lastName.length > 30) {
+          throw new Error("Last name must be less than 30 characters long");
         } else if (!nameRegex.test(form.lastName)) {
           throw new Error("Last name should only have Alphabets");
         }
@@ -510,6 +517,12 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
       if (profileRes.error || detailsRes.error) {
         throw new Error(profileRes.error?.message || detailsRes.error?.message);
       }
+
+      await supabase.auth.updateUser({
+        data: {
+          full_name: `${form.firstName}${form.lastName ? " " + form.lastName : ""}`,
+        },
+      });
 
       toast({ title: "Updated Profile Section Successfully" });
     } catch (error) {
@@ -664,15 +677,14 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
                         id="phone"
-                        type = "tel"
+                        type="tel"
                         className="bg-muted border-border pl-10"
                         placeholder="Enter Phone Number"
                         value={form.phone}
                         onChange={(e) => {
                           const value = e.target.value.replace(/\D{0,10}/g, "");
-                          setForm({ ...form, phone: value })
-                        }
-                        }
+                          setForm({ ...form, phone: value });
+                        }}
                       />
                     </div>
                   </div>
@@ -720,9 +732,7 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
                     Save Changes
                   </Button>
                 ) : (
-                  <Button
-                    className="bg-gradient-primary hover:opacity-90 text-primary-foreground"
-                  >
+                  <Button className="bg-gradient-primary hover:opacity-90 text-primary-foreground">
                     Loading
                   </Button>
                 )}
@@ -741,10 +751,31 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
                     This will sign you out from all active sessions
                   </p>
                 </div>
-                <Button variant="outline" onClick={handleSignOut}>
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout All
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive">Logout All</Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="bg-card border-border">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        Logout From All Accounts?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action will remove all active sessions from your
+                        devices.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive hover:bg-destructive/90"
+                        onClick={handleSignOut}
+                      >
+                        Yes, Logout All
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
           </motion.div>
