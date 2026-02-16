@@ -57,20 +57,56 @@ export default function Fitness() {
   const [focusedExerciseId, setFocusedExerciseId] = useState<string | null>(null);
   const [restTime, setRestTime] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
-  
-  // prevent double-clicks
   const [isAdding, setIsAdding] = useState(false);
 
   const [selectedRestDuration, setSelectedRestDuration] = useState(60);
   const [showRestOptions, setShowRestOptions] = useState(false);
 
-  const bodyStats = [
-    { label: "Weight", value: "80.5", unit: "kg", change: -0.3 },
-    { label: "Body Fat", value: "18.2", unit: "%", change: -0.5 },
-    { label: "Muscle Mass", value: "34.8", unit: "kg", change: 0.2 },
-    { label: "BMI", value: "24.1", unit: "", change: -0.1 },
-  ];
+  // Body Stats Logic 
+  const [stats, setStats] = useState({
+    weight: "0",
+    bmi: "0",
+    bodyFat: "18.2", // Placeholder as no table column found yet
+    muscleMass: "34.8" // Placeholder
+  });
 
+  const bodyStats = useMemo(() => [
+    { label: "Weight", value: stats.weight, unit: "kg", change: -0.3 },
+    { label: "Body Fat", value: stats.bodyFat, unit: "%", change: -0.5 },
+    { label: "Muscle Mass", value: stats.muscleMass, unit: "kg", change: 0.2 },
+    { label: "BMI", value: stats.bmi, unit: "", change: -0.1 },
+  ], [stats]);
+
+  const fetchBodyStats = async (userId: string) => {
+    try {
+      // Fetching from starting_measurements
+      const { data, error } = await supabase
+        .from("starting_measurements")
+        .select("weight_kg, height_cm")
+        .eq("user_id", userId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data && data.height_cm > 0) {
+        // Dynamic BMI Calculation
+        const heightMeters = data.height_cm / 100;
+        const bmi = (data.weight_kg / (heightMeters * heightMeters)).toFixed(1);
+
+        setStats(prev => ({
+          ...prev,
+          weight: data.weight_kg.toString(),
+          bmi: bmi
+        }));
+      }
+    } catch (err) {
+      console.error("Stats fetch error:", err);
+    }
+  };
+
+  //  Existing Date Helpers 
   const todayDayName = useMemo(() => 
     new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date()), []
   );
@@ -102,6 +138,7 @@ export default function Fitness() {
     return 60;
   };
 
+  //  Effects 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (restTime > 0) {
@@ -116,19 +153,22 @@ export default function Fitness() {
       const { data: authData } = await supabase.auth.getUser();
       if (authData?.user) {
         await fetchWorkoutData();
+        await fetchBodyStats(authData.user.id);
       } else {
         const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-          if (session?.user) fetchWorkoutData();
+          if (session?.user) {
+            fetchWorkoutData();
+            fetchBodyStats(session.user.id);
+          }
         });
         unsub = subscription;
       }
     };
     init();
-    return () => {
-      if (unsub?.unsubscribe) unsub.unsubscribe();
-    };
+    return () => { if (unsub?.unsubscribe) unsub.unsubscribe(); };
   }, []);
 
+  //  Core CRUD Logic 
   const fetchExercisesForWorkout = async (workoutId: string) => {
     const { data: exData, error: exError } = await supabase
       .from("exercises")
@@ -137,27 +177,6 @@ export default function Fitness() {
       .order("created_at", { ascending: true });
 
     if (!exError) setExercises(exData || []);
-  };
-
-  const createDefaultWorkoutsForUser = async (userId: string) => {
-    try {
-      const rowsToInsert = DEFAULT_WEEKLY_PLAN.map((d) => ({
-        name: d.workout_name,
-        user_id: userId,
-        day_name: d.day_name,
-        order_index: d.order_index,
-        completed: false,
-      }));
-
-      const { data, error } = await supabase.from("workouts").insert(rowsToInsert as any).select();
-      if (error) return null;
-      return data?.sort((a: any, b: any) => a.order_index - b.order_index).map(d => ({ 
-        ...d, 
-        workout_name: (d as any).name 
-      })) || null;
-    } catch (err) {
-      return null;
-    }
   };
 
   const fetchWorkoutData = async () => {
@@ -176,19 +195,21 @@ export default function Fitness() {
       let mappedPlan: any[] = [];
 
       if (!plan || plan.length === 0) {
-        const created = await createDefaultWorkoutsForUser(user.id);
-        if (created) mappedPlan = created;
-      } else {
-        mappedPlan = plan.map(p => ({
-          ...p,
-          workout_name: (p as any).name
+        const rowsToInsert = DEFAULT_WEEKLY_PLAN.map((d) => ({
+          name: d.workout_name,
+          user_id: user.id,
+          day_name: d.day_name,
+          order_index: d.order_index,
+          completed: false,
         }));
+        const { data: created, error } = await supabase.from("workouts").insert(rowsToInsert as any).select();
+        if (!error && created) mappedPlan = created.map(d => ({ ...d, workout_name: d.name }));
+      } else {
+        mappedPlan = plan.map(p => ({ ...p, workout_name: p.name }));
       }
 
       setWeeklyPlan(mappedPlan);
-
-      const today = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
-      const todayWorkout = mappedPlan.find((p: any) => p.day_name === today);
+      const todayWorkout = mappedPlan.find((p: any) => p.day_name === todayDayName);
       const workoutToShow = todayWorkout || mappedPlan[0];
 
       if (workoutToShow?.id) {
@@ -205,22 +226,11 @@ export default function Fitness() {
 
   const updateExerciseField = async (id: string, field: string, value: string) => {
     let numValue = parseInt(value) || 0;
-
-    if ((field === 'sets' || field === 'reps') && numValue <= 0) {
-      numValue = 1;
-    }
-    if (field === 'weight_kg' && numValue < 0) {
-      numValue = 0;
-    }
+    if ((field === 'sets' || field === 'reps') && numValue <= 0) numValue = 1;
+    if (field === 'weight_kg' && numValue < 0) numValue = 0;
 
     setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, [field]: numValue } : ex));
-    
-    const { error } = await supabase
-      .from('exercises')
-      .update({ [field]: numValue })
-      .eq('id', id);
-
-    if (error) toast({ title: "Failed to update", variant: "destructive" });
+    await supabase.from('exercises').update({ [field]: numValue }).eq('id', id);
   };
 
   const handleSwitchDay = async (workoutId: string) => {
@@ -231,106 +241,49 @@ export default function Fitness() {
     await fetchExercisesForWorkout(workoutId);
     setRestTime(0);
     setFocusedExerciseId(null);
-    setShowRestOptions(false);
   };
 
   const toggleExercise = async (id: string, currentStatus: boolean) => {
     const nextStatus = !currentStatus;
     setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, completed: nextStatus } : ex));
-    if (nextStatus) setFocusedExerciseId(null);
-
     await supabase.from('exercises').update({ completed: nextStatus }).eq('id', id);
 
     if (activeWorkoutId) {
       const updatedExs = exercises.map(ex => ex.id === id ? { ...ex, completed: nextStatus } : ex);
-      const allCompleted = updatedExs.length > 0 && updatedExs.every(e => e.completed);
-      await supabase.from('workouts').update({ completed: allCompleted } as any).eq('id', activeWorkoutId);
-      setWeeklyPlan(prev => prev.map(day => day.id === activeWorkoutId ? { ...day, completed: allCompleted } : day));
+      const allDone = updatedExs.length > 0 && updatedExs.every(e => e.completed);
+      await supabase.from('workouts').update({ completed: allDone } as any).eq('id', activeWorkoutId);
+      setWeeklyPlan(prev => prev.map(d => d.id === activeWorkoutId ? { ...d, completed: allDone } : d));
     }
   };
 
   const addExercise = async (template: typeof exerciseLibrary[0]) => {
-    
     if (isAdding || !activeWorkoutId) return;
-
-    const isAlreadyAdded = exercises.some(
-      (ex) => ex.name.trim().toLowerCase() === template.name.trim().toLowerCase()
-    );
-
-    if (isAlreadyAdded) {
-      toast({ 
-        title: "Already Added", 
-        description: `${template.name} is already in your list.`, 
-        variant: "destructive" 
-      });
-      return;
-    }
-
-    //  Lock the process
     setIsAdding(true);
-
     const { data: authData } = await supabase.auth.getUser();
-    const user = authData?.user;
-    
-    if (!user) {
-      setIsAdding(false);
-      return;
-    }
-    
-    // Optimistically close modal
-    setIsLogOpen(false);
+    if (!authData?.user) return setIsAdding(false);
 
     const { data, error } = await supabase.from('exercises').insert([{ 
       ...template, 
       completed: false, 
-      user_id: user.id, 
+      user_id: authData.user.id, 
       workout_id: activeWorkoutId 
     }]).select();
 
     if (!error && data) {
       setExercises(prev => [...prev, ...data]);
+      setIsLogOpen(false);
       setSearchTerm("");
-      toast({ title: `${template.name} added!` });
-    } else if (error) {
-      toast({ title: "Error adding exercise", variant: "destructive" });
     }
-
-    // Unlock the process
     setIsAdding(false);
   };
 
   const handleReset = async () => {
-    if (!activeWorkoutId || exercises.length === 0) return;
-    setRestTime(0);
-    setFocusedExerciseId(null);
+    if (!activeWorkoutId) return;
     setExercises(prev => prev.map(ex => ({ ...ex, completed: false })));
     await supabase.from('exercises').update({ completed: false }).eq('workout_id', activeWorkoutId);
     await supabase.from('workouts').update({ completed: false } as any).eq('id', activeWorkoutId);
-    setWeeklyPlan(prev => prev.map(day => day.id === activeWorkoutId ? { ...day, completed: false } : day));
-    toast({ title: "Progress reset" });
-  };
-
-  const handleContinue = () => {
-    const nextItem = exercises.find(ex => !ex.completed);
-    if (nextItem) {
-      setFocusedExerciseId(nextItem.id);
-      setRestTime(selectedRestDuration);
-      setShowRestOptions(false);
-      toast({ title: "Rest Started", description: `Next: ${nextItem.name}` });
-    } else {
-      toast({ title: "Workout Complete!" });
-    }
-  };
-
-  const updateDayWorkout = async (id: string, newName: string) => {
-    if (!newName.trim()) {
-        setEditingDayId(null);
-        return;
-    }
-    setWeeklyPlan(prev => prev.map(day => day.id === id ? { ...day, workout_name: newName } : day));
-    setEditingDayId(null);
-    await supabase.from('workouts').update({ name: newName }).eq('id', id);
-    if (id === activeWorkoutId) setSelectedRestDuration(getRecommendedRest(newName));
+    setWeeklyPlan(prev => prev.map(d => d.id === activeWorkoutId ? { ...d, completed: false } : d));
+    toast({ title: "Workout Reset" });
   };
 
   const deleteSingleExercise = async (id: string) => {
@@ -348,6 +301,7 @@ export default function Fitness() {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8 bg-[#0b0f13] min-h-screen text-white font-sans">
+      {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-1">Fitness Tracking</h1>
@@ -361,6 +315,7 @@ export default function Fitness() {
         </Button>
       </div>
 
+      {/* Body Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {bodyStats.map((stat) => (
           <div key={stat.label} className="bg-[#161b22] border border-slate-800 p-5 rounded-xl">
@@ -377,25 +332,22 @@ export default function Fitness() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        {/* Main Workout Panel */}
         <div className="lg:col-span-2 bg-[#161b22] border border-slate-800 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2 text-[#2dd4bf]">
               <Dumbbell className="w-5 h-5" />
               <h3 className="font-bold text-[16px] tracking-tight">
-                {weeklyPlan.find(d => d.id === activeWorkoutId)?.day_name === todayDayName ? "Today's" : weeklyPlan.find(d => d.id === activeWorkoutId)?.day_name}'s Workout
+                {weeklyPlan.find(d => d.id === activeWorkoutId)?.day_name}'s Workout
               </h3>
             </div>
             {restTime > 0 ? (
-              <Badge
-                className="bg-orange-500/20 text-orange-500 border-none cursor-pointer hover:bg-orange-500/30 transition-colors"
-                onClick={() => setRestTime(0)}
-              >
+              <Badge className="bg-orange-500/20 text-orange-500 border-none cursor-pointer" onClick={() => setRestTime(0)}>
                 Rest: {restTime}s
               </Badge>
             ) : (
-              <div className="flex items-center gap-2">
-                <Settings2 className="w-3.5 h-3.5 text-slate-500" />
-                <span className="text-[11px] text-slate-500 font-bold uppercase tracking-widest">Rest: {selectedRestDuration}s</span>
+              <div className="flex items-center gap-2 text-[11px] text-slate-500 font-bold uppercase">
+                <Settings2 className="w-3.5 h-3.5" /> Rest: {selectedRestDuration}s
               </div>
             )}
           </div>
@@ -416,19 +368,17 @@ export default function Fitness() {
                 <motion.div
                   key={exercise.id}
                   layout
-                  className={`group flex items-center gap-4 p-4 rounded-xl transition-all border ${
-                    focusedExerciseId === exercise.id
-                      ? "border-[#2dd4bf] ring-1 ring-[#2dd4bf]"
-                      : exercise.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-[#0d1117] border-slate-800"
+                  className={`group flex items-center gap-4 p-4 rounded-xl border ${
+                    exercise.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-[#0d1117] border-slate-800"
                   }`}
                 >
                   <button
                     onClick={() => toggleExercise(exercise.id, exercise.completed)}
-                    className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                      exercise.completed ? "bg-emerald-500 text-black border-emerald-500" : "border-2 border-slate-700 hover:border-[#2dd4bf]"
+                    className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 border-2 transition-all ${
+                      exercise.completed ? "bg-emerald-500 text-black border-emerald-500" : "border-slate-700"
                     }`}
                   >
-                    {exercise.completed ? <Check className="w-5 h-5 stroke-[3px]" /> : <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />}
+                    {exercise.completed ? <Check className="w-5 h-5" /> : <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />}
                   </button>
                   <div className="flex-1">
                     <p className={`text-[15px] font-bold ${exercise.completed ? "text-slate-500 line-through" : "text-white"}`}>
@@ -436,252 +386,90 @@ export default function Fitness() {
                     </p>
                     <div className="flex items-center gap-4 mt-1.5">
                       <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">Sets</span>
-                        <Input 
-                          type="number" 
-                          className="h-7 w-12 bg-[#161b22] border-slate-800 text-[12px] p-1 text-center font-bold"
-                          value={exercise.sets}
-                          onChange={(e) => updateExerciseField(exercise.id, 'sets', e.target.value)}
-                        />
+                        <span className="text-[9px] text-slate-500 font-bold uppercase">Sets</span>
+                        <Input type="number" className="h-7 w-12 bg-[#161b22] border-slate-800 text-[12px] text-center" 
+                          value={exercise.sets} onChange={(e) => updateExerciseField(exercise.id, 'sets', e.target.value)} />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">Reps</span>
-                        <Input 
-                          type="number" 
-                          className="h-7 w-12 bg-[#161b22] border-slate-800 text-[12px] p-1 text-center font-bold"
-                          value={exercise.reps}
-                          onChange={(e) => updateExerciseField(exercise.id, 'reps', e.target.value)}
-                        />
+                        <span className="text-[9px] text-slate-500 font-bold uppercase">Reps</span>
+                        <Input type="number" className="h-7 w-12 bg-[#161b22] border-slate-800 text-[12px] text-center" 
+                          value={exercise.reps} onChange={(e) => updateExerciseField(exercise.id, 'reps', e.target.value)} />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">Weight (kg)</span>
-                        <Input 
-                          type="number" 
-                          className="h-7 w-16 bg-[#161b22] border-slate-800 text-[12px] p-1 text-center font-bold"
-                          value={exercise.weight_kg}
-                          onChange={(e) => updateExerciseField(exercise.id, 'weight_kg', e.target.value)}
-                        />
+                        <span className="text-[9px] text-slate-500 font-bold uppercase">Weight (kg)</span>
+                        <Input type="number" className="h-7 w-16 bg-[#161b22] border-slate-800 text-[12px] text-center" 
+                          value={exercise.weight_kg} onChange={(e) => updateExerciseField(exercise.id, 'weight_kg', e.target.value)} />
                       </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => deleteSingleExercise(exercise.id)}
-                    className="opacity-0 group-hover:opacity-100 p-2 text-slate-600 hover:text-red-500 transition-opacity"
-                  >
+                  <button onClick={() => deleteSingleExercise(exercise.id)} className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-500">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </motion.div>
               ))}
-
-              {exercises.length === 0 && (
-                <div className="flex flex-col items-center justify-center text-center py-20 text-slate-500 border border-dashed border-slate-800 rounded-xl">
-                  {weeklyPlan.find(d => d.id === activeWorkoutId)?.workout_name?.toLowerCase().includes("rest") 
-                    ? <><Coffee className="w-10 h-10 mb-3 opacity-20 text-[#2dd4bf]" /> It's a Rest Day! Take it easy.</>
-                    : (
-                      <>
-                        <Dumbbell className="w-10 h-10 mb-3 opacity-20" /> 
-                        <p className="mb-4">No exercises added for this day.</p>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => setIsLogOpen(true)}
-                          className="border-[#2dd4bf]/30 text-[#2dd4bf] hover:bg-[#2dd4bf]/10"
-                        >
-                          <Plus className="w-4 h-4 mr-2" /> Add Exercise Shortcut
-                        </Button>
-                      </>
-                    )
-                  }
-                </div>
-              )}
             </AnimatePresence>
           </div>
 
-          <div className="mt-8 space-y-4">
-            <AnimatePresence>
-              {showRestOptions && (
-                <motion.div 
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden flex flex-wrap gap-2 p-3 bg-[#0d1117] rounded-xl border border-slate-800"
-                >
-                  {[30, 45, 60, 90, 120].map((sec) => (
-                    <Button
-                      key={sec}
-                      variant="ghost"
-                      onClick={() => setSelectedRestDuration(sec)}
-                      className={`h-8 text-[11px] font-bold px-3 rounded-lg border ${selectedRestDuration === sec ? "border-[#2dd4bf] text-[#2dd4bf] bg-[#2dd4bf]/5" : "border-slate-800 text-slate-500"}`}
-                    >
-                      {sec}s
-                    </Button>
-                  ))}
-                  <div className="flex items-center gap-2 ml-auto">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Custom:</span>
-                    <Input 
-                      type="number" 
-                      className="w-16 h-8 bg-black border-slate-800 text-xs text-center"
-                      value={selectedRestDuration}
-                      onChange={(e) => setSelectedRestDuration(parseInt(e.target.value) || 0)}
-                    />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="flex gap-4">
-              <div className="flex-1 flex gap-2">
-                 <Button
-                  onClick={handleContinue}
-                  disabled={exercises.length === 0 || restTime > 0}
-                  className="flex-1 bg-[#2dd4bf] hover:bg-[#26b4a2] text-black font-bold h-12 rounded-xl text-[13px] uppercase tracking-wider"
-                >
-                  {restTime > 0 ? `Resting (${restTime}s)...` : <><Timer className="w-4 h-4 mr-2" /> Start Rest Timer</>}
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={() => setShowRestOptions(!showRestOptions)}
-                  className={`h-12 w-12 p-0 rounded-xl border-slate-800 ${showRestOptions ? "text-[#2dd4bf] border-[#2dd4bf]/50" : "text-slate-500"}`}
-                >
-                  <Settings2 className="w-5 h-5" />
-                </Button>
-              </div>
-             
-              <Button
-                onClick={handleReset}
-                variant="outline"
-                className="h-12 px-6 rounded-xl border-slate-800 font-bold text-slate-400 text-[13px] uppercase hover:text-red-500"
-              >
-                <RotateCcw className="w-4 h-4 mr-2" /> Reset
-              </Button>
-            </div>
+          <div className="mt-8 flex gap-4">
+            <Button onClick={() => setRestTime(selectedRestDuration)} disabled={exercises.length === 0 || restTime > 0}
+              className="flex-1 bg-[#2dd4bf] text-black font-bold h-12 rounded-xl text-[13px] uppercase">
+              {restTime > 0 ? "Resting..." : <><Timer className="w-4 h-4 mr-2" /> Start Rest</>}
+            </Button>
+            <Button variant="outline" onClick={handleReset} className="h-12 border-slate-800 text-slate-400 font-bold uppercase px-6 rounded-xl hover:text-red-500">
+              <RotateCcw className="w-4 h-4 mr-2" /> Reset
+            </Button>
           </div>
         </div>
 
-        <div className="bg-[#161b22] border border-slate-800 rounded-2xl p-6 flex flex-col max-h-[calc(100vh-120px)] sticky top-6">
-          <div className="flex items-center justify-between mb-6 shrink-0">
+        {/* Weekly Plan Sidebar */}
+        <div className="bg-[#161b22] border border-slate-800 rounded-2xl p-6 sticky top-6">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <Target className="w-5 h-5 text-[#2dd4bf]" />
               <h3 className="font-bold text-[16px]">Weekly Plan</h3>
             </div>
-            <button 
-                onClick={() => setIsEditingPlan(!isEditingPlan)}
-                className={`p-2 rounded-lg transition-colors ${isEditingPlan ? "bg-[#2dd4bf] text-black" : "text-slate-500 hover:text-white"}`}
-            >
-                <Edit2 className="w-4 h-4" />
+            <button onClick={() => setIsEditingPlan(!isEditingPlan)} className={`p-2 rounded-lg ${isEditingPlan ? "bg-[#2dd4bf] text-black" : "text-slate-500"}`}>
+              <Edit2 className="w-4 h-4" />
             </button>
           </div>
           
-          <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-black/40 rounded-lg border border-slate-800/50">
-            <Calendar className="w-3.5 h-3.5 text-slate-500" />
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">{weekRangeLabel}</span>
-          </div>
-          
-          <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar">
-            {weeklyPlan.map((day) => {
-              const dateInfo = weekDates.find(wd => wd.dayName === day.day_name);
-              const isToday = dateInfo?.isToday;
-              
-              return (
-                <div
-                  key={day.id || day.day_name}
-                  onClick={() => isEditingPlan ? setEditingDayId(day.id) : handleSwitchDay(day.id)}
-                  className={`p-4 rounded-xl border transition-all cursor-pointer relative overflow-hidden group/day ${
-                    activeWorkoutId === day.id
-                      ? "border-[#2dd4bf] bg-[#2dd4bf]/5 shadow-[0_0_15px_rgba(45,212,191,0.1)]"
-                      : isToday ? "border-slate-700 bg-slate-800/20" : day.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-[#0d1117] border-slate-800/40"
-                  } ${isEditingPlan ? "border-dashed border-slate-600 hover:border-[#2dd4bf]" : "hover:border-slate-700"}`}
-                >
-                  <div className="flex justify-between items-start mb-0.5">
-                    <div className="flex items-center gap-2">
-                      <p className={`text-[12px] font-bold ${day.completed ? "text-emerald-500" : (activeWorkoutId === day.id ? "text-[#2dd4bf]" : isToday ? "text-white" : "text-slate-400")}`}>
-                        {day.day_name}
-                      </p>
-                      {isToday && (
-                        <span className="bg-[#2dd4bf] text-black text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter">
-                          Today
-                        </span>
-                      )}
-                    </div>
-                    <span className={`text-[10px] font-bold ${isToday ? "text-[#2dd4bf]" : "text-slate-600"}`}>
-                      {dateInfo?.fullDate}
-                    </span>
-                  </div>
-                  
-                  {editingDayId === day.id ? (
-                    <div className="flex items-center gap-2 mt-1">
-                        <input
-                            autoFocus
-                            className="bg-[#0d1117] border border-[#2dd4bf] rounded px-2 py-1 text-[13px] outline-none text-white w-full"
-                            defaultValue={day.workout_name}
-                            onBlur={(e) => updateDayWorkout(day.id, e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && updateDayWorkout(day.id, (e.currentTarget as any).value)}
-                        />
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                        <p className={`text-[13px] font-medium ${activeWorkoutId === day.id ? "text-white" : "text-slate-300"}`}>
-                        {day.workout_name || 'Rest Day'}
-                        </p>
-                        {isEditingPlan && <ChevronRight className="w-3 h-3 text-slate-600 group-hover/day:text-[#2dd4bf]" />}
-                    </div>
+          <div className="space-y-3">
+            {weeklyPlan.map((day) => (
+              <div
+                key={day.id}
+                onClick={() => handleSwitchDay(day.id)}
+                className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                  activeWorkoutId === day.id ? "border-[#2dd4bf] bg-[#2dd4bf]/5" : "bg-[#0d1117] border-slate-800/40"
+                }`}
+              >
+                <div className="flex justify-between items-center mb-1">
+                  <p className={`text-[12px] font-bold ${activeWorkoutId === day.id ? "text-[#2dd4bf]" : "text-slate-400"}`}>
+                    {day.day_name}
+                  </p>
+                  {day.day_name === todayDayName && (
+                    <span className="bg-[#2dd4bf] text-black text-[8px] font-black px-1.5 py-0.5 rounded uppercase">Today</span>
                   )}
                 </div>
-              );
-            })}
+                <p className="text-[13px] font-medium">{day.workout_name || 'Rest Day'}</p>
+              </div>
+            ))}
           </div>
-          <p className="text-[10px] text-slate-500 mt-4 text-center">
-            {isEditingPlan ? "Click a workout name to rename it." : "Select a day to view its workout."}
-          </p>
         </div>
       </div>
 
+      {/* Add Exercise Modal */}
       <AnimatePresence>
         {isLogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-[#161b22] border border-slate-800 p-6 w-full max-w-md rounded-2xl relative shadow-2xl"
-            >
-              <button
-                onClick={() => setIsLogOpen(false)}
-                className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="bg-[#161b22] border border-slate-800 p-6 w-full max-w-md rounded-2xl relative shadow-2xl">
+              <button onClick={() => setIsLogOpen(false)} className="absolute top-4 right-4 text-slate-500"><X className="w-6 h-6" /></button>
               <h3 className="text-xl font-bold mb-4">Add Exercise</h3>
-              <div className="mb-4 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <Input 
-                  placeholder="Search library..." 
-                  className="bg-[#0d1117] border-slate-800 pl-10 h-10 text-white"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar">
-                {exerciseLibrary
-                  .filter(ex => ex.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                  .map((item) => (
-                  <div
-                    key={item.name}
-                    className={`p-4 bg-[#0d1117] border border-slate-800 rounded-xl hover:border-[#2dd4bf] cursor-pointer transition-colors ${isAdding ? "opacity-50 pointer-events-none" : ""}`}
-                    onClick={() => addExercise(item)}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-bold text-[14px]">{item.name}</p>
-                        <p className="text-[11px] text-slate-500 uppercase">
-                          {item.sets} Sets • {item.reps} Reps
-                        </p>
-                      </div>
-                      {isAdding && searchTerm.toLowerCase() === item.name.toLowerCase() && (
-                        <Loader2 className="w-4 h-4 animate-spin text-[#2dd4bf]" />
-                      )}
-                    </div>
+              <Input placeholder="Search library..." className="mb-4 bg-[#0d1117] border-slate-800" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2">
+                {exerciseLibrary.filter(ex => ex.name.toLowerCase().includes(searchTerm.toLowerCase())).map((item) => (
+                  <div key={item.name} className="p-4 bg-[#0d1117] border border-slate-800 rounded-xl hover:border-[#2dd4bf] cursor-pointer" onClick={() => addExercise(item)}>
+                    <p className="font-bold text-[14px]">{item.name}</p>
+                    <p className="text-[11px] text-slate-500">{item.sets} Sets • {item.reps} Reps</p>
                   </div>
                 ))}
               </div>
