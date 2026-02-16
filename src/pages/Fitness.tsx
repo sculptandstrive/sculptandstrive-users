@@ -24,7 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
 
-//  CONFIGURATION & TYPES 
+// --- CONFIGURATION & TYPES ---
 
 const exerciseLibrary = [
   { name: "Bench Press", sets: 4, reps: 12, weight_kg: 60 },
@@ -63,18 +63,17 @@ export default function Fitness() {
   const [selectedRestDuration, setSelectedRestDuration] = useState(60);
   const [showRestOptions, setShowRestOptions] = useState(false);
 
-  //  BODY STATS STATE 
+  // --- BODY STATS STATE ---
   const [stats, setStats] = useState({
     weight: "---",
     weightChange: 0,
     bmi: "---",
     bmiChange: 0,
-    bodyFat: "---", 
+    bodyFat: "---",
     bodyFatChange: 0,
     muscleMass: "---",
     muscleMassChange: 0
   });
-
 
   const todayDayName = useMemo(() => 
     new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date()), []
@@ -99,7 +98,18 @@ export default function Fitness() {
 
   const weekRangeLabel = `${weekDates[0].fullDate} - ${weekDates[6].fullDate}`;
 
-  //  UTILS 
+  // --- TIMER LOGIC (FIXED TO PREVENT NEGATIVE NUMBERS) ---
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (restTime > 0) {
+      interval = setInterval(() => {
+        setRestTime((prev) => Math.max(0, prev - 1));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [restTime]);
+
+  // --- UTILS ---
   const getRecommendedRest = (workoutName: string) => {
     const name = workoutName?.toLowerCase() || "";
     if (name.includes("legs") || name.includes("lower") || name.includes("deadlift")) return 90;
@@ -108,74 +118,47 @@ export default function Fitness() {
     return 60;
   };
 
-  // DATA FETCHING 
+  // --- DATA FETCHING ---
   const fetchBodyStats = async (userId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from("starting_measurements")
-      .select("*")
-      .eq("user_id", userId)
-      .order('created_at', { ascending: false })
-      .limit(2);
+    try {
+      const { data } = await supabase
+        .from("starting_measurements")
+        .select("*")
+        .eq("user_id", userId)
+        .order('created_at', { ascending: false })
+        .limit(2);
 
-    if (data && data.length > 0) {
-      const latest = data[0];
-      const prev = data.length > 1 ? data[1] : latest;
+      if (data && data.length > 0) {
+        const latest = data[0];
+        const prev = data.length > 1 ? data[1] : latest;
 
-      const calculateBF = (row: any) => {
-        if (row.body_fat_percentage > 0) return row.body_fat_percentage;
-        if (!row.waist_cm || !row.neck_cm || !row.height_cm) return 0;
-        const bf = 495 / (1.03248 - 0.19077 * Math.log10(row.waist_cm - row.neck_cm) + 0.15456 * Math.log10(row.height_cm)) - 450;
-        return Math.max(0, bf); 
-      };
+        const calculateBF = (row: any) => {
+          if (row.body_fat_percentage > 0) return row.body_fat_percentage;
+          if (!row.waist_cm || !row.neck_cm || !row.height_cm) return 0;
+          const bf = 495 / (1.03248 - 0.19077 * Math.log10(row.waist_cm - row.neck_cm) + 0.15456 * Math.log10(row.height_cm)) - 450;
+          return Math.max(0, bf); 
+        };
 
-      const currentBF = calculateBF(latest);
-      const currentWeight = latest.weight_kg || 0;
-      const currentMuscle = currentWeight * (1 - (currentBF / 100));
+        const currentBF = calculateBF(latest);
+        const currentWeight = latest.weight_kg || 0;
+        const prevWeight = prev.weight_kg || currentWeight; // Default to current weight if prev is 0
+        const currentMuscle = currentWeight * (1 - (currentBF / 100));
 
-      setStats({
-        weight: currentWeight > 0 ? currentWeight.toString() : "---",
-        weightChange: Number((currentWeight - (prev.weight_kg || 0)).toFixed(1)),
-        bmi: (latest.height_cm > 0 ? (currentWeight / ((latest.height_cm / 100) ** 2)) : 0).toFixed(1),
-        bmiChange: 0,
-        bodyFat: currentBF > 0 ? currentBF.toFixed(1) : "---",
-        bodyFatChange: 0,
-        muscleMass: currentMuscle > 0 ? currentMuscle.toFixed(1) : "---",
-        muscleMassChange: 0
-      });
-    }
-  } catch (err) {
-    console.error(err);
-  }
-};
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (restTime > 0) {
-      interval = setInterval(() => setRestTime((prev) => prev - 1), 1000);
-    }
-    return () => clearInterval(interval);
-  }, [restTime]);
-
-  useEffect(() => {
-    let unsub: any = null;
-    const init = async () => {
-      const { data: authData } = await supabase.auth.getUser();
-      if (authData?.user) {
-        await fetchWorkoutData();
-        await fetchBodyStats(authData.user.id);
-      } else {
-        const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-          if (session?.user) {
-            fetchWorkoutData();
-            fetchBodyStats(session.user.id);
-          }
+        setStats({
+          weight: currentWeight > 0 ? currentWeight.toString() : "---",
+          weightChange: Number((currentWeight - prevWeight).toFixed(1)),
+          bmi: (latest.height_cm > 0 ? (currentWeight / ((latest.height_cm / 100) ** 2)) : 0).toFixed(1),
+          bmiChange: 0,
+          bodyFat: currentBF > 0 ? currentBF.toFixed(1) : "---",
+          bodyFatChange: 0,
+          muscleMass: currentMuscle > 0 ? currentMuscle.toFixed(1) : "---",
+          muscleMassChange: 0
         });
-        unsub = subscription;
       }
-    };
-    init();
-    return () => { if (unsub?.unsubscribe) unsub.unsubscribe(); };
-  }, []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchExercisesForWorkout = async (workoutId: string) => {
     const { data: exData, error: exError } = await supabase
@@ -232,8 +215,7 @@ export default function Fitness() {
 
       setWeeklyPlan(mappedPlan);
 
-      const today = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
-      const todayWorkout = mappedPlan.find((p: any) => p.day_name === today);
+      const todayWorkout = mappedPlan.find((p: any) => p.day_name === todayDayName);
       const workoutToShow = todayWorkout || mappedPlan[0];
 
       if (workoutToShow?.id) {
@@ -247,6 +229,27 @@ export default function Fitness() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    let unsub: any = null;
+    const init = async () => {
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user) {
+        await fetchWorkoutData();
+        await fetchBodyStats(authData.user.id);
+      } else {
+        const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (session?.user) {
+            fetchWorkoutData();
+            fetchBodyStats(session.user.id);
+          }
+        });
+        unsub = subscription;
+      }
+    };
+    init();
+    return () => { if (unsub?.unsubscribe) unsub.unsubscribe(); };
+  }, []);
 
   // --- HANDLERS ---
   const updateExerciseField = async (id: string, field: string, value: string) => {
@@ -296,8 +299,7 @@ export default function Fitness() {
     setIsAdding(true);
     const { data: authData } = await supabase.auth.getUser();
     if (!authData?.user) { setIsAdding(false); return; }
-    setIsLogOpen(false);
-
+    
     const { data, error } = await supabase.from('exercises').insert([{ 
       ...template, 
       completed: false, 
@@ -309,6 +311,7 @@ export default function Fitness() {
       setExercises(prev => [...prev, ...data]);
       setSearchTerm("");
       toast({ title: `${template.name} added!` });
+      setIsLogOpen(false);
     } else {
       toast({ title: "Error adding exercise", variant: "destructive" });
     }
@@ -332,19 +335,51 @@ export default function Fitness() {
       setFocusedExerciseId(nextItem.id);
       setRestTime(selectedRestDuration);
       setShowRestOptions(false);
-      toast({ title: "Rest Started", description: `Next: ${nextItem.name}` });
+      toast({ title: "Rest Started", description: `Next up: ${nextItem.name}` });
     } else {
       toast({ title: "Workout Complete!" });
     }
   };
 
-  const updateDayWorkout = async (id: string, newName: string) => {
-    if (!newName.trim()) { setEditingDayId(null); return; }
-    setWeeklyPlan(prev => prev.map(day => day.id === id ? { ...day, workout_name: newName } : day));
+  // Locate this function in your code and replace it with this version:
+
+const updateDayWorkout = async (id: string, newName: string) => {
+  if (!newName.trim()) {
     setEditingDayId(null);
-    await supabase.from('workouts').update({ name: newName }).eq('id', id);
-    if (id === activeWorkoutId) setSelectedRestDuration(getRecommendedRest(newName));
-  };
+    return;
+  }
+
+  //  Update the local state immediately
+  setWeeklyPlan((prev) =>
+    prev.map((day) => (day.id === id ? { ...day, workout_name: newName } : day))
+  );
+
+  // Close the input field immediately
+  setEditingDayId(null);
+
+  //  Update the database in the background
+  try {
+    const { error } = await supabase
+      .from("workouts")
+      .update({ name: newName })
+      .eq("id", id);
+
+    if (error) throw error;
+
+    // Update rest duration logic if the active day was changed
+    if (id === activeWorkoutId) {
+      setSelectedRestDuration(getRecommendedRest(newName));
+    }
+  } catch (err) {
+    //  If the DB fails, you could notify the user
+    toast({
+      title: "Sync Failed",
+      description: "Could not save workout name to the cloud.",
+      variant: "destructive",
+    });
+    
+  }
+};
 
   const deleteSingleExercise = async (id: string) => {
     setExercises(prev => prev.filter(ex => ex.id !== id));
@@ -383,7 +418,7 @@ export default function Fitness() {
         </Button>
       </div>
 
-      {/* Stats Cards - Wrapped for overflow safety */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {bodyStatsDisplay.map((stat) => (
           <div key={stat.label} className="bg-[#161b22] border border-slate-800 p-4 md:p-5 rounded-xl">
@@ -415,7 +450,7 @@ export default function Fitness() {
             </div>
             {restTime > 0 ? (
               <Badge
-                className="bg-orange-500/20 text-orange-500 border-none cursor-pointer hover:bg-orange-500/30 transition-colors"
+                className="bg-orange-500/20 text-orange-500 border-none cursor-pointer hover:bg-orange-500/30 transition-colors animate-pulse"
                 onClick={() => setRestTime(0)}
               >
                 Rest: {restTime}s
@@ -444,6 +479,9 @@ export default function Fitness() {
                 <motion.div
                   key={exercise.id}
                   layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
                   className={`group flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-xl transition-all border ${
                     focusedExerciseId === exercise.id
                       ? "border-[#2dd4bf] ring-1 ring-[#2dd4bf]"
@@ -504,7 +542,7 @@ export default function Fitness() {
               {exercises.length === 0 && (
                 <div className="flex flex-col items-center justify-center text-center py-12 md:py-20 text-slate-500 border border-dashed border-slate-800 rounded-xl">
                   {weeklyPlan.find(d => d.id === activeWorkoutId)?.workout_name?.toLowerCase().includes("rest") 
-                    ? <><Coffee className="w-10 h-10 mb-3 opacity-20 text-[#2dd4bf]" /> It's a Rest Day! Take it easy.</>
+                    ? <><Coffee className="w-10 h-10 mb-3 opacity-20 text-[#2dd4bf]" /> <p>It's a Rest Day! Take it easy.</p></>
                     : (
                       <>
                         <Dumbbell className="w-10 h-10 mb-3 opacity-20" /> 
@@ -538,7 +576,10 @@ export default function Fitness() {
                     <Button
                       key={sec}
                       variant="ghost"
-                      onClick={() => setSelectedRestDuration(sec)}
+                      onClick={() => {
+                          setSelectedRestDuration(sec);
+                          setShowRestOptions(false);
+                      }}
                       className={`h-8 text-[11px] font-bold px-3 rounded-lg border ${selectedRestDuration === sec ? "border-[#2dd4bf] text-[#2dd4bf] bg-[#2dd4bf]/5" : "border-slate-800 text-slate-500"}`}
                     >
                       {sec}s
@@ -550,7 +591,7 @@ export default function Fitness() {
                       type="number" 
                       className="w-14 h-8 bg-black border-slate-800 text-xs text-center"
                       value={selectedRestDuration}
-                      onChange={(e) => setSelectedRestDuration(parseInt(e.target.value) || 0)}
+                      onChange={(e) => setSelectedRestDuration(Math.max(0, parseInt(e.target.value) || 0))}
                     />
                   </div>
                 </motion.div>
@@ -586,7 +627,7 @@ export default function Fitness() {
           </div>
         </div>
 
-        {/* Weekly Plan Sidebar - Improved for Reading Mode/Tall views */}
+        {/* Weekly Plan Sidebar */}
         <div className="bg-[#161b22] border border-slate-800 rounded-2xl p-6 flex flex-col lg:sticky lg:top-6 lg:max-h-[calc(100vh-48px)]">
           <div className="flex items-center justify-between mb-6 shrink-0">
             <div className="flex items-center gap-2">
@@ -689,6 +730,7 @@ export default function Fitness() {
                   className="bg-[#0d1117] border-slate-800 pl-10 h-10 text-white"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  autoFocus
                 />
               </div>
 
@@ -698,22 +740,23 @@ export default function Fitness() {
                   .map((item) => (
                   <div
                     key={item.name}
-                    className={`p-4 bg-[#0d1117] border border-slate-800 rounded-xl hover:border-[#2dd4bf] cursor-pointer transition-colors ${isAdding ? "opacity-50 pointer-events-none" : ""}`}
+                    className={`p-4 bg-[#0d1117] border border-slate-800 rounded-xl hover:border-[#2dd4bf] cursor-pointer transition-colors group ${isAdding ? "opacity-50 pointer-events-none" : ""}`}
                     onClick={() => addExercise(item)}
                   >
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="font-bold text-[14px]">{item.name}</p>
+                        <p className="font-bold text-[14px] group-hover:text-[#2dd4bf] transition-colors">{item.name}</p>
                         <p className="text-[11px] text-slate-500 uppercase">
-                          {item.sets} Sets • {item.reps} Reps
+                          {item.sets} Sets • {item.reps} Reps • {item.weight_kg}kg
                         </p>
                       </div>
-                      {isAdding && searchTerm.toLowerCase() === item.name.toLowerCase() && (
-                        <Loader2 className="w-4 h-4 animate-spin text-[#2dd4bf]" />
-                      )}
+                      <Plus className="w-4 h-4 text-slate-600 group-hover:text-[#2dd4bf]" />
                     </div>
                   </div>
                 ))}
+                {exerciseLibrary.filter(ex => ex.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+                   <p className="text-center py-6 text-slate-500 text-sm italic">No matches found in library.</p>
+                )}
               </div>
             </motion.div>
           </div>
