@@ -27,7 +27,6 @@ export default function Sessions() {
   useEffect(() => {
     fetchSessions();
 
-   
     const channel = supabase
       .channel('session-updates')
       .on('postgres_changes', 
@@ -64,14 +63,18 @@ export default function Sessions() {
 
       if (error) throw error;
       const visibleSessions = (data || []).filter(session => {
-
+        const isMass = session.admin_is_mass === true;
         const isAssigned = session.session_assignments?.some(
           (a: any) => String(a.client_id) === String(user.id)
         );
-        
+        // if(isAssigned){
+        //   console.log(true);
+        //   console.log(session.title)
+        // }
+        return isMass || isAssigned;
       });
 
-      console.log(visibleSessions);
+      // console.log(visibleSessions);
 
       setSessions(visibleSessions);
     } catch (err: any) {
