@@ -6,7 +6,6 @@ import {
   Ruler,
   Activity,
   Camera,
-  Calendar,
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -61,7 +60,6 @@ type Measurement = {
   unit: string;
 };
 
-
 type WorkoutChartData = {
   date: string;
   day: string;
@@ -91,32 +89,24 @@ export default function Progress() {
   const [workoutData, setWorkoutData] = useState<WorkoutChartData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Helper function to get current week date range (Monday-Sunday)
   const getCurrentWeekRange = () => {
     const today = new Date();
-    const currentDay = today.getDay(); 
-
+    const currentDay = today.getDay();
     const daysToMonday = currentDay === 0 ? 6 : currentDay - 1;
-
     const monday = new Date(today);
     monday.setDate(today.getDate() - daysToMonday);
     monday.setHours(0, 0, 0, 0);
-
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     sunday.setHours(23, 59, 59, 999);
-
     return { monday, sunday };
   };
 
   useEffect(() => {
     const getUserData = async () => {
-      if (!user) {
-        return;
-      }
+      if (!user) return;
 
       try {
-        // Fetch all measurements ordered by date
         const { data: allMeasurements, error: measurementsError } =
           await supabase
             .from("current_measurements")
@@ -124,31 +114,29 @@ export default function Progress() {
             .eq("user_id", user.id)
             .order("created_at", { ascending: true });
 
-        const {data: initialMeasurements, error: initialError} = await supabase.from('starting_measurements').select('*').eq('user_id', user.id);
+        const { data: initialMeasurements } = await supabase
+          .from("starting_measurements")
+          .select("*")
+          .eq("user_id", user.id);
 
-        // Fetch gender and age from profile
-        const { data: profileData, error: profileError } = await supabase
+        const { data: profileData } = await supabase
           .from("profile_details")
           .select("gender, age")
           .eq("user_id", user.id)
           .single();
 
-        if (measurementsError) {
-          console.error("Error fetching measurements:", measurementsError);
+        if (
+          measurementsError ||
+          !allMeasurements ||
+          allMeasurements.length === 0
+        ) {
           setLoading(false);
           return;
         }
 
-        if (!allMeasurements || allMeasurements.length === 0) {
-          setLoading(false);
-          return;
-        }
-
-        // Get starting (first) and current (last) measurements
         const startingMeasurement = initialMeasurements[0];
         const currentMeasurement = allMeasurements[allMeasurements.length - 1];
 
-        // Calculate Body Fat Percentage
         const calculateBodyFat = (
           weight: number,
           height: number,
@@ -157,7 +145,6 @@ export default function Progress() {
         ): number => {
           const heightInMeters = height / 100;
           const bmi = weight / (heightInMeters * heightInMeters);
-
           let bodyFat: number;
           if (
             gender?.toLowerCase() === "female" ||
@@ -167,26 +154,24 @@ export default function Progress() {
           } else {
             bodyFat = 1.2 * bmi + 0.23 * age - 16.2;
           }
-
           return Math.max(0, parseFloat(bodyFat.toFixed(1)));
         };
 
         const userGender = profileData?.gender || "male";
         const userAge = profileData?.age || 25;
-
         const currentBodyFat = calculateBodyFat(
           currentMeasurement.weight_kg,
           currentMeasurement.height_cm,
           userAge,
           userGender,
         );
-
         const weightLost =
           startingMeasurement.weight_kg - currentMeasurement.weight_kg;
+
         setStats({
           startingWeight: startingMeasurement.weight_kg,
           currentWeight: currentMeasurement.weight_kg,
-          weightLost: weightLost,
+          weightLost,
           bodyFat: currentBodyFat,
         });
 
@@ -223,44 +208,39 @@ export default function Progress() {
           },
         ]);
 
-        const weightChartData = allMeasurements.map((m) => ({
-          date: new Date(m.created_at).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          }),
-          weight: m.weight_kg,
-        }));
-        setWeightData(weightChartData);
-
-        const bodyFatChartData = allMeasurements.map((m) => {
-          const bodyFatValue = calculateBodyFat(
-            m.weight_kg,
-            m.height_cm,
-            userAge,
-            userGender,
-          );
-          return {
+        setWeightData(
+          allMeasurements.map((m) => ({
             date: new Date(m.created_at).toLocaleDateString("en-US", {
               month: "short",
               day: "numeric",
             }),
-            value: bodyFatValue,
-          };
-        });
-        setBodyFatData(bodyFatChartData);
+            weight: m.weight_kg,
+          })),
+        );
 
-        const { monday, sunday } = getCurrentWeekRange();
+        setBodyFatData(
+          allMeasurements.map((m) => ({
+            date: new Date(m.created_at).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            }),
+            value: calculateBodyFat(
+              m.weight_kg,
+              m.height_cm,
+              userAge,
+              userGender,
+            ),
+          })),
+        );
 
+        const { monday } = getCurrentWeekRange();
         const { data: workouts, error: workoutsError } = await supabase
           .from("workouts")
           .select("*")
           .eq("user_id", user.id)
           .order("order_index", { ascending: true });
 
-        console.log("All workouts:", workouts);
-
         if (!workoutsError && workouts) {
-        
           const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
           const fullDayNames = [
             "Monday",
@@ -273,33 +253,24 @@ export default function Progress() {
           ];
           const workoutChartData: WorkoutChartData[] = [];
 
-          // Fetch all exercises for all workouts
           for (let i = 0; i < 7; i++) {
             const date = new Date(monday);
             date.setDate(monday.getDate() + i);
             const fullDayName = fullDayNames[i];
-
-            // Find the workout for this day
             const dayWorkout = workouts.find(
               (w: any) => w.day_name === fullDayName,
             );
-
             let completedExercisesCount = 0;
-            let estimatedCalories = 0;
 
             if (dayWorkout?.id) {
-              // Fetch exercises for this workout
               const { data: exercises, error: exercisesError } = await supabase
                 .from("exercises")
                 .select("*")
                 .eq("workout_id", dayWorkout.id);
-
               if (!exercisesError && exercises) {
-                // Count how many exercises are completed
                 completedExercisesCount = exercises.filter(
                   (ex: any) => ex.completed,
                 ).length;
-                estimatedCalories = completedExercisesCount * 20;
               }
             }
 
@@ -310,11 +281,9 @@ export default function Progress() {
               }),
               day: daysOfWeek[i],
               workouts: completedExercisesCount,
-              calories: estimatedCalories,
+              calories: completedExercisesCount * 20,
             });
           }
-
-          console.log("Formatted workout data:", workoutChartData);
           setWorkoutData(workoutChartData);
         }
 
@@ -330,9 +299,7 @@ export default function Progress() {
 
   useEffect(() => {
     const getProgressPhotos = async () => {
-      if (!user) {
-        return;
-      }
+      if (!user) return;
 
       const { data: photos, error: photosError } = await supabase
         .from("progress_photos")
@@ -357,10 +324,7 @@ export default function Progress() {
         let i = 4;
         for (; i <= lastWeek; i++) {
           if (!newSlots.find((s) => s.date === `Week ${i}`)) {
-            extra.push({
-              date: `Week ${i}`,
-              imagePath: null,
-            });
+            extra.push({ date: `Week ${i}`, imagePath: null });
           }
         }
         newSlots = [...newSlots, ...extra];
@@ -370,17 +334,11 @@ export default function Progress() {
       const updatedPhotos = await Promise.all(
         newSlots.map(async (slot) => {
           const match = photos.find((p) => p.label == slot.date);
-
           if (!match) return slot;
-
           const { data: signed } = await supabase.storage
             .from("progress-photos")
             .createSignedUrl(match.image_path, 60 * 60);
-
-          return {
-            ...slot,
-            imagePath: signed?.signedUrl ?? null,
-          };
+          return { ...slot, imagePath: signed?.signedUrl ?? null };
         }),
       );
 
@@ -394,17 +352,9 @@ export default function Progress() {
     index: number,
   ) => {
     const file = e.target.files?.[0];
-    if (!file) {
-      return;
-    }
+    if (!file || !user) return;
 
     setUploading(true);
-
-    if (!user) {
-      setUploading(false);
-      return;
-    }
-
     const fileExt = file.name.split(".").pop();
     const filePath = `${user.id}/${progressPhotos[index].date}-${Date.now()}.${fileExt}`;
 
@@ -442,13 +392,11 @@ export default function Progress() {
     const { data: signed } = await supabase.storage
       .from("progress-photos")
       .createSignedUrl(filePath, 60 * 60);
-
     setProgressPhotos((photos) =>
       photos.map((photo, i) =>
         i == index ? { ...photo, imagePath: signed?.signedUrl } : photo,
       ),
     );
-
     toast({
       title: "Image Uploaded",
       description: "You have uploaded image successfully",
@@ -458,13 +406,11 @@ export default function Progress() {
 
   const handleRemoveProgressPhoto = async (index: number) => {
     if (!user) return;
-
     const photo = progressPhotos[index];
     if (!photo?.imagePath) return;
 
     try {
       setUploading(true);
-
       const { data: photoData } = await supabase
         .from("progress_photos")
         .select("image_path")
@@ -476,7 +422,6 @@ export default function Progress() {
         const { error: storageError } = await supabase.storage
           .from("progress-photos")
           .remove([photoData.image_path]);
-
         if (storageError) {
           toast({
             title: "Delete Failed",
@@ -493,7 +438,6 @@ export default function Progress() {
         .delete()
         .eq("user_id", user.id)
         .eq("label", photo.date);
-
       if (dbError) {
         toast({
           title: "Database Error",
@@ -507,7 +451,6 @@ export default function Progress() {
       setProgressPhotos((photos) =>
         photos.map((p, i) => (i === index ? { ...p, imagePath: null } : p)),
       );
-
       toast({
         title: "Image Removed",
         description: "Progress Image Deleted Successfully",
@@ -522,10 +465,7 @@ export default function Progress() {
   const handleAddMorePhotos = () => {
     setProgressPhotos([
       ...progressPhotos,
-      {
-        date: `Week ${imageLimit + 1}`,
-        imagePath: null,
-      },
+      { date: `Week ${imageLimit + 1}`, imagePath: null },
     ]);
     setImageLimit(imageLimit + 1);
   };
@@ -563,36 +503,30 @@ export default function Progress() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 px-0 sm:space-y-8">
+      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+        className="flex flex-col gap-2"
       >
-        <div>
-          <h1 className="text-3xl font-display font-bold mb-1">
-            Progress Tracking
-          </h1>
-          <p className="text-muted-foreground">
-            Visualize your fitness journey and celebrate your wins
-          </p>
-        </div>
-        {/* <div className="flex items-center gap-3">
-          <Button variant="outline">
-            <Calendar className="w-4 h-4 mr-2" />
-            Date Range
-          </Button>
-        </div> */}
+        <h1 className="text-2xl sm:text-3xl font-display font-bold leading-tight">
+          Progress Tracking
+        </h1>
+        <p className="text-sm sm:text-base text-muted-foreground">
+          Visualize your fitness journey and celebrate your wins
+        </p>
       </motion.div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats Grid — 2 cols on mobile, 4 on lg */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {statsDisplay.map((stat, index) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className={`bg-card border rounded-xl p-4 ${
+            className={`bg-card border rounded-xl p-3 sm:p-4 ${
               stat.highlight === 1
                 ? "border-success/50 bg-success/5 shadow-glow"
                 : stat.highlight === -1
@@ -600,9 +534,9 @@ export default function Progress() {
                   : "border-border"
             }`}
           >
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-2">
               <stat.icon
-                className={`w-4 h-4 ${
+                className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 ${
                   stat.highlight === 1
                     ? "text-success"
                     : stat.highlight === -1
@@ -610,12 +544,12 @@ export default function Progress() {
                       : "text-muted-foreground"
                 }`}
               />
-              <span className="text-sm text-muted-foreground">
+              <span className="text-xs sm:text-sm text-muted-foreground leading-tight">
                 {stat.label}
               </span>
             </div>
             <p
-              className={`text-2xl font-display font-bold ${
+              className={`text-lg sm:text-2xl font-display font-bold ${
                 stat.highlight === 1
                   ? "text-success"
                   : stat.highlight === -1
@@ -629,63 +563,70 @@ export default function Progress() {
         ))}
       </div>
 
-      <Tabs defaultValue="weight" className="space-y-6">
-        <TabsList className="bg-muted">
-          <TabsTrigger
-            value="weight"
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-          >
-            <Scale className="w-4 h-4 mr-2" />
-            Weight
-          </TabsTrigger>
-          <TabsTrigger
-            value="body"
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-          >
-            <Ruler className="w-4 h-4 mr-2" />
-            Measurements
-          </TabsTrigger>
-          <TabsTrigger
-            value="workouts"
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-          >
-            <Activity className="w-4 h-4 mr-2" />
-            Workouts
-          </TabsTrigger>
-          <TabsTrigger
-            value="photos"
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-          >
-            <Camera className="w-4 h-4 mr-2" />
-            Photos
-          </TabsTrigger>
-        </TabsList>
+      {/* Tabs */}
+      <Tabs defaultValue="weight" className="space-y-4 md:space-y-6">
+        {/* Scrollable tab list on mobile */}
+        {/* Replace the tab wrapper with this */}
+        <div className="w-full overflow-x-auto">
+          <TabsList className="bg-muted  flex-wrap h-auto gap-2 p-2">
+            <TabsTrigger
+              value="weight"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs sm:text-sm px-2.5 sm:px-4 whitespace-nowrap"
+            >
+              <Scale className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+              Weight
+            </TabsTrigger>
+            <TabsTrigger
+              value="body"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs sm:text-sm px-2.5 sm:px-4 whitespace-nowrap"
+            >
+              <Ruler className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+              Measurements
+            </TabsTrigger>
+            <TabsTrigger
+              value="workouts"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs sm:text-sm px-2.5 sm:px-4 whitespace-nowrap"
+            >
+              <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+              Workouts
+            </TabsTrigger>
+            <TabsTrigger
+              value="photos"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-xs sm:text-sm px-2.5 sm:px-4 whitespace-nowrap"
+            >
+              <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+              Photos
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
+        {/* Weight Tab */}
         <TabsContent value="weight">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+            className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6"
           >
-            <div className="lg:col-span-2 bg-card border border-border rounded-xl p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="font-display font-semibold text-lg">
+            {/* Weight Trend Chart */}
+            <div className="lg:col-span-2 bg-card border border-border rounded-xl p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <h3 className="font-display font-semibold text-base sm:text-lg">
                   Weight Trend
                 </h3>
                 {stats.weightLost < 0 ? (
-                  <Badge className="bg-warning/10 text-warning">
+                  <Badge className="bg-warning/10 text-warning text-xs">
                     <TrendingUp className="w-3 h-3 mr-1 text-warning" />
                     {Math.abs(stats.weightLost).toFixed(1)} kg
                   </Badge>
                 ) : (
-                  <Badge className="bg-success/10 text-success">
+                  <Badge className="bg-success/10 text-success text-xs">
                     <TrendingDown className="w-3 h-3 mr-1 text-success" />
                     {stats.weightLost.toFixed(1)} kg
                   </Badge>
                 )}
               </div>
               {weightData.length > 0 ? (
-                <div className="h-72">
+                <div className="h-56 sm:h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={weightData}>
                       <defs>
@@ -716,18 +657,20 @@ export default function Progress() {
                       <XAxis
                         dataKey="date"
                         stroke="hsl(215 20% 55%)"
-                        tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
+                        tick={{ fill: "hsl(215 20% 55%)", fontSize: 10 }}
                       />
                       <YAxis
                         stroke="hsl(215 20% 55%)"
-                        tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
+                        tick={{ fill: "hsl(215 20% 55%)", fontSize: 10 }}
                         domain={["dataMin - 2", "dataMax + 2"]}
+                        width={36}
                       />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: "hsl(222 25% 12%)",
                           border: "1px solid hsl(222 20% 20%)",
                           borderRadius: "8px",
+                          fontSize: "12px",
                         }}
                       />
                       <Area
@@ -741,18 +684,19 @@ export default function Progress() {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="h-72 flex items-center justify-center text-muted-foreground">
+                <div className="h-56 sm:h-72 flex items-center justify-center text-muted-foreground text-sm">
                   No weight data available
                 </div>
               )}
             </div>
 
-            <div className="bg-card border border-border rounded-xl p-6">
-              <h3 className="font-display font-semibold text-lg mb-6">
+            {/* Body Fat Chart */}
+            <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
+              <h3 className="font-display font-semibold text-base sm:text-lg mb-4 sm:mb-6">
                 Body Fat %
               </h3>
               {bodyFatData.length > 0 ? (
-                <div className="h-72">
+                <div className="h-56 sm:h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={bodyFatData}>
                       <CartesianGrid
@@ -767,14 +711,16 @@ export default function Progress() {
                       />
                       <YAxis
                         stroke="hsl(215 20% 55%)"
-                        tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
+                        tick={{ fill: "hsl(215 20% 55%)", fontSize: 10 }}
                         domain={["dataMin - 2", "dataMax + 2"]}
+                        width={36}
                       />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: "hsl(222 25% 12%)",
                           border: "1px solid hsl(222 20% 20%)",
                           borderRadius: "8px",
+                          fontSize: "12px",
                         }}
                       />
                       <Line
@@ -788,7 +734,7 @@ export default function Progress() {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="h-72 flex items-center justify-center text-muted-foreground">
+                <div className="h-56 sm:h-72 flex items-center justify-center text-muted-foreground text-sm">
                   No body fat data available
                 </div>
               )}
@@ -796,17 +742,18 @@ export default function Progress() {
           </motion.div>
         </TabsContent>
 
+        {/* Measurements Tab */}
         <TabsContent value="body">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-card border border-border rounded-xl p-6"
+            className="bg-card border border-border rounded-xl p-4 sm:p-6"
           >
-            <h3 className="font-display font-semibold text-lg mb-6">
+            <h3 className="font-display font-semibold text-base sm:text-lg mb-4 sm:mb-6">
               Body Measurements
             </h3>
             {measurements.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                 {measurements.map((m, index) => {
                   const change = m.current - m.previous;
                   const isPositive =
@@ -819,48 +766,55 @@ export default function Progress() {
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: index * 0.1 }}
-                      className="p-4 rounded-xl bg-muted/50 text-center"
+                      className="p-3 sm:p-4 rounded-xl bg-muted/50 text-center"
                     >
-                      <Ruler className="w-5 h-5 mx-auto mb-2 text-primary" />
-                      <p className="text-sm text-muted-foreground mb-1">
+                      <Ruler className="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1.5 sm:mb-2 text-primary" />
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">
                         {m.label}
                       </p>
-                      <p className="text-2xl font-display font-bold">
-                        {m.current === 500 ? "NA" : m.current} {m.current !== 500 ? m.unit : ""}
+                      <p className="text-xl sm:text-2xl font-display font-bold">
+                        {m.current === 500 ? "NA" : m.current}{" "}
+                        <span className="text-xs sm:text-sm font-normal">
+                          {m.current !== 500 ? m.unit : ""}
+                        </span>
                       </p>
                       <span
                         className={`text-xs ${isPositive ? "text-success" : "text-destructive"}`}
                       >
-                        
-                        {m.current !== 500 ? change > 0 ? "+" : "" : ""}
-                        {m.current !== 500 ? change.toFixed(1) : ""} {m.current !== 500 ? m.unit : ""}
+                        {m.current !== 500 ? (change > 0 ? "+" : "") : ""}
+                        {m.current !== 500 ? change.toFixed(1) : ""}{" "}
+                        {m.current !== 500 ? m.unit : ""}
                       </span>
                     </motion.div>
                   );
                 })}
               </div>
             ) : (
-              <div className="text-center text-muted-foreground py-8">
+              <div className="text-center text-muted-foreground py-8 text-sm">
                 No measurement data available
               </div>
             )}
           </motion.div>
         </TabsContent>
 
+        {/* Workouts Tab */}
         <TabsContent value="workouts">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-card border border-border rounded-xl p-6"
+            className="bg-card border border-border rounded-xl p-4 sm:p-6"
           >
-            <h3 className="font-display font-semibold text-lg mb-6">
-              This Week's Exercise Activity (Mon-Sun)
+            <h3 className="font-display font-semibold text-base sm:text-lg mb-4 sm:mb-6">
+              This Week's Exercise Activity (Mon–Sun)
             </h3>
             {workoutData.length > 0 ? (
-              <div className="space-y-6">
-                <div className="h-72">
+              <div className="space-y-4 sm:space-y-6">
+                <div className="h-52 sm:h-72">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={workoutData}>
+                    <BarChart
+                      data={workoutData}
+                      margin={{ left: -10, right: 8 }}
+                    >
                       <CartesianGrid
                         strokeDasharray="3 3"
                         stroke="hsl(222 20% 20%)"
@@ -869,32 +823,31 @@ export default function Progress() {
                       <XAxis
                         dataKey="day"
                         stroke="hsl(215 20% 55%)"
-                        tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
+                        tick={{ fill: "hsl(215 20% 55%)", fontSize: 11 }}
                       />
                       <YAxis
                         stroke="hsl(215 20% 55%)"
-                        tick={{ fill: "hsl(215 20% 55%)", fontSize: 12 }}
+                        tick={{ fill: "hsl(215 20% 55%)", fontSize: 11 }}
                         allowDecimals={false}
+                        width={30}
                       />
                       <Tooltip
                         contentStyle={{
                           backgroundColor: "hsl(222 25% 12%)",
                           border: "1px solid hsl(222 20% 20%)",
                           borderRadius: "8px",
+                          fontSize: "12px",
                         }}
                         labelFormatter={(value, payload) => {
-                          if (payload && payload.length > 0) {
+                          if (payload && payload.length > 0)
                             return payload[0].payload.date;
-                          }
                           return value;
                         }}
                         formatter={(value: any, name: string) => {
-                          if (name === "workouts") {
+                          if (name === "workouts")
                             return [value, "Exercises Completed"];
-                          }
-                          if (name === "calories") {
+                          if (name === "calories")
                             return [value, "Calories Burned"];
-                          }
                           return [value, name];
                         }}
                       />
@@ -908,51 +861,53 @@ export default function Progress() {
                   </ResponsiveContainer>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-border">
+                {/* Summary stats — 3 cols on all sizes */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-4 border-t border-border">
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-1">
                       Total Exercises
                     </p>
-                    <p className="text-2xl font-bold">
+                    <p className="text-xl sm:text-2xl font-bold">
                       {workoutData.reduce((sum, day) => sum + day.workouts, 0)}
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-1">
                       Total Calories
                     </p>
-                    <p className="text-2xl font-bold">
+                    <p className="text-xl sm:text-2xl font-bold">
                       {workoutData.reduce((sum, day) => sum + day.calories, 0)}
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-sm text-muted-foreground mb-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-1">
                       Days Active
                     </p>
-                    <p className="text-2xl font-bold">
+                    <p className="text-xl sm:text-2xl font-bold">
                       {workoutData.filter((day) => day.workouts > 0).length}/7
                     </p>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="h-72 flex items-center justify-center text-muted-foreground">
+              <div className="h-52 sm:h-72 flex items-center justify-center text-muted-foreground text-sm">
                 No workout data available for this week
               </div>
             )}
           </motion.div>
         </TabsContent>
 
+        {/* Photos Tab */}
         <TabsContent value="photos">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-card border border-border rounded-xl p-6"
+            className="bg-card border border-border rounded-xl p-4 sm:p-6"
           >
-            <h3 className="font-display font-semibold text-lg mb-6">
+            <h3 className="font-display font-semibold text-base sm:text-lg mb-4 sm:mb-6">
               Progress Photos
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-6">
               {progressPhotos.map((photo, index) =>
                 photo.imagePath ? (
                   <motion.div
@@ -960,23 +915,29 @@ export default function Progress() {
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: index * 0.1 }}
-                    className="aspect-[3/4] rounded-xl overflow-hidden border relative"
+                    className="aspect-[3/4] rounded-xl overflow-hidden border relative group"
                   >
                     <img
                       src={photo.imagePath}
                       alt={photo.date}
-                      className="w-full h-full object-cover "
+                      className="w-full h-full object-cover"
                     />
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bottom-10 left-[30%] absolute z-100"
-                      onClick={() => handleRemoveProgressPhoto(index)}
-                      disabled={uploading}
-                    >
-                      Remove Photo
-                    </Button>
+                    {/* Label */}
+                    <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">
+                      {photo.date}
+                    </div>
+                    {/* Remove button — always visible on mobile, hover on desktop */}
+                    <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/60 to-transparent flex justify-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs h-7 px-3 bg-white/90 hover:bg-white border-0"
+                        onClick={() => handleRemoveProgressPhoto(index)}
+                        disabled={uploading}
+                      >
+                        Remove
+                      </Button>
+                    </div>
                   </motion.div>
                 ) : (
                   <motion.div
@@ -984,11 +945,12 @@ export default function Progress() {
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: index * 0.1 }}
-                    className="aspect-[3/4] rounded-xl bg-muted/50 border border-dashed border-border flex flex-col items-center justify-center"
+                    className="aspect-[3/4] rounded-xl bg-muted/50 border border-dashed border-border flex flex-col items-center justify-center gap-2 px-2"
                   >
-                    <Camera className="w-12 h-12 text-muted-foreground mb-3" />
-                    <p className="font-medium">{photo.date}</p>
-
+                    <Camera className="w-8 h-8 sm:w-12 sm:h-12 text-muted-foreground" />
+                    <p className="font-medium text-xs sm:text-sm text-center">
+                      {photo.date}
+                    </p>
                     <input
                       type="file"
                       accept="image/*"
@@ -999,7 +961,7 @@ export default function Progress() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="mt-4"
+                      className="text-xs h-7 px-3"
                       onClick={() =>
                         document.getElementById(`progress-${index}`)?.click()
                       }
@@ -1010,20 +972,22 @@ export default function Progress() {
                   </motion.div>
                 ),
               )}
+
+              {/* Add more slot */}
               {imageLimit < 12 && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="aspect-[3/4] rounded-xl bg-muted/50 border border-dashed border-border flex flex-col items-center justify-center"
+                  className="aspect-[3/4] rounded-xl bg-muted/50 border border-dashed border-border flex flex-col items-center justify-center gap-2 px-2"
                 >
-                  <Camera className="w-12 h-12 text-muted-foreground mb-3" />
+                  <Camera className="w-8 h-8 sm:w-12 sm:h-12 text-muted-foreground" />
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-4"
-                    onClick={() => handleAddMorePhotos()}
+                    className="text-xs h-7 px-3"
+                    onClick={handleAddMorePhotos}
                   >
-                    Add More Images
+                    Add More
                   </Button>
                 </motion.div>
               )}

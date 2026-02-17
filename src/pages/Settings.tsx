@@ -406,6 +406,8 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
         return;
       }
 
+      console.log("Session data is: ", session);
+
       const res = await fetch(
         "https://zoxqjjuokxiyxusqapvv.functions.supabase.co/delete-account",
         {
@@ -417,7 +419,7 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
         },
       );
 
-      // console.log(res);
+      console.log(res);
 
       const data = await res.json();
 

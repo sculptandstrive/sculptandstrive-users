@@ -82,12 +82,12 @@ export default function Nutrition() {
 
   const fetchData = useCallback(async () => {
     if (!user) {
-      console.log("Nutrition: No user session, skipping fetch.");
+      // console.log("Nutrition: No user session, skipping fetch.");
       return;
     }
 
     try {
-      console.log(`Nutrition: Fetching data for user ${user.id} on ${today}`);
+      // console.log(`Nutrition: Fetching data for user ${user.id} on ${today}`);
       
       const [logsResult, waterResult, nutritionRequired, planResult] = await Promise.all([
         supabase
@@ -122,8 +122,8 @@ export default function Nutrition() {
       ]);
 
       // Debugging Logs
-      console.log("DB Logs:", logsResult.data?.length || 0, "items found.");
-      console.log("DB Plan:", planResult.data?.meal_plans ? "Found assigned plan" : "No assigned plan");
+      // console.log("DB Logs:", logsResult.data?.length || 0, "items found.");
+      // console.log("DB Plan:", planResult.data?.meal_plans ? "Found assigned plan" : "No assigned plan");
 
       setNutritionLogs(logsResult.data || []);
       setWaterIntake(waterResult.data || []);

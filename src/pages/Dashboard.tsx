@@ -200,7 +200,7 @@ export default function Dashboard() {
       if(waterResult.error) throw waterResult.error;
       if(workoutsResult.error) throw workoutsResult.error;
 
-      console.log(workoutsResult);
+      // console.log(workoutsResult);
 
       setNutritionLogs(logsResult.data || []);
       setWaterIntake(waterResult.data || []);

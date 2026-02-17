@@ -202,27 +202,40 @@ export default function Support() {
         <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-lg flex items-center gap-3 text-destructive">
           <AlertCircle className="w-5 h-5" />
           <p className="text-sm font-medium">{dbError}</p>
-          <Button variant="outline" size="sm" className="ml-auto" onClick={fetchData}>Retry</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            onClick={fetchData}
+          >
+            Retry
+          </Button>
         </div>
       )}
 
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center"
+      >
         <h1 className="text-3xl font-bold mb-2">How can we help?</h1>
-        <p className="text-muted-foreground mb-6">Search for answers or reach out to our admin team directly.</p>
-        <div className="relative max-w-xl mx-auto">
+        <p className="text-muted-foreground mb-6">
+          Search for answers or reach out to our admin team directly.
+        </p>
+        <div className="relative max-w-sm md:max-w-xl mx-auto">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <Input
             placeholder="Search for answers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-12 h-12 text-lg bg-muted border-border"
+            className="pl-12 h-10 md:h-12 text-base md:text-lg bg-muted border-border"
           />
         </div>
       </motion.div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4">
         {[
           { icon: BookOpen, title: "Documentation", tab: "faq" },
           { icon: Video, title: "Video Tutorials", tab: "tutorials" },
@@ -234,12 +247,15 @@ export default function Support() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
             onClick={() => setActiveTab(item.tab)}
-            className={`bg-card border rounded-xl p-6 hover:border-primary/50 transition-all cursor-pointer group ${activeTab === item.tab ? "border-primary ring-1 ring-primary/20" : "border-border"
-              }`}
+            className={`bg-card border rounded-xl p-3 md:p-6 hover:border-primary/50 transition-all cursor-pointer group ${
+              activeTab === item.tab
+                ? "border-primary ring-1 ring-primary/20"
+                : "border-border"
+            }`}
           >
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-lg bg-primary/10 group-hover:bg-primary/20">
-                <item.icon className="w-6 h-6 text-primary" />
+                <item.icon className="w-4 h-6 md:w-6 md:h-6 text-primary" />
               </div>
               <h3 className="font-semibold flex-1">{item.title}</h3>
               <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
@@ -248,8 +264,12 @@ export default function Support() {
         ))}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-muted">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-6"
+      >
+        <TabsList className="bg-muted flex-wrap h-auto gap-2 p-2">
           <TabsTrigger value="faq">FAQs</TabsTrigger>
           <TabsTrigger value="tutorials">Tutorials</TabsTrigger>
           <TabsTrigger value="chat">Contact Support</TabsTrigger>
@@ -260,20 +280,31 @@ export default function Support() {
           <div className="space-y-6">
             {filteredFaqs.length > 0 ? (
               filteredFaqs.map((category, index) => (
-                <div key={category.category} className="bg-card border border-border rounded-xl p-6">
-                  <h3 className="font-semibold text-lg mb-4">{category.category}</h3>
+                <div
+                  key={category.category}
+                  className="bg-card border border-border rounded-xl p-6"
+                >
+                  <h3 className="font-semibold text-lg mb-4">
+                    {category.category}
+                  </h3>
                   <Accordion type="single" collapsible className="space-y-2">
                     {category.questions.map((faq, i) => (
                       <AccordionItem key={i} value={`${index}-${i}`}>
-                        <AccordionTrigger className="text-left">{faq.q}</AccordionTrigger>
-                        <AccordionContent className="text-muted-foreground">{faq.a}</AccordionContent>
+                        <AccordionTrigger className="text-left">
+                          {faq.q}
+                        </AccordionTrigger>
+                        <AccordionContent className="text-muted-foreground">
+                          {faq.a}
+                        </AccordionContent>
                       </AccordionItem>
                     ))}
                   </Accordion>
                 </div>
               ))
             ) : (
-              <div className="text-center py-12 opacity-50"><Frown className="mx-auto mb-2" /> No matches found.</div>
+              <div className="text-center py-12 opacity-50">
+                <Frown className="mx-auto mb-2" /> No matches found.
+              </div>
             )}
           </div>
         </TabsContent>
@@ -300,7 +331,9 @@ export default function Support() {
                     <div className="flex-1">
                       <h4 className="font-medium">{tutorial.title}</h4>
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {tutorial.duration}</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {tutorial.duration}
+                        </span>
                         {/* VIEW COUNT REMOVED FROM HERE */}
                       </div>
                     </div>
@@ -309,7 +342,9 @@ export default function Support() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 opacity-50"><Frown className="mx-auto mb-2" /> No tutorials found.</div>
+            <div className="text-center py-12 opacity-50">
+              <Frown className="mx-auto mb-2" /> No tutorials found.
+            </div>
           )}
         </TabsContent>
 
@@ -320,17 +355,33 @@ export default function Support() {
             <Card className="lg:col-span-3 overflow-hidden">
               <div className="p-4 border-b bg-muted/50">
                 <p className="font-medium">Direct Admin Support</p>
-                <p className="text-xs text-muted-foreground">Submit a ticket and we'll get back to you.</p>
+                <p className="text-xs text-muted-foreground">
+                  Submit a ticket and we'll get back to you.
+                </p>
               </div>
 
               <div className="p-6">
                 <AnimatePresence mode="wait">
                   {showSuccess ? (
-                    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center py-10 text-center">
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex flex-col items-center justify-center py-10 text-center"
+                    >
                       <CheckCircle2 className="w-16 h-16 text-green-500 mb-4" />
-                      <h3 className="text-xl font-bold">Message Sent Successfully!</h3>
-                      <p className="text-muted-foreground max-w-xs mb-4">Our admin has received your ticket.</p>
-                      <Button variant="outline" onClick={() => setShowSuccess(false)}>Send Another</Button>
+                      <h3 className="text-xl font-bold">
+                        Message Sent Successfully!
+                      </h3>
+                      <p className="text-muted-foreground max-w-xs mb-4">
+                        Our admin has received your ticket.
+                      </p>
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowSuccess(false)}
+                      >
+                        Send Another
+                      </Button>
                     </motion.div>
                   ) : (
                     <form onSubmit={handleSendMessage} className="space-y-4">
@@ -341,8 +392,16 @@ export default function Support() {
                         className="min-h-[150px] resize-none text-lg bg-background"
                         disabled={isSending}
                       />
-                      <Button type="submit" className="w-full h-12 text-lg" disabled={isSending}>
-                        {isSending ? <RefreshCw className="w-5 h-5 mr-2 animate-spin" /> : <Send className="w-5 h-5 mr-2" />}
+                      <Button
+                        type="submit"
+                        className="w-full h-12 text-lg"
+                        disabled={isSending}
+                      >
+                        {isSending ? (
+                          <RefreshCw className="w-5 h-5 mr-2 animate-spin" />
+                        ) : (
+                          <Send className="w-5 h-5 mr-2" />
+                        )}
                         {isSending ? "Sending..." : "Submit Ticket"}
                       </Button>
                     </form>
@@ -357,29 +416,48 @@ export default function Support() {
                 <h3 className="font-medium flex items-center gap-2">
                   <Clock className="w-4 h-4" /> Recent History
                 </h3>
-                <Button variant="ghost" size="icon" onClick={fetchData} className="h-8 w-8">
-                  <RefreshCw className={`h-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={fetchData}
+                  className="h-8 w-8"
+                >
+                  <RefreshCw
+                    className={`h-4 h-4 ${loading ? "animate-spin" : ""}`}
+                  />
                 </Button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[400px]">
                 {ticketHistory.length > 0 ? (
                   ticketHistory.map((ticket) => (
-                    <div key={ticket.id} className="p-3 rounded-lg border bg-card text-sm space-y-1">
+                    <div
+                      key={ticket.id}
+                      className="p-3 rounded-lg border bg-card text-sm space-y-1"
+                    >
                       <div className="flex justify-between items-start">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${ticket.status === 'open' ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'
-                          }`}>
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            ticket.status === "open"
+                              ? "bg-green-500/10 text-green-500"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
                           {ticket.status}
                         </span>
                         <span className="text-[10px] text-muted-foreground">
                           {new Date(ticket.created_at).toLocaleDateString()}
                         </span>
                       </div>
-                      <p className="text-foreground/80 line-clamp-2">{ticket.message}</p>
+                      <p className="text-foreground/80 line-clamp-2">
+                        {ticket.message}
+                      </p>
                     </div>
                   ))
                 ) : (
                   <div className="text-center py-10 text-muted-foreground text-xs italic">
-                    {loading ? "Loading history..." : "No ticket history found."}
+                    {loading
+                      ? "Loading history..."
+                      : "No ticket history found."}
                   </div>
                 )}
               </div>
@@ -392,13 +470,29 @@ export default function Support() {
       <AnimatePresence>
         {selectedVideo && (
           <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="relative w-full max-w-4xl bg-card rounded-2xl overflow-hidden shadow-2xl">
-              <Button variant="ghost" size="icon" className="absolute top-4 right-4 z-10 text-white bg-black/20 hover:bg-white/20" onClick={() => setSelectedVideo(null)}>
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-4xl bg-card rounded-2xl overflow-hidden shadow-2xl"
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-4 right-4 z-10 text-white bg-black/20 hover:bg-white/20"
+                onClick={() => setSelectedVideo(null)}
+              >
                 <X className="w-6 h-6" />
               </Button>
               <div className="aspect-video bg-black">
                 <iframe
-                  src={selectedVideo.url.includes("watch?v=") ? selectedVideo.url.replace("watch?v=", "embed/").split("&")[0] : selectedVideo.url}
+                  src={
+                    selectedVideo.url.includes("watch?v=")
+                      ? selectedVideo.url
+                          .replace("watch?v=", "embed/")
+                          .split("&")[0]
+                      : selectedVideo.url
+                  }
                   className="w-full h-full"
                   allowFullScreen
                   title={selectedVideo.title}
@@ -406,7 +500,9 @@ export default function Support() {
               </div>
               <div className="p-6 bg-card border-t">
                 <h2 className="text-xl font-bold">{selectedVideo.title}</h2>
-                <p className="text-muted-foreground text-sm mt-1">Duration: {selectedVideo.duration}</p>
+                <p className="text-muted-foreground text-sm mt-1">
+                  Duration: {selectedVideo.duration}
+                </p>
                 {/* VIEW COUNT REMOVED FROM MODAL AS WELL */}
               </div>
             </motion.div>

@@ -49,7 +49,7 @@ export default function Sessions() {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       
-      console.log(user.id);
+      // console.log(user.id);
       if (!user) return;
 
 
@@ -154,14 +154,14 @@ export default function Sessions() {
             {liveSessions.length} live classes available
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col md:flex-row items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search sessions..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 w-64 bg-muted border-border"
+              className="pl-10 w-56 md:w-64 bg-muted border-border"
             />
           </div>
           <Button
@@ -176,7 +176,7 @@ export default function Sessions() {
       </div>
 
       <Tabs defaultValue="live" className="space-y-6">
-        <TabsList className="bg-muted p-1">
+        <TabsList className="bg-muted p-2 gap-2 flex-wrap h-auto">
           <TabsTrigger
             value="live"
             className="data-[state=active]:bg-primary data-[state=active]:text-white"

@@ -48,7 +48,7 @@ export function UpcomingSessions() {
           session_assignments!left(client_id)
         `)
         .order("id", { ascending: false });
-      console.log(data);
+      // console.log(data);
       if (error) throw error;
 
       const visibleSessions = (data || []).filter(session => {
@@ -105,6 +105,29 @@ export function UpcomingSessions() {
     }
   };
 
+  const filteredSessions = sessions
+    .map((s) => {
+      const now = new Date();
+      const scheduled = new Date(s.scheduled_at);
+      const endTime = new Date(scheduled.getTime() + 45 * 60 * 1000);
+
+      const isSameDay =
+        now.getFullYear() === scheduled.getFullYear() &&
+        now.getMonth() === scheduled.getMonth() &&
+        now.getDate() === scheduled.getDate();
+
+      const isLiveTime = now >= scheduled && now <= endTime;
+      return {
+        ...s,
+        isLiveAvailable: isSameDay && isLiveTime,
+        endTime,
+      };
+    })
+    .filter((s) => new Date() <= s.endTime)
+    .map(({ endTime, ...s }) => s);
+
+  const liveSessions = filteredSessions.filter((s) => s.type === "live");
+
   if (loading) return (
     <div className="bg-card rounded-xl border border-border p-6 h-[200px] flex items-center justify-center">
       <div className="flex flex-col items-center gap-2">
@@ -125,22 +148,30 @@ export function UpcomingSessions() {
           <Calendar className="w-5 h-5 text-primary" />
           <h3 className="font-display font-semibold text-lg">Your Schedule</h3>
         </div>
-        <Badge variant="secondary" className="px-3 py-1 bg-primary/5 text-primary border-none">
-          {sessions.length} Available
+        <Badge
+          variant="secondary"
+          className="px-3 py-1 bg-primary/5 text-primary border-none"
+        >
+          {liveSessions.length} Available
         </Badge>
       </div>
 
       <div className="space-y-4">
-        {sessions.length === 0 ? (
+        {liveSessions.length === 0 ? (
           <div className="text-center py-10 border-2 border-dashed border-muted rounded-xl bg-muted/5">
-              <p className="text-sm text-muted-foreground">No sessions assigned today.</p>
+            <p className="text-sm text-muted-foreground">
+              No sessions assigned today.
+            </p>
           </div>
         ) : (
           <AnimatePresence>
-            {sessions.map((session, index) => {
-              const isWhatsApp = session.platform === 'whatsapp';
-              const startTime = session.start_time 
-                ? new Date(session.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            {liveSessions.map((session, index) => {
+              const isWhatsApp = session.platform === "whatsapp";
+              const startTime = session.start_time
+                ? new Date(session.start_time).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
                 : "Live";
 
               return (
@@ -160,12 +191,16 @@ export function UpcomingSessions() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <h4 className="font-bold truncate text-sm">{session.title}</h4>
+                      <h4 className="font-bold truncate text-sm">
+                        {session.title}
+                      </h4>
                       {session.type === "live" && (
                         <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" />
                       )}
                     </div>
-                    <p className="text-[11px] text-muted-foreground">Coach {session.instructor || 'Staff'}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Coach {session.instructor || "Staff"}
+                    </p>
                   </div>
 
                   <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-muted-foreground mr-2 font-medium">
@@ -173,10 +208,10 @@ export function UpcomingSessions() {
                     <span>{startTime}</span>
                   </div>
 
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     className={`h-8 px-3 text-xs ${isWhatsApp ? "bg-[#25D366] hover:bg-[#128C7E]" : "bg-primary"}`}
-                    onClick={() => handleSessionJoin(session)} 
+                    onClick={() => handleSessionJoin(session)}
                   >
                     {isWhatsApp ? "Contact" : "Join"}
                   </Button>

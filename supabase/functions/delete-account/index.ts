@@ -42,6 +42,7 @@ serve(async (req) => {
       data: { user },
       error,
     } = await userClient.auth.getUser();
+
     if (error || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -54,7 +55,7 @@ serve(async (req) => {
     // Delete avatar files
     const { data: files } = await supabaseAdmin.storage
       .from("user-images")
-      .list(`avatars/${userId}`);
+      .list(`avatars/${userId}`); // FIXED: Changed from .list` to .list(`
 
     if (files?.length) {
       await supabaseAdmin.storage
@@ -82,11 +83,9 @@ serve(async (req) => {
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Internal server error";
-
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: corsHeaders,
     });
   }
 });
-

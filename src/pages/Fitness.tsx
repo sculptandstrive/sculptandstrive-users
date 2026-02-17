@@ -133,7 +133,7 @@ export default function Fitness() {
       .select("*")
       .eq("workout_id", workoutId)
       .order("created_at", { ascending: true });
-      console.log(exData);
+      // console.log(exData);
 
     if (!exError) setExercises(exData || []);
   };
@@ -315,7 +315,7 @@ export default function Fitness() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-8 bg-[#0b0f13] min-h-screen text-white font-sans">
+    <div className="max-w-7xl mx-auto  space-y-8 min-h-screen text-white font-sans">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
@@ -405,7 +405,7 @@ export default function Fitness() {
                     <p className={`text-[15px] font-bold ${exercise.completed ? "text-slate-500 line-through" : "text-white"}`}>
                       {exercise.name}
                     </p>
-                    <div className="flex items-center gap-4 mt-1.5">
+                    <div className="flex flex-col md:flex-row items-center gap-4 mt-1.5">
                       <div className="flex flex-col">
                         <span className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">Sets</span>
                         <Input 
@@ -486,8 +486,8 @@ export default function Fitness() {
               )}
             </AnimatePresence>
 
-            <div className="flex gap-4">
-              <div className="flex-1 flex gap-2">
+            <div className="flex flex-2 md:flex-0 flex-col md:flex-row gap-4">
+              <div className="flex-1 flex flex-col md:flex-row gap-2">
                  <Button
                   onClick={handleContinue}
                   disabled={exercises.length === 0 || restTime > 0}
@@ -507,7 +507,7 @@ export default function Fitness() {
               <Button
                 onClick={handleReset}
                 variant="outline"
-                className="h-12 px-6 rounded-xl border-slate-800 font-bold text-slate-400 text-[13px] uppercase hover:text-red-500"
+                className=" h-12 px-6 rounded-xl border-slate-800 font-bold text-slate-400 text-[13px] uppercase hover:text-red-500"
               >
                 <RotateCcw className="w-4 h-4 mr-2" /> Reset
               </Button>
