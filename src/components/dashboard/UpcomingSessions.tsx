@@ -126,8 +126,8 @@ export function UpcomingSessions() {
           <h3 className="font-display font-semibold text-lg">Your Schedule</h3>
         </div>
         <Badge variant="secondary" className="px-3 py-1 bg-primary/5 text-primary border-none">
-          {sessions.length} Available
-        </Badge>
+  {sessions.filter(s => s.type === 'live').length} Live Now
+</Badge>
       </div>
 
       <div className="space-y-4">
