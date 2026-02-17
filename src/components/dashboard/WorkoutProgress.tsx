@@ -15,18 +15,34 @@ const achievementsList = [
 
 export default function WorkoutProgress() {
   const { toast } = useToast();
-  const {user} = useAuth();
+  const { user } = useAuth();
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchStats = async () => {
+    if (!user) return;
+    
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('workouts')
         .select('*')
         .eq('user_id', user.id)
         .order('order_index', { ascending: true });
-      if (data) setWeeklyData(data);
+
+      if (error) throw error;
+
+      if (data) {
+        
+        const normalizedData = data.reduce((acc: any[], current: any) => {
+          const exists = acc.find(item => item.day_name === current.day_name);
+          if (!exists) {
+            return [...acc, current];
+          }
+          return acc;
+        }, []);
+
+        setWeeklyData(normalizedData);
+      }
     } catch (error) {
       console.error("Error fetching stats:", error);
     } finally {
@@ -36,22 +52,33 @@ export default function WorkoutProgress() {
 
   useEffect(() => {
     fetchStats();
+    
+    // re-normalize data on every update
     const channel = supabase
       .channel('schema-db-changes-progress')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'workouts' }, fetchStats)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'workouts',
+        filter: `user_id=eq.${user?.id}` 
+      }, fetchStats)
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+    return () => { 
+      supabase.removeChannel(channel); 
+    };
+  }, [user?.id]);
 
-  //  Reset All Days Logic
   const resetWeeklyProgress = async () => {
+    if (!user) return;
+
+    // Optimistic UI update
     setWeeklyData(prev => prev.map(day => ({ ...day, completed: false })));
     
     const { error } = await supabase
       .from('workouts')
       .update({ completed: false } as any)
-      .not('id', 'is', null); // Updates all rows 
+      .eq('user_id', user.id); // Targeted reset for current user only
 
     if (error) {
       toast({ title: "Reset Failed", variant: "destructive" });
@@ -95,20 +122,21 @@ export default function WorkoutProgress() {
       <div className="grid grid-cols-7 gap-2 mb-6">
         {weeklyData.map((day, index) => (
           <div key={day.id || index} className="text-center">
-            <button
-              // onClick={() => toggleDayStatus(day.id, day.completed)}
-              className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center mb-1.5 transition-all cursor-pointer ${
+            <div
+              className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center mb-1.5 transition-all ${
                 day.completed
                   ? "bg-[#2dd4bf] text-black shadow-[0_0_15px_rgba(45,212,191,0.3)]"
-                  : "bg-[#0d1117] text-slate-500 border border-slate-800 hover:border-slate-700"
+                  : "bg-[#0d1117] text-slate-500 border border-slate-800"
               }`}
             >
               {day.completed ? (
                 <Check className="w-5 h-5 stroke-[3px]" />
               ) : (
-                <span className="text-[12px] font-bold">{(day.day_name?.[0] || index + 1)}</span>
+                <span className="text-[12px] font-bold">
+                  {(day.day_name?.[0] || index + 1)}
+                </span>
               )}
-            </button>
+            </div>
             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               {day.day_name?.substring(0, 3) || `Day ${index + 1}`}
             </span>

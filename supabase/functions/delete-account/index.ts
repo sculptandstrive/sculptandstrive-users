@@ -32,10 +32,10 @@ serve(async (req) => {
 
     //  User-scoped client
     const userClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("ANON_KEY")!, // Match the new secret name here
+  { global: { headers: { Authorization: authHeader } } },
+);
 
     // Verify user
     const {
@@ -88,4 +88,8 @@ serve(async (req) => {
       headers: corsHeaders,
     });
   }
+<<<<<<< HEAD
 });
+=======
+});
+>>>>>>> 41599d0f417d519778569b26b879b8aef22d507e

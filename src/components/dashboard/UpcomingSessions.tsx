@@ -148,12 +148,18 @@ export function UpcomingSessions() {
           <Calendar className="w-5 h-5 text-primary" />
           <h3 className="font-display font-semibold text-lg">Your Schedule</h3>
         </div>
+<<<<<<< HEAD
         <Badge
           variant="secondary"
           className="px-3 py-1 bg-primary/5 text-primary border-none"
         >
           {liveSessions.length} Available
         </Badge>
+=======
+        <Badge variant="secondary" className="px-3 py-1 bg-primary/5 text-primary border-none">
+  {sessions.filter(s => s.type === 'live').length} Live Now
+</Badge>
+>>>>>>> 41599d0f417d519778569b26b879b8aef22d507e
       </div>
 
       <div className="space-y-4">

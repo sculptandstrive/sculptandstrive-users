@@ -23,6 +23,7 @@ export default function Sessions() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("live");
 
   useEffect(() => {
     fetchSessions();
@@ -151,8 +152,11 @@ export default function Sessions() {
         <div>
           <h1 className="text-3xl font-display font-bold mb-1">Sessions</h1>
           <p className="text-muted-foreground">
-            {liveSessions.length} live classes available
-          </p>
+  {activeTab === "live" 
+    ? `${liveSessions.length} live classes available` 
+    : `${recordedSessions.length} recorded sessions available`
+  }
+</p>
         </div>
         <div className="flex flex-col md:flex-row items-center gap-3">
           <div className="relative">
