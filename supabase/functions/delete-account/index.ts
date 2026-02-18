@@ -31,12 +31,17 @@ serve(async (req) => {
     );
 
     //  User-scoped client
+   // Replace your userClient initialization with this:
+  // Replace lines 35-39 in index.ts with this:
+// Replace this block in index.ts (around line 35)
+// Use the standard environment variable name
+// Replace the old userClient initialization with this:
+// User-scoped client
     const userClient = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("ANON_KEY")!, // Match the new secret name here
-  { global: { headers: { Authorization: authHeader } } },
-);
-
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!, // Standard name for Edge Functions
+      { global: { headers: { Authorization: authHeader } } },
+    );
     // Verify user
     const {
       data: { user },

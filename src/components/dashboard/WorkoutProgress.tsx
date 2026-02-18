@@ -133,7 +133,7 @@ export default function WorkoutProgress() {
                 <Check className="w-5 h-5 stroke-[3px]" />
               ) : (
                 <span className="text-[12px] font-bold">
-                  {(day.day_name?.[0] || index + 1)}
+                {day.day_name ? day.day_name[0] : (index + 1)}
                 </span>
               )}
             </div>

@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 //  CONFIGURATION & TYPES
 
 const exerciseLibrary = [
+  //  STRENGTH 12-15
   { name: "Bench Press", sets: 4, reps: 12, weight_kg: 60 },
   { name: "Shoulder Press", sets: 3, reps: 10, weight_kg: 40 },
   { name: "Lat Pulldown", sets: 4, reps: 12, weight_kg: 50 },
@@ -34,6 +35,22 @@ const exerciseLibrary = [
   { name: "Tricep Dips", sets: 3, reps: 12, weight_kg: 0 },
   { name: "Squats", sets: 3, reps: 10, weight_kg: 80 },
   { name: "Deadlifts", sets: 3, reps: 8, weight_kg: 100 },
+  { name: "Incline Dumbbell Press", sets: 3, reps: 12, weight_kg: 20 },
+  { name: "Hammer Curls", sets: 3, reps: 12, weight_kg: 12 },
+  { name: "Leg Press", sets: 3, reps: 12, weight_kg: 100 },
+  
+  
+  //  CARDIO 25-30
+  { name: "Running (Treadmill)", sets: 1, reps: 30, weight_kg: 0 },
+  { name: "Jump Rope", sets: 3, reps: 100, weight_kg: 0 },
+  { name: "Cycling", sets: 1, reps: 45, weight_kg: 0 },
+  {name: "Burpees", sets: 1, reps: 25, weight_kg: 0 },
+ 
+
+  //  FLEXIBILITY / CALISTHENICS 
+  { name: "Plank", sets: 3, reps: 60, weight_kg: 0 },
+  { name: "Pushups", sets: 3, reps: 20, weight_kg: 0 },
+  { name: "Pull Ups", sets: 3, reps: 8, weight_kg: 0 },
 ];
 
 const DEFAULT_WEEKLY_PLAN = [
@@ -590,9 +607,15 @@ export default function Fitness() {
                       <Input 
                         type="number" 
                         className="w-16 h-9 bg-black/40 border-slate-800 text-[12px] text-center font-mono focus-visible:ring-[#2dd4bf] focus-visible:border-[#2dd4bf] pr-4 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        value={selectedRestDuration}
-                        onChange={(e) => setSelectedRestDuration(Math.max(0, parseInt(e.target.value) || 0))}
-                      />
+                       value={selectedRestDuration === 0 ? "" : selectedRestDuration} // Shows empty instead of 0
+                      placeholder="0"
+                      onChange={(e) => {
+                      const val = e.target.value;
+                     // Strip leading zeros using regex and parse
+                    const parsed = parseInt(val.replace(/^0+/, '')) || 0;
+                  setSelectedRestDuration(Math.max(0, parsed));
+                 }
+                }  />
                       <span className="absolute right-2 text-[10px] text-slate-600 pointer-events-none font-bold">
                         s
                       </span>
@@ -751,7 +774,26 @@ export default function Fitness() {
                     {isAdding ? <Loader2 className="w-4 h-4 animate-spin text-slate-500" /> : <Plus className="w-4 h-4 text-slate-500 group-hover:text-[#2dd4bf]" />}
                   </button>
                 ))}
-                {filteredLibrary.length === 0 && (
+               
+                 {searchTerm.trim() !== "" && !filteredLibrary.some(e => e.name.toLowerCase() === searchTerm.toLowerCase()) && (
+                <button
+               onClick={() => addExercise({ 
+              name: searchTerm, 
+             sets: 3, 
+            reps: 10, 
+            weight_kg: 0 
+           })}
+          disabled={isAdding}
+          className="w-full flex items-center justify-between p-3 rounded-xl border border-dashed border-[#2dd4bf]/40 bg-[#2dd4bf]/5 hover:bg-[#2dd4bf]/10 transition-all group mt-2"
+          >
+        <div className="text-left">
+        <p className="font-bold text-[14px] text-[#2dd4bf]">Create "{searchTerm}"</p>
+        <p className="text-[11px] text-slate-400">Add this new exercise</p>
+       </div>
+       <Plus className="w-4 h-4 text-[#2dd4bf]" />
+       </button>
+               )}
+               {filteredLibrary.length === 0 && (
                   <p className="text-center py-8 text-slate-500 text-sm">No exercises found.</p>
                 )}
               </div>

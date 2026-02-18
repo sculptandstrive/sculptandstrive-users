@@ -394,30 +394,26 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
 
   // Delete Account Function
   const deleteAccount = async () => {
-    try {
-      setLoading(true);
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession();
+  try {
+    setLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
         console.error("No active session");
         return;
       }
 
-      console.log("Session data is: ", session);
-
-      const res = await fetch(
-        "https://zoxqjjuokxiyxusqapvv.functions.supabase.co/delete-account",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
+    const res = await fetch(
+      "https://zoxqjjuokxiyxusqapvv.functions.supabase.co/delete-account",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`, // Ensure this is explicitly session.access_token
         },
-      );
+      },
+    );
+    // ... rest of the function
 
       console.log(res);
 
@@ -662,17 +658,19 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
                       }
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <div className="relative mt-1">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        id="email"
-                        value={form.email}
-                        className="bg-muted border-border pl-10"
-                      />
-                    </div>
-                  </div>
+                  // Find this block around line 490
+<div>
+  <Label htmlFor="email">Email</Label>
+  <div className="relative mt-1">
+    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+    <Input
+      id="email"
+      value={form.email}
+      readOnly // <--- Add this attribute
+      className="bg-muted border-border pl-10 cursor-not-allowed"
+    />
+  </div>
+</div>
                   <div>
                     <Label htmlFor="phone">Phone</Label>
                     <div className="relative mt-1">
