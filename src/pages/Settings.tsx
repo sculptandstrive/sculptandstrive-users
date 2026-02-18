@@ -658,8 +658,7 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
                       }
                     />
                   </div>
-                  // Find this block around line 490
-<div>
+                <div>
   <Label htmlFor="email">Email</Label>
   <div className="relative mt-1">
     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

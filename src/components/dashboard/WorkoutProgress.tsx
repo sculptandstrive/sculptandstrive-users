@@ -180,6 +180,6 @@ export default function WorkoutProgress() {
           );
         })}
       </div>
-    </motion.div>
+    </motion.div>//
   );
 }
