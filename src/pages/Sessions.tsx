@@ -126,7 +126,10 @@ export default function Sessions() {
     .map((s) => {
       const now = new Date();
       const scheduled = new Date(s.scheduled_at);
-      const endTime = new Date(scheduled.getTime() + 45 * 60 * 1000);
+      let endTime = new Date(scheduled.getTime() + 45 * 60 * 1000);
+      if(s.type === "recorded"){
+        endTime = new Date(scheduled.getTime() + 1000 * 60 * 60 * 24 * 7);
+      }
 
       const isSameDay =
         now.getFullYear() === scheduled.getFullYear() &&
