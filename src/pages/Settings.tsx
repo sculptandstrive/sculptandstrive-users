@@ -638,7 +638,7 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
                     <Label htmlFor="firstName">First Name</Label>
                     <Input
                       id="firstName"
-                      placeholder="John"
+                      placeholder="Enter your first name "
                       value={form.firstName}
                       className="bg-muted border-border mt-1"
                       onChange={(e) =>
@@ -650,7 +650,7 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
                     <Label htmlFor="lastName">Last Name</Label>
                     <Input
                       id="lastName"
-                      placeholder="Doe"
+                      placeholder="Enter your last name "
                       value={form.lastName}
                       className="bg-muted border-border mt-1"
                       onChange={(e) =>
