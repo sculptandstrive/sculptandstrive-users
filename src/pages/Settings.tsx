@@ -152,6 +152,7 @@ export default function Settings() {
     email: "",
   });
 
+  console.log(user);
 
  useEffect(() => {
    async function loadProfile() {
@@ -368,6 +369,22 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
     }
 
     setLoading(true);
+
+
+    const {error: currPsdError} = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword
+    })
+
+    if(currPsdError){
+      toast({
+        title: "Password Change Failed",
+        description: "Current Password Does not matched",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
 
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
