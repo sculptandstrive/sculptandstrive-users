@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName?: string, userType?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
@@ -38,9 +38,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName?: string) => {
+  const signUp = async (email: string, password: string, fullName?: string, userType?: string) => {
     const redirectUrl = `${window.location.origin}/`;
-    
+    console.log(userType);
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -48,10 +48,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: redirectUrl,
         data: {
           full_name: fullName,
-          signup_source: 'user'
+          signup_source: userType
         },
       },
     });
+
+    console.log("Error is", error);
     
     return { error: error as Error | null };
   };
@@ -79,7 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // console.log(profileData);
 
-    if (!profileData || profileData.role !== 'user') {
+    if (!profileData || (profileData.role !== 'user' && profileData.role !== 'trial_user') ) {
+      console.log(profileData.role);
       await supabase.auth.signOut();
       return {
         error: { message: "You are not authorized for this role" } as Error,

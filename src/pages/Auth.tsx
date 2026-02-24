@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Mail, Lock, User, Dumbbell } from "lucide-react";
 import { z } from "zod";
@@ -21,6 +21,8 @@ export default function Auth() {
   const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tempId, setTempId] = useState<string | null>(null);
   // const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const { user, signIn, signUp } = useAuth();
@@ -35,6 +37,10 @@ export default function Auth() {
     if (user) {
       navigate("/");
     }
+    const getTempId = searchParams.get('tempId');
+    getTempId ? setTempId(getTempId) : null;
+    getTempId ? setIsLogin(false) : setIsLogin(true);
+
   }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -167,7 +173,10 @@ export default function Auth() {
           });
           return;
         }
-        const { error } = await signUp(email, password, fullName);
+        console.log(tempId);
+        const userType = tempId ? 'trial_user' : "user" ;
+        console.log(userType);
+        const { error } = await signUp(email, password, fullName, userType);
         if (error) {
           if (error.message.includes("already registered")) {
             toast({

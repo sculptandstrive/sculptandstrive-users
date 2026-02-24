@@ -152,7 +152,7 @@ export default function Settings() {
     email: "",
   });
 
-  console.log(user);
+  // console.log(user);
 
  useEffect(() => {
    async function loadProfile() {
@@ -432,7 +432,7 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
     );
     // ... rest of the function
 
-      console.log(res);
+      // console.log(res);
 
       const data = await res.json();
 

@@ -64,6 +64,7 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  console.log(user)
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
   const [notificationWindow, setNotificationWindow] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<Notifications[]>([]);
