@@ -238,13 +238,13 @@ export default function Dashboard() {
     fetchNotifications();
 
     const expiry = new Date(user.user_metadata.expiry_at).getTime();
-    console.log(expiry)
+    // console.log(expiry)
     const interval = setInterval(() => {
       const now = Date.now();
       const difference = expiry - now;
 
       if (difference <= 0) {
-        setTimeLeft("Expired");
+        setTimeLeft(`0d 0h 0m 0s`);
         clearInterval(interval);
         return;
       }

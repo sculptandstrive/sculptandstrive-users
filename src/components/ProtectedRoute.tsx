@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface ProtectedRouteProps {
@@ -7,6 +7,15 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
+  const isTrialUser = user?.user_metadata?.signup_source === "trial_user";
+
+  const location = useLocation();
+
+  const restrictedPaths = ["/sessions", "/nutrition", "/progress"];
+
+  if (isTrialUser && restrictedPaths.includes(location.pathname)) {
+    return <Navigate to="/" replace />;
+  }
 
   if (loading) {
     return (

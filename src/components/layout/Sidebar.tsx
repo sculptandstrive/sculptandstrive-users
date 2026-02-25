@@ -18,13 +18,14 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: Calendar, label: "Sessions", path: "/sessions" },
-  { icon: Dumbbell, label: "Fitness", path: "/fitness" },
-  { icon: Apple, label: "Nutrition", path: "/nutrition" },
-  { icon: TrendingUp, label: "Progress", path: "/progress" },
+  { icon: Calendar, label: "Sessions", path: "/sessions", restricted: true },
+  { icon: Dumbbell, label: "Fitness", path: "/fitness", },
+  { icon: Apple, label: "Nutrition", path: "/nutrition", restricted: true },
+  { icon: TrendingUp, label: "Progress", path: "/progress", restricted: true },
   { icon: HelpCircle, label: "Support", path: "/support" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
@@ -37,6 +38,7 @@ export function Sidebar() {
   // console.log(user);
 
   const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+  const isTrialUser = user?.user_metadata?.signup_source === "trial_user";
   const userInitials = userName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
 
   const handleSignOut = async () => {
@@ -83,15 +85,26 @@ export function Sidebar() {
         <ul className="space-y-1 px-3">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
+            const isBlocked = isTrialUser && item.restricted;
             return (
               <li key={item.path}>
                 <NavLink
-                  to={item.path}
+                  to={isBlocked ? "#" : item.path}
+                  onClick={(e) => {
+                    if (isBlocked) {
+                      toast({
+                        title: "Unauthorized Access",
+                        description: "Please Upgrade Your Plan For Access",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
                   className={cn(
                     "flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 group relative",
                     isActive
                       ? "bg-primary/15 text-primary"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    isBlocked ? "opacity-40 cursor-not-allowed" : "",
                   )}
                 >
                   {isActive && (
@@ -104,7 +117,7 @@ export function Sidebar() {
                   <item.icon
                     className={cn(
                       "w-5 h-5 flex-shrink-0 transition-colors",
-                      isActive ? "text-primary" : "group-hover:text-primary"
+                      isActive ? "text-primary" : "group-hover:text-primary",
                     )}
                   />
                   <AnimatePresence>
