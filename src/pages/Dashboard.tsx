@@ -78,6 +78,7 @@ export default function Dashboard() {
     streak: 0
   });
   const [dailyWaterGoal, setWaterGoal] = useState<number>(3);
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -235,7 +236,32 @@ export default function Dashboard() {
     fetchUserReport();
     fetchDailyNotifications();
     fetchNotifications();
+
+    const expiry = new Date(user.user_metadata.expiry_at).getTime();
+    console.log(expiry)
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const difference = expiry - now;
+
+      if (difference <= 0) {
+        setTimeLeft("Expired");
+        clearInterval(interval);
+        return;
+      }
+
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor(
+        (difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+      );
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+      setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, [user, today]);
+
+  console.log(timeLeft)
 
   return (
     <div className="space-y-8">
@@ -253,6 +279,14 @@ export default function Dashboard() {
             Track your fitness journey and stay motivated
           </p>
         </div>
+
+        {user?.user_metadata?.signup_source === "trial_user" &&
+          user?.user_metadata?.expiry_at && (
+            <div className="bg-primary/15 px-4 py-2 rounded-md text-base font-semibold">
+              Your trial ends in: <span className="font-bold gradient-text">{timeLeft}</span>
+            </div>
+          )}
+
         <div className="flex items-center gap-3">
           <Button
             variant="outline"

@@ -173,9 +173,9 @@ export default function Auth() {
           });
           return;
         }
-        console.log(tempId);
+        // console.log(tempId);
         const userType = tempId ? 'trial_user' : "user" ;
-        console.log(userType);
+        // console.log(userType);
         const { error } = await signUp(email, password, fullName, userType);
         if (error) {
           if (error.message.includes("already registered")) {
@@ -194,7 +194,7 @@ export default function Auth() {
 
         } else {
           if(error){
-            console.log("Error is: ", error);
+            // console.log("Error is: ", error);
           }
           
           toast({
