@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 // FAQ 
 const faqs = [
@@ -77,7 +79,11 @@ const faqs = [
 
 ];
 
-export default function Support() {
+export default function Support() { 
+  const {user} = useAuth();
+  // console.log(user)
+  const isTrialUser = user?.user_metadata?.plan_role === 'trial_user';
+  // console.log(role)
   const [searchQuery, setSearchQuery] = useState("");
   const [chatMessage, setChatMessage] = useState("");
   const [activeTab, setActiveTab] = useState("faq");
@@ -195,6 +201,14 @@ export default function Support() {
     }
   };
 
+  // const handleActiveTab = () => {
+  //   if(!item.haveAccess){
+  //       title: "Unauthorized Access",
+  //               description: "Please Upgrade Your Plan For Access",
+  //               variant: "destructive",
+  //   } 
+  // }
+
   return (
     <div className="space-y-8 max-w-6xl mx-auto p-4">
       {/* Network Error Alert */}
@@ -237,21 +251,48 @@ export default function Support() {
       {/* Quick Links */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4">
         {[
-          { icon: BookOpen, title: "Documentation", tab: "faq" },
-          { icon: Video, title: "Video Tutorials", tab: "tutorials" },
-          { icon: MessageCircle, title: "Support Ticket", tab: "chat" },
+          {
+            icon: BookOpen,
+            title: "Documentation",
+            tab: "faq",
+            haveAccess: true,
+          },
+          {
+            icon: Video,
+            title: "Video Tutorials",
+            tab: "tutorials",
+            haveAccess: true,
+          },
+          {
+            icon: MessageCircle,
+            title: "Support Ticket",
+            tab: "chat",
+            haveAccess: isTrialUser ? false : true,
+          },
         ].map((item, index) => (
           <motion.div
             key={item.title}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            onClick={() => setActiveTab(item.tab)}
-            className={`bg-card border rounded-xl p-3 md:p-6 hover:border-primary/50 transition-all cursor-pointer group ${
+            onClick={() => {
+              if (!item.haveAccess) {
+                toast({
+                  title: "Unauthorized Access",
+                  description: "Please Upgrade Your Plan For Access",
+                  variant: "destructive",
+                });
+                return;
+              }
+              setActiveTab(item.tab);
+            }}
+            className={`bg-card border rounded-xl p-3 md:p-6 hover:border-primary/50 transition-all  group ${
               activeTab === item.tab
                 ? "border-primary ring-1 ring-primary/20"
                 : "border-border"
-            }`}
+            }
+            ${item.haveAccess ? "cursor-pointer" : "cursor-not-allowed"}
+            `}
           >
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-lg bg-primary/10 group-hover:bg-primary/20">
@@ -272,7 +313,13 @@ export default function Support() {
         <TabsList className="bg-muted flex-wrap h-auto gap-2 p-2">
           <TabsTrigger value="faq">FAQs</TabsTrigger>
           <TabsTrigger value="tutorials">Tutorials</TabsTrigger>
-          <TabsTrigger value="chat">Contact Support</TabsTrigger>
+          <TabsTrigger
+            value="chat"
+            disabled={isTrialUser}
+            className={isTrialUser ? "opacity-40 cursor-not-allowed" : ""}
+          >
+            Contact Support
+          </TabsTrigger>
         </TabsList>
 
         {/* FAQs Tab */}

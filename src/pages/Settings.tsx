@@ -16,6 +16,7 @@ import {
   EyeOff,
   Trash2,
   Download,
+  CircleDollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,9 +140,11 @@ export default function Settings() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [settings, setSettings] = useState<NotificationSetting[]>(notificationSettings);
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
+
   const { toast } = useToast();
   const {user, signOut} = useAuth();
-
+  
   const [avatarUrl, setAvatarUrl] = useState<string>("");
   const [form, setForm] = useState({
     firstName: "",
@@ -152,21 +155,47 @@ export default function Settings() {
     email: "",
   });
 
+  const fetchPlanDetails = () => {
+    const expiry = new Date(user.user_metadata.expiry_at).getTime();
+    // console.log(expiry)
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const difference = expiry - now;
+
+      if (difference <= 0) {
+        setTimeLeft(`0d 0h 0m 0s`);
+        clearInterval(interval);
+        return;
+      }
+
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor(
+        (difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+      );
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+      setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }
+  
   // console.log(user);
-
- useEffect(() => {
-   async function loadProfile() {
-     if (!user) return;
-
-     setForm((prev) => ({ ...prev, email: user.email ?? "" }));
-
-     const [profileRes, detailsRes, notifyRes] = await Promise.all([
-       supabase
-         .from("profiles")
-         .select("avatar_url, date_of_birth")
-         .eq("user_id", user.id)
-         .maybeSingle(),
-
+  // console.log(planExpiry);
+  
+  useEffect(() => {
+    async function loadProfile() {
+      if (!user) return;
+      
+      setForm((prev) => ({ ...prev, email: user.email ?? "" }));
+      
+      const [profileRes, detailsRes, notifyRes] = await Promise.all([
+        supabase
+        .from("profiles")
+        .select("avatar_url, date_of_birth")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+        
        supabase
          .from("profile_details")
          .select("first_name, last_name, phone, gender")
@@ -219,7 +248,9 @@ export default function Settings() {
      setLoading(false);
    }
    loadProfile();
- }, []);
+
+   fetchPlanDetails();
+ }, [user]);
 
 
 //  Notification Toggle Function
@@ -611,6 +642,13 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
             <Lock className="w-4 h-4 mr-2" />
             Security
           </TabsTrigger>
+          <TabsTrigger
+            value="pricing"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            <CircleDollarSign className="w-4 h-4 mr-2" />
+            Pricing
+          </TabsTrigger>
         </TabsList>
 
         {/* Account Tab */}
@@ -675,18 +713,18 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
                       }
                     />
                   </div>
-                <div>
-  <Label htmlFor="email">Email</Label>
-  <div className="relative mt-1">
-    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-    <Input
-      id="email"
-      value={form.email}
-      readOnly // <--- Add this attribute
-      className="bg-muted border-border pl-10 cursor-not-allowed"
-    />
-  </div>
-</div>
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <div className="relative mt-1">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        value={form.email}
+                        readOnly // <--- Add this attribute
+                        className="bg-muted border-border pl-10 cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
                   <div>
                     <Label htmlFor="phone">Phone</Label>
                     <div className="relative mt-1">
@@ -1059,6 +1097,30 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
                   </AlertDialogContent>
                 </AlertDialog>
               </div>
+            </div>
+          </motion.div>
+        </TabsContent>
+
+        {/* Pricing Tab */}
+        <TabsContent value="pricing">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            {/* Password Change */}
+            <div className="bg-card border border-border rounded-xl p-6">
+              {(user?.user_metadata?.plan_role === "trial_user" || "user") &&
+                user?.user_metadata?.expiry_at && (
+                  <div className=" px-4 py-2 rounded-md text-base font-semibold">
+                    {user?.user_metadata?.plan_role === "trial_user" ? 
+                    "Your Trial ends in "
+                    :
+                    "Your Plan ends in "
+                  }
+                  <span className="font-bold gradient-text">{timeLeft}</span>
+                  </div>
+                )}
             </div>
           </motion.div>
         </TabsContent>
