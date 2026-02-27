@@ -17,6 +17,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/" replace />;
   }
 
+  
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

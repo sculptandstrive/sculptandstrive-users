@@ -194,12 +194,12 @@ export default function Auth() {
 
         } else {
           if(error){
-            // console.log("Error is: ", error);
+            console.log("Error is: ", error);
           }
           
           toast({
             title: "Account created!",
-            description: "Welcome to Sculpt & Strive!",
+            description: "Welcome to Sculpt And Strive!",
           });
           navigate("/pre-measurement");
         }
@@ -283,7 +283,7 @@ export default function Auth() {
             {/* <Dumbbell className="w-8 h-8 text-primary-foreground" /> */}
           </div>
           <h1 className="text-3xl font-display font-bold mb-2">
-            <span className="gradient-text">Sculpt</span> & Strive
+            <span className="gradient-text">Sculpt</span> And Strive
           </h1>
           <p className="text-muted-foreground">
             {isLogin

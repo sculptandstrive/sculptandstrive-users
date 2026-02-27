@@ -17,6 +17,9 @@ import {
   Trash2,
   Download,
   CircleDollarSign,
+  Star,
+  Check,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +48,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Card } from "@/components/ui/card";
 
 interface PasswordForm {
   currentPassword: string,
@@ -123,6 +127,60 @@ const privacySettings = [
     label: "Activity Status",
     description: "Show when you're active",
     enabled: true,
+  },
+];
+
+const plans = [
+  {
+    name: "Starter",
+    price: 2999,
+    period: "month",
+    description: "Perfect for beginners ready to start their fitness journey",
+    features: [
+      "Access to 50+ basic workouts",
+      "Basic nutrition tracking",
+      "Progress dashboard",
+      "Community access",
+      "Email support",
+    ],
+    cta: "Start Free Trial",
+    popular: false,
+  },
+  {
+    name: "Transform",
+    price: 5999,
+    period: "month",
+    description: "Our most popular plan for serious transformation",
+    features: [
+      "Access to 300+ workouts",
+      "AI-powered program customization",
+      "Advanced nutrition planning",
+      "Postural assessment tools",
+      "Group training access",
+      "Priority trainer support",
+      "Progress analytics",
+      "Offline workout access",
+    ],
+    cta: "Start Free Trial",
+    popular: true,
+  },
+  {
+    name: "Elite",
+    price: 9999,
+    period: "month",
+    description: "Premium experience with 1-on-1 expert guidance",
+    features: [
+      "Everything in Transform",
+      "Weekly 1-on-1 trainer calls",
+      "Custom meal plans",
+      "Monthly body composition analysis",
+      "VIP community access",
+      "Priority scheduling",
+      "Family account (up to 4)",
+      "Exclusive workshops",
+    ],
+    cta: "Contact Sales",
+    popular: false,
   },
 ];
 
@@ -245,16 +303,19 @@ export default function Settings() {
        gender: detailsRes.data?.gender ?? "",
      }));
 
+    // const session = await supabase.auth.getSession()
+    // console.log(session)
+
      setLoading(false);
    }
    loadProfile();
-
+    
    fetchPlanDetails();
- }, [user]);
+  }, [user]);
 
 
-//  Notification Toggle Function
-const handleToggle = async (rowName: string, enabled: boolean) => {
+  //  Notification Toggle Function
+  const handleToggle = async (rowName: string, enabled: boolean) => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -277,8 +338,7 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
       variant: "destructive",
     });
   }
-};
-
+  };
 
   const handleButtonClick = () => {
     fileInputRef.current?.click();
@@ -598,6 +658,88 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
     return today.toISOString().split("T")[0];
   };
 
+  const startPayment = async (price: number) => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        toast({
+          title: "Authentication Required",
+          description: "Please login again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      console.log("Calling backend...");
+      // console.log(session.access_token)
+      // console.log(import.meta.env.VITE_SUPABASE_ANON_KEY);
+      const res = await fetch(
+        "https://zoxqjjuokxiyxusqapvv.functions.supabase.co/create-razorpay-order",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            // Authorization: `Bearer ${session.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+          },
+          body: JSON.stringify({ amount: price }),
+        },
+      );
+      console.log("Backend response status:", res);
+
+
+      if (!res.ok) {
+        throw new Error("Failed to create order");
+      }
+
+      const order = await res.json();
+      console.log("Order:", order);
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount: order.amount,
+        currency: order.currency,
+        order_id: order.id,
+        name: "Sculpt & Strive",
+        description: "Premium Plan",
+        handler: async function (paymentResponse) {
+          console.log("Payment success:", paymentResponse);
+
+          await fetch(
+            "https://zoxqjjuokxiyxusqapvv.supabase.co/functions/v1/verify-payment",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+                apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+              },
+              body: JSON.stringify(paymentResponse),
+            },
+          );
+
+          toast({
+            title: "Payment Successful",
+            description: "Your plan has been upgraded.",
+          });
+        },
+        theme: {
+          color: "#6366f1",
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.open();
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Payment Failed",
+        description: "Something went wrong.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -1108,19 +1250,121 @@ const handleToggle = async (rowName: string, enabled: boolean) => {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            {/* Password Change */}
             <div className="bg-card border border-border rounded-xl p-6">
               {(user?.user_metadata?.plan_role === "trial_user" || "user") &&
                 user?.user_metadata?.expiry_at && (
                   <div className=" px-4 py-2 rounded-md text-base font-semibold">
-                    {user?.user_metadata?.plan_role === "trial_user" ? 
-                    "Your Trial ends in "
-                    :
-                    "Your Plan ends in "
-                  }
-                  <span className="font-bold gradient-text">{timeLeft}</span>
+                    {user?.user_metadata?.plan_role === "trial_user"
+                      ? "Your Trial ends in "
+                      : "Your Plan ends in "}
+                    <span className="font-bold gradient-text">{timeLeft}</span>
                   </div>
                 )}
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+              {plans.map((plan, index) => (
+                <Card
+                  key={plan.name}
+                  className={`p-8 relative animate-slide-up ${
+                    plan.popular
+                      ? "md:-mt-4 md:mb-4 ring-2 ring-primary shadow-glow"
+                      : ""
+                  }`}
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  {/* Popular badge */}
+                  {plan.popular && (
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                      <div className="inline-flex items-center gap-1 bg-primary text-primary-foreground px-4 py-1 rounded-full text-sm font-semibold shadow-lg">
+                        <Star className="w-4 h-4 fill-current" />
+                        Most Popular
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Plan header */}
+                  <div className="text-center mb-8">
+                    <h3
+                      className={`font-display text-2xl font-bold mb-2 ${plan.popular ? "text-secondary-foreground" : ""}`}
+                    >
+                      {plan.name}
+                    </h3>
+                    <p
+                      className={`text-sm mb-4 ${plan.popular ? "text-muted-foreground/90" : "text-muted-foreground"}`}
+                    >
+                      {plan.description}
+                    </p>
+                    <div
+                      className={`flex items-end justify-center gap-1 ${plan.popular ? "gradient-text" : ""}`}
+                    >
+                      <span className="text-lg">₹</span>
+                      <span className="font-display text-5xl font-bold">
+                        {plan.price}
+                      </span>
+                      <span
+                        className={`text-sm mb-2 ${plan.popular ? "gradient-text" : "text-muted-foreground"}`}
+                      >
+                        /{plan.period}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Features */}
+                  <ul className="space-y-3 mb-8">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-3">
+                        <div
+                          className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                            plan.popular ? "bg-white/20" : "bg-primary/10"
+                          }`}
+                        >
+                          <Check
+                            className={`w-3 h-3 ${plan.popular ? "text-white" : "text-primary"}`}
+                          />
+                        </div>
+                        <span
+                          className={`text-sm ${plan.popular ? "text-muted-foreground" : "text-muted-foreground"}`}
+                        >
+                          {feature}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* CTA */}
+
+                  {plan.name === "Elite" ? (
+                    <a
+                      href="https://calendly.com/sculptandstrive/30min"
+                      target="_blank"
+                    >
+                      <Button
+                        variant={plan.popular ? "glass" : "hero"}
+                        className={`w-full ${plan.popular ? "text-primary-foreground border-white/30 hover:bg-white/20" : ""}`}
+                        size="lg"
+                      >
+                        {plan.cta}
+                        <ArrowRight className="w-4 h-4" />
+                      </Button>
+                    </a>
+                  ) : (
+                    <Button
+                      variant={plan.popular ? "default" : "hero"}
+                      className={`w-full ${plan.popular ? "text-primary-foreground border-white/30 " : ""}`}
+                      size="lg"
+                      onClick={() => startPayment(plan.price)}
+
+                      // onClick={() =>
+                      //   (window.location.href = `https://users.sculptandstrive.com/auth?tempId=${tempId}`)
+                      // }
+                    >
+                      {plan.cta}
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  )}
+                </Card>
+              ))}
             </div>
           </motion.div>
         </TabsContent>

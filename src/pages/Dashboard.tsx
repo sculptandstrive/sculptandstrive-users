@@ -261,7 +261,7 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [user, today]);
 
-  console.log(timeLeft)
+  // console.log(timeLeft)
 
   return (
     <div className="space-y-8">
@@ -283,7 +283,7 @@ export default function Dashboard() {
         {user?.user_metadata?.signup_source === "trial_user" &&
           user?.user_metadata?.expiry_at && (
             <div className="bg-primary/15 px-4 py-2 rounded-md text-base font-semibold">
-              Your trial ends in: <span className="font-bold gradient-text">{timeLeft}</span>
+              Your Trial ends in: <span className="font-bold gradient-text">{timeLeft}</span>
             </div>
           )}
 
