@@ -26,6 +26,7 @@ export default function Auth() {
   // const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const { user, signIn, signUp } = useAuth();
+  
   const navigate = useNavigate();
   const { toast } = useToast();
   const fullNameRegex = /^[a-zA-Z]+(?:\s[a-zA-Z]+)*$/;

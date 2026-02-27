@@ -64,7 +64,7 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  // console.log(user)
+  console.log(user)
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
   const [notificationWindow, setNotificationWindow] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<Notifications[]>([]);
@@ -224,6 +224,10 @@ export default function Dashboard() {
         streak: completedWorkouts.length > 0 ? 7 : 0 
       });
 
+      const { data } = await supabase.from("user_roles").select('*').eq("user_id", user.id);
+
+      console.log(data);
+
     } catch(err: any) {
       toast({
         title: 'Failed to fetch user data',
@@ -257,6 +261,8 @@ export default function Dashboard() {
       const seconds = Math.floor((difference % (1000 * 60)) / 1000);
       setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
     }, 1000);
+
+    
 
     return () => clearInterval(interval);
   }, [user, today]);

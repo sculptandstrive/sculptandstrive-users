@@ -143,7 +143,8 @@ const plans = [
       "Community access",
       "Email support",
     ],
-    cta: "Start Free Trial",
+    cta1: "Upgrade Now",
+    cta2: "Subscribe Now",
     popular: false,
   },
   {
@@ -161,7 +162,8 @@ const plans = [
       "Progress analytics",
       "Offline workout access",
     ],
-    cta: "Start Free Trial",
+    cta1: "Upgrade Now",
+    cta2: "Subscribe Now",
     popular: true,
   },
   {
@@ -697,32 +699,61 @@ export default function Settings() {
       const order = await res.json();
       console.log("Order:", order);
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: order.amount,
-        currency: order.currency,
-        order_id: order.id,
-        name: "Sculpt & Strive",
-        description: "Premium Plan",
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+      amount: order.amount,
+      currency: order.currency,
+      order_id: order.id,
+      name: "Sculpt And Strive",
+      description: "Premium Plan",
+      method: {
+        upi: true,
+        card: true,
+        netbanking: true,
+        emi: false,
+        wallet: false,
+        paylater: false,
+      },
         handler: async function (paymentResponse) {
           console.log("Payment success:", paymentResponse);
 
-          await fetch(
-            "https://zoxqjjuokxiyxusqapvv.supabase.co/functions/v1/verify-payment",
+          const verifyRes = await fetch(
+            "https://zoxqjjuokxiyxusqapvv.functions.supabase.co/verify-payment",
             {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${session.access_token}`,
-                apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+                // Authorization: `Bearer ${session.access_token}`,
+                apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
               },
-              body: JSON.stringify(paymentResponse),
+              body: JSON.stringify({ ...paymentResponse, 
+                amount: price,
+                user_id: session.user.id
+              }),
             },
           );
+          
+          // console.log(verifyRes);
+          const verifyData = await verifyRes.json()
+          // console.log(verifyData);
+          if(!verifyData.success){
+            // console.log(verifyData);
+            console.error("Verification failed:", verifyData);
+            toast({
+              title: "Payment Verification Failed",
+              description: verifyData.error || "Invalid payment",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          await supabase.auth.refreshSession();
 
           toast({
             title: "Payment Successful",
             description: "Your plan has been upgraded.",
           });
+
+          window.location.reload();
         },
         theme: {
           color: "#6366f1",
@@ -731,13 +762,14 @@ export default function Settings() {
 
       const rzp = new (window as any).Razorpay(options);
       rzp.open();
-    } catch (err) {
-      console.error(err);
+    } 
+    catch (err) {
+      // console.error(err);
       toast({
         title: "Payment Failed",
         description: "Something went wrong.",
         variant: "destructive",
-      });
+    });
     }
   };
 
@@ -1359,7 +1391,7 @@ export default function Settings() {
                       //   (window.location.href = `https://users.sculptandstrive.com/auth?tempId=${tempId}`)
                       // }
                     >
-                      {plan.cta}
+                      {user?.user_metadata?.plan_role == 'trial_user' ? plan.cta1 : plan.cta2}
                       <ArrowRight className="w-4 h-4" />
                     </Button>
                   )}
