@@ -275,6 +275,14 @@ export default function Fitness() {
     if ((field === 'sets' || field === 'reps') && numValue <= 0) numValue = 1;
     if (field === 'weight_kg' && numValue < 0) numValue = 0;
 
+    if((field === 'sets' || field === 'reps' || field === 'weight_kg') && numValue > 999){
+      toast({
+        title: `Cannot Add more than 999 ${field.split('_')[0]}`,
+        variant: "destructive",
+      });
+      numValue = 999;
+    } 
+
     setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, [field]: numValue } : ex));
     const { error } = await supabase.from('exercises').update({ [field]: numValue }).eq('id', id);
     if (error) toast({ title: "Failed to update", variant: "destructive" });

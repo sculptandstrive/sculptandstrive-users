@@ -10,7 +10,6 @@ interface FoodSearchProps {
   mealType: string;
   onFoodLogged: () => void;
   onClose: () => void;
-
   nutritionGoals?: any;
 }
 
@@ -20,7 +19,7 @@ export function FoodSearch({ mealType, onFoodLogged, onClose, nutritionGoals }: 
   const [loading, setLoading] = useState(false);
   const [customWeights, setCustomWeights] = useState<Record<string, number>>({});
   const { toast } = useToast();
-
+  // console.log(nutritionGoals);
   const handleSearch = async () => {
     if (!query.trim()) return;
     setLoading(true);
@@ -53,6 +52,25 @@ export function FoodSearch({ mealType, onFoodLogged, onClose, nutritionGoals }: 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
+      
+      const caloriesReq = nutritionGoals?.calories?.target;
+      const currCalories = nutritionGoals?.calories?.current;
+      if(currCalories >= caloriesReq){
+         toast({
+           title: "Calorie Limit Reached",
+           variant: "destructive",
+           description: "Daily Safe Calorie Limit Reached",
+         });
+         return;
+      }
+      else if((currCalories + food.calories) > caloriesReq){
+        const required = caloriesReq - currCalories;
+        const percAdd = (required / food.calories);
+        food.calories = percAdd * food.calories;
+        food.protein_g = percAdd * food.protien_g;
+        food.carbs_g = percAdd * food.carbs_g;
+        food.fats_g = percAdd * food.fats_g;
+      }
 
       const foodData = {
         user_id: user.id,

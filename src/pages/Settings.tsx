@@ -442,8 +442,25 @@ export default function Settings() {
       });
       return;
     }
+    
+    if (newPassword.length < 6 || confirmPassword.length < 6) {
+      toast({
+        title: "Password Change Failed",
+        description: "Password Length should be greater than 5",
+        variant: "destructive",
+      });
+      return;
+    } else if (newPassword.length > 12 || confirmPassword.length > 12) {
+      toast({
+        title: "Password Change Failed",
+        description: "Password Length should be smaller than 13",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    if (newPassword !== confirmPassword) {
+
+    if(newPassword !== confirmPassword) {
       toast({
         title: "Password Change Failed",
         description: "New Passwords Does not matched",
@@ -452,14 +469,6 @@ export default function Settings() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      toast({
-        title: "Password Change Failed",
-        description: "New Password Length is too small",
-        variant: "destructive",
-      });
-      return;
-    }
 
     setLoading(true);
 
@@ -1196,6 +1205,7 @@ export default function Settings() {
                     id="newPassword"
                     type="password"
                     className="bg-muted border-border mt-1"
+                    maxLength={12}
                     onChange={(e) => setNewPassword(e.target.value)}
                   />
                 </div>
@@ -1205,6 +1215,7 @@ export default function Settings() {
                     id="confirmPassword"
                     type="password"
                     className="bg-muted border-border mt-1"
+                    maxLength={12}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                   />
                 </div>
@@ -1391,7 +1402,9 @@ export default function Settings() {
                       //   (window.location.href = `https://users.sculptandstrive.com/auth?tempId=${tempId}`)
                       // }
                     >
-                      {user?.user_metadata?.plan_role == 'trial_user' ? plan.cta1 : plan.cta2}
+                      {user?.user_metadata?.plan_role == "trial_user"
+                        ? plan.cta1
+                        : plan.cta2}
                       <ArrowRight className="w-4 h-4" />
                     </Button>
                   )}

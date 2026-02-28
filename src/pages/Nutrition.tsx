@@ -160,6 +160,34 @@ export default function Nutrition() {
   const waterTargetMl = nutritionRequirement?.water_requirement || 3000;
   const waterProgress = Math.min((totalWaterMl / waterTargetMl) * 100, 100);
 
+  const getMealTypeByTime = () => {
+    const hour = new Date().getHours(); // 0–23
+    
+    if (hour >= 3 && hour < 8) {
+      return "breakfast";
+    }
+
+    if (hour >= 11 && hour < 13) {
+      return "mid_morning_snack";
+    }
+
+    if (hour >= 13 && hour < 16) {
+      return "lunch";
+    }
+
+    if (hour >= 16 && hour < 19) {
+      return "evening_snack";
+    }
+
+    if (hour >= 19 || hour < 3) {
+      return "dinner";
+    }
+
+    // fallback
+    return "breakfast";
+  };
+
+
   const deleteFood = async (id: string) => {
     try {
       const { error } = await supabase.from("nutrition_logs").delete().eq("id", id);
@@ -197,9 +225,13 @@ export default function Nutrition() {
         className="flex flex-col lg:flex-row lg:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-3xl font-display font-bold mb-1">Nutrition Tracking</h1>
+          <h1 className="text-3xl font-display font-bold mb-1">
+            Nutrition Tracking
+          </h1>
           <div className="flex items-center gap-3">
-            <p className="text-muted-foreground">Monitor your diet and stay on track</p>
+            <p className="text-muted-foreground">
+              Monitor your diet and stay on track
+            </p>
             {assignedPlan && (
               <Badge className="bg-primary/10 text-primary border-primary/20">
                 <Target className="w-3 h-3 mr-1" />
@@ -209,7 +241,7 @@ export default function Nutrition() {
           </div>
         </div>
         <Button
-          onClick={() => setSearchMealType("breakfast")}
+          onClick={() => setSearchMealType(getMealTypeByTime())}
           className="bg-gradient-primary hover:opacity-90"
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -226,24 +258,55 @@ export default function Nutrition() {
         >
           <div className="flex items-center gap-2 mb-6">
             <Apple className="w-5 h-5 text-primary" />
-            <h3 className="font-display font-semibold text-lg">Daily Summary</h3>
+            <h3 className="font-display font-semibold text-lg">
+              Daily Summary
+            </h3>
           </div>
 
           <div className="flex items-center justify-center mb-8">
             <div className="relative w-44 h-44">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 176 176">
-                <circle cx="88" cy="88" r="76" fill="none" stroke="hsl(var(--muted))" strokeWidth="12" />
+              <svg
+                className="w-full h-full transform -rotate-90"
+                viewBox="0 0 176 176"
+              >
+                <circle
+                  cx="88"
+                  cy="88"
+                  r="76"
+                  fill="none"
+                  stroke="hsl(var(--muted))"
+                  strokeWidth="12"
+                />
                 <motion.circle
-                  cx="88" cy="88" r="76" fill="none" stroke="url(#calorieGradient)" strokeWidth="12" strokeLinecap="round"
+                  cx="88"
+                  cy="88"
+                  r="76"
+                  fill="none"
+                  stroke="url(#calorieGradient)"
+                  strokeWidth="12"
+                  strokeLinecap="round"
                   initial={{ strokeDashoffset: 478 }}
-                  animate={{ 
-                    strokeDashoffset: 478 - (Math.min(nutritionGoals.calories.current / (nutritionGoals.calories.target || 1), 1) * 478) 
+                  animate={{
+                    strokeDashoffset:
+                      478 -
+                      Math.min(
+                        nutritionGoals.calories.current /
+                          (nutritionGoals.calories.target || 1),
+                        1,
+                      ) *
+                        478,
                   }}
                   style={{ strokeDasharray: 478 }}
                   transition={{ duration: 1.5, ease: "easeOut" }}
                 />
                 <defs>
-                  <linearGradient id="calorieGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <linearGradient
+                    id="calorieGradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
                     <stop offset="0%" stopColor="hsl(var(--primary))" />
                     <stop offset="100%" stopColor="hsl(var(--info))" />
                   </linearGradient>
@@ -262,21 +325,27 @@ export default function Nutrition() {
 
           {/* Macro Progress Bars */}
           <div className="space-y-5">
-            {['protein', 'carbs', 'fats'].map((macro) => {
+            {["protein", "carbs", "fats"].map((macro) => {
               const m = nutritionGoals[macro as keyof typeof nutritionGoals];
-              const percentage = Math.min((m.current / (m.target || 1)) * 100, 100);
-              
+              const percentage = Math.min(
+                (m.current / (m.target || 1)) * 100,
+                100,
+              );
+
               return (
                 <div key={macro}>
                   <div className="flex justify-between text-xs mb-2 uppercase font-bold tracking-tight">
                     <span className="text-muted-foreground">{macro}</span>
                     <span className="tabular-nums">
-                      {Math.round(m.current)}g <span className="text-muted-foreground font-normal">/ {m.target}g</span>
+                      {Math.round(m.current)}g{" "}
+                      <span className="text-muted-foreground font-normal">
+                        / {m.target}g
+                      </span>
                     </span>
                   </div>
-                  <Progress 
-                    value={percentage} 
-                    className={`h-1.5 ${macro === 'carbs' ? '[&>div]:bg-info' : macro === 'fats' ? '[&>div]:bg-accent' : ''}`}
+                  <Progress
+                    value={percentage}
+                    className={`h-1.5 ${macro === "carbs" ? "[&>div]:bg-info" : macro === "fats" ? "[&>div]:bg-accent" : ""}`}
                   />
                 </div>
               );
@@ -290,13 +359,15 @@ export default function Nutrition() {
                 <Droplets className="w-4 h-4 text-info" />
                 <span className="text-xs font-bold uppercase">Hydration</span>
               </div>
-              <span className="text-xs font-bold font-mono">{totalLitres}L / {waterTargetMl/1000}L</span>
+              <span className="text-xs font-bold font-mono">
+                {totalLitres}L / {waterTargetMl / 1000}L
+              </span>
             </div>
             <Progress value={waterProgress} className="h-1.5 mb-4" />
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="w-full text-[10px] font-bold uppercase tracking-widest" 
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-[10px] font-bold uppercase tracking-widest"
               onClick={() => setWaterBar(true)}
             >
               Add Water
@@ -308,7 +379,10 @@ export default function Nutrition() {
         <div className="lg:col-span-2 space-y-4">
           {mealGroups.map((meal, idx) => {
             const MealIcon = meal.icon;
-            const mealCals = meal.items.reduce((sum, item) => sum + item.calories, 0);
+            const mealCals = meal.items.reduce(
+              (sum, item) => sum + item.calories,
+              0,
+            );
 
             return (
               <motion.div
@@ -324,24 +398,38 @@ export default function Nutrition() {
                       <MealIcon className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="font-bold capitalize text-sm">{meal.type.replace(/_/g, ' ')}</h3>
-                      <p className="text-[10px] text-muted-foreground font-mono">{meal.time}</p>
+                      <h3 className="font-bold capitalize text-sm">
+                        {meal.type.replace(/_/g, " ")}
+                      </h3>
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        {meal.time}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-bold">{Math.round(mealCals)}</span>
-                    <span className="text-[10px] text-muted-foreground ml-1">kcal</span>
+                    <span className="text-sm font-bold">
+                      {Math.round(mealCals)}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground ml-1">
+                      kcal
+                    </span>
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   {meal.items.length > 0 ? (
                     meal.items.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/30 group border border-transparent hover:border-border transition-all">
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-3 rounded-lg bg-muted/30 group border border-transparent hover:border-border transition-all"
+                      >
                         <div className="flex flex-col">
-                          <span className="text-sm font-semibold">{item.meal_name}</span>
+                          <span className="text-sm font-semibold">
+                            {item.meal_name}
+                          </span>
                           <span className="text-[11px] text-muted-foreground">
-                            {item.calories} kcal • P: {item.protein_g}g • C: {item.carbs_g}g
+                            {item.calories} kcal • P: {item.protein_g}g • C:{" "}
+                            {item.carbs_g}g
                           </span>
                         </div>
                         <Button
@@ -356,7 +444,9 @@ export default function Nutrition() {
                     ))
                   ) : (
                     <div className="py-6 border-2 border-dashed border-muted rounded-lg flex items-center justify-center">
-                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">No items logged</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
+                        No items logged
+                      </p>
                     </div>
                   )}
                 </div>
@@ -368,7 +458,7 @@ export default function Nutrition() {
                   onClick={() => setSearchMealType(meal.type)}
                 >
                   <Plus className="w-3 h-3 mr-2" />
-                  Log {meal.type.replace(/_/g, ' ')}
+                  Log {meal.type.replace(/_/g, " ")}
                 </Button>
               </motion.div>
             );
@@ -386,7 +476,7 @@ export default function Nutrition() {
           />
         )}
         {waterBar && (
-          <WaterLog 
+          <WaterLog
             onWaterLogged={fetchData}
             onClose={() => setWaterBar(false)}
           />

@@ -31,7 +31,10 @@ export default function WaterLog({ onWaterLogged, onClose }: WaterLogProps) {
         // console.log(totalMl, goalLitres);
         throw new Error("Daily safe limit reached");
       }
-
+      else if((totalMl + ml) >= goalLitres * 1000){
+        ml = goalLitres * 1000 - totalMl;
+      }
+  
       const { error } = await supabase.from("water_intake").insert({
         user_id: user.id,
         amount_ml: ml,
