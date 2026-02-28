@@ -280,7 +280,7 @@ export default function Fitness() {
         title: `Cannot Add more than 999 ${field.split('_')[0]}`,
         variant: "destructive",
       });
-      numValue = 999;
+      return;
     } 
 
     setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, [field]: numValue } : ex));
