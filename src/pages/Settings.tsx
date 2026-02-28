@@ -674,7 +674,7 @@ export default function Settings() {
         });
         return;
       }
-      console.log("Calling backend...");
+      // console.log("Calling backend...");
       // console.log(session.access_token)
       // console.log(import.meta.env.VITE_SUPABASE_ANON_KEY);
       const res = await fetch(
@@ -689,7 +689,7 @@ export default function Settings() {
           body: JSON.stringify({ amount: price }),
         },
       );
-      console.log("Backend response status:", res);
+      // console.log("Backend response status:", res);
 
 
       if (!res.ok) {
@@ -697,7 +697,7 @@ export default function Settings() {
       }
 
       const order = await res.json();
-      console.log("Order:", order);
+      // console.log("Order:", order);
       const options = {
       key: import.meta.env.VITE_RAZORPAY_KEY_ID,
       amount: order.amount,
@@ -714,7 +714,7 @@ export default function Settings() {
         paylater: false,
       },
         handler: async function (paymentResponse) {
-          console.log("Payment success:", paymentResponse);
+          // console.log("Payment success:", paymentResponse);
 
           const verifyRes = await fetch(
             "https://zoxqjjuokxiyxusqapvv.functions.supabase.co/verify-payment",

@@ -23,7 +23,7 @@ import { toast } from "@/hooks/use-toast";
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: Calendar, label: "Sessions", path: "/sessions", restricted: true },
-  { icon: Dumbbell, label: "Fitness", path: "/fitness", },
+  { icon: Dumbbell, label: "Fitness", path: "/fitness"},
   { icon: Apple, label: "Nutrition", path: "/nutrition", restricted: true },
   { icon: TrendingUp, label: "Progress", path: "/progress", restricted: true },
   { icon: HelpCircle, label: "Support", path: "/support" },
@@ -39,6 +39,9 @@ export function Sidebar() {
 
   const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const isTrialUser = user?.user_metadata?.signup_source === "trial_user";
+  const expiryAt = user?.user_metadata?.expiry_at ? new Date(user.user_metadata.expiry_at) : null;
+  const currTime = new Date()
+  const isExpiredUser = expiryAt ? expiryAt < currTime : false;
   const userInitials = userName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
 
   const handleSignOut = async () => {
@@ -85,7 +88,20 @@ export function Sidebar() {
         <ul className="space-y-1 px-3">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
-            const isBlocked = isTrialUser && item.restricted;
+            let isBlocked = false;
+            if(isTrialUser){
+              if(item.restricted){
+                isBlocked = true;
+              }
+              if(isExpiredUser && item.path === '/fitness'){
+                isBlocked = true;
+              }
+            }
+            else{
+              if(isExpiredUser && (item.path === '/sessions' || item.path === '/nutrition' || item.path === '/progress' || item.path === '/fitness')){
+                isBlocked = true;
+              }
+            }
             return (
               <li key={item.path}>
                 <NavLink

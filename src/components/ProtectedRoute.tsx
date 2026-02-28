@@ -7,14 +7,33 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
+  // console.log(user)
   const isTrialUser = user?.user_metadata?.signup_source === "trial_user";
+  const expiryAt = user?.user_metadata?.expiry_at ? new Date(user.user_metadata.expiry_at) : null;
+  const currTime = new Date()
+  // console.log(user?.user_metadata?.expiry_at, "\n", currTime);
+  const isExpiredUser = expiryAt ? expiryAt < currTime: false;
+  // console.log(isExpiredUser);
 
   const location = useLocation();
 
-  const restrictedPaths = ["/sessions", "/nutrition", "/progress"];
+  let restrictedPaths = [];
 
-  if (isTrialUser && restrictedPaths.includes(location.pathname)) {
-    return <Navigate to="/" replace />;
+  if(isTrialUser){
+
+    restrictedPaths = ["/sessions", "/nutrition", "/progress"];
+
+    if(isExpiredUser){
+      restrictedPaths.push('/fitness')
+    }
+  }
+  else{
+    if(isExpiredUser)
+      restrictedPaths = ["/sessions", "/nutrition", "/progress", '/fitness'];
+  }
+
+  if(restrictedPaths.includes(location.pathname)){
+    return <Navigate to = "/" replace />
   }
 
   

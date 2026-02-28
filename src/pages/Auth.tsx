@@ -166,6 +166,7 @@ export default function Auth() {
           });
           return;
         }
+        
         if (!passwordRegex.test(password)) {
           toast({
             title: "Please enter correct password",
@@ -174,9 +175,9 @@ export default function Auth() {
           });
           return;
         }
-        // console.log(tempId);
-        const userType = tempId ? 'trial_user' : "user" ;
-        // console.log(userType);
+
+        const userType = 'trial_user' ;
+
         const { error } = await signUp(email, password, fullName, userType);
         if (error) {
           if (error.message.includes("already registered")) {
@@ -196,8 +197,10 @@ export default function Auth() {
         } else {
           if(error){
             console.log("Error is: ", error);
-          }
-          
+          }  
+          // if(tempId){
+          // }
+
           toast({
             title: "Account created!",
             description: "Welcome to Sculpt And Strive!",
