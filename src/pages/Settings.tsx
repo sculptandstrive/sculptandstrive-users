@@ -879,8 +879,17 @@ export default function Settings() {
                       placeholder="Enter your first name "
                       value={form.firstName}
                       className="bg-muted border-border mt-1"
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        if (!/^[a-zA-Z\s]*$/.test(e.target.value)) {
+                          toast({
+                            title: "First Name Error",
+                            description: "Only Alphabets are allowed",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
                         setForm({ ...form, firstName: e.target.value })
+                      }
                       }
                     />
                   </div>
@@ -892,8 +901,18 @@ export default function Settings() {
                       value={form.lastName}
                       className="bg-muted border-border mt-1"
                       onChange={(e) =>
+                      {
+                        if (!/^[a-zA-Z\s]*$/.test(e.target.value)) {
+                          toast({
+                            title: "Last Name Error",
+                            description: "Only Alphabets are allowed",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
                         setForm({ ...form, lastName: e.target.value })
                       }
+                    }
                     />
                   </div>
                   <div>
@@ -930,10 +949,13 @@ export default function Settings() {
                     <Input
                       id="dob"
                       type="date"
-                      placeholder="10/12/1980"
                       max={getMaxDOB()}
                       value={form.dob}
-                      className="bg-muted border-border mt-1"
+                      className="bg-muted border-border mt-1 cursor-pointer"
+                      inputMode="none"
+                      onFocus={(e) => {
+                        e.target.showPicker?.();
+                      }}
                       onChange={(e) =>
                         setForm({ ...form, dob: e.target.value })
                       }

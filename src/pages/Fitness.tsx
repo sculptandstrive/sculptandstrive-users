@@ -277,7 +277,7 @@ export default function Fitness() {
 
     if((field === 'sets' || field === 'reps' || field === 'weight_kg') && numValue > 999){
       toast({
-        title: `Cannot Add more than 999 ${field.split('_')[0]}`,
+        title: `Cannot Add more than 3 digits in ${field.split('_')[0]}`,
         variant: "destructive",
       });
       return;
