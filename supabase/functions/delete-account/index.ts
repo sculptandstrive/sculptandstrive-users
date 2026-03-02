@@ -93,8 +93,4 @@ serve(async (req) => {
       headers: corsHeaders,
     });
   }
-<<<<<<< HEAD
 });
-=======
-});
->>>>>>> 41599d0f417d519778569b26b879b8aef22d507e
