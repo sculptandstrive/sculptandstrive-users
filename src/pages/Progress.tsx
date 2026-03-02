@@ -28,6 +28,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { SelectTrigger } from "@radix-ui/react-select";
+import { Select, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 
 type ProgressPhoto = {
   date: string;
@@ -84,10 +86,13 @@ export default function Progress() {
     bodyFat: null,
   });
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  const [measurementsInCm, setMeasurementsInCm] = useState<Measurement[]>([]);
+  const [measurementsInInch, setMeasurementsInInch] = useState<Measurement[]>([]);
   const [weightData, setWeightData] = useState<any[]>([]);
   const [bodyFatData, setBodyFatData] = useState<any[]>([]);
   const [workoutData, setWorkoutData] = useState<WorkoutChartData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [measurementOption, setMeasurementOption] = useState<"cm"|"inch">("cm");
 
   const getCurrentWeekRange = () => {
     const today = new Date();
@@ -102,250 +107,377 @@ export default function Progress() {
     return { monday, sunday };
   };
 
-  useEffect(() => {
-    const getUserData = async () => {
-      if (!user) return;
+  const getUserData = async () => {
+    if (!user) return;
 
-      try {
-        const { data: allMeasurements, error: measurementsError } =
-          await supabase
-            .from("current_measurements")
-            .select("*")
-            .eq("user_id", user.id)
-            .order("created_at", { ascending: true });
+    try {
+      const { data: allMeasurements, error: measurementsError } = await supabase
+        .from("current_measurements")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
 
-        const { data: initialMeasurements } = await supabase
-          .from("starting_measurements")
-          .select("*")
-          .eq("user_id", user.id);
-
-        const { data: profileData } = await supabase
-          .from("profile_details")
-          .select("gender, age")
-          .eq("user_id", user.id)
-          .single();
-
-        if (
-          measurementsError ||
-          !allMeasurements ||
-          allMeasurements.length === 0
-        ) {
-          setLoading(false);
-          return;
-        }
-
-        const startingMeasurement = initialMeasurements[0];
-        const currentMeasurement = allMeasurements[allMeasurements.length - 1];
-
-        const calculateBodyFat = (
-          weight: number,
-          height: number,
-          age: number,
-          gender: string,
-        ): number => {
-          const heightInMeters = height / 100;
-          const bmi = weight / (heightInMeters * heightInMeters);
-          let bodyFat: number;
-          if (
-            gender?.toLowerCase() === "female" ||
-            gender?.toLowerCase() === "woman"
-          ) {
-            bodyFat = 1.2 * bmi + 0.23 * age - 5.4;
-          } else {
-            bodyFat = 1.2 * bmi + 0.23 * age - 16.2;
-          }
-          return Math.max(0, parseFloat(bodyFat.toFixed(1)));
-        };
-
-        const userGender = profileData?.gender || "male";
-        const userAge = profileData?.age || 25;
-        const currentBodyFat = calculateBodyFat(
-          currentMeasurement.weight_kg,
-          currentMeasurement.height_cm,
-          userAge,
-          userGender,
-        );
-        const weightLost =
-          startingMeasurement.weight_kg - currentMeasurement.weight_kg;
-
-        setStats({
-          startingWeight: startingMeasurement.weight_kg,
-          currentWeight: currentMeasurement.weight_kg,
-          weightLost,
-          bodyFat: currentBodyFat,
-        });
-
-        setMeasurements([
-          {
-            label: "Chest",
-            current: currentMeasurement.chest_cm,
-            previous: startingMeasurement.chest_cm,
-            unit: "cm",
-          },
-          {
-            label: "Waist",
-            current: currentMeasurement.waist_cm,
-            previous: startingMeasurement.waist_cm,
-            unit: "cm",
-          },
-          {
-            label: "Hips",
-            current: currentMeasurement.hips_cm,
-            previous: startingMeasurement.hips_cm,
-            unit: "cm",
-          },
-          {
-            label: "Arms",
-            current: currentMeasurement.arms_cm,
-            previous: startingMeasurement.arms_cm,
-            unit: "cm",
-          },
-          {
-            label: "Thighs",
-            current: currentMeasurement.thighs_cm,
-            previous: startingMeasurement.thighs_cm,
-            unit: "cm",
-          },
-        ]);
-
-        setWeightData(
-          allMeasurements.map((m) => ({
-            date: new Date(m.created_at).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            }),
-            weight: m.weight_kg,
-          })),
-        );
-
-        setBodyFatData(
-          allMeasurements.map((m) => ({
-            date: new Date(m.created_at).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-            }),
-            value: calculateBodyFat(
-              m.weight_kg,
-              m.height_cm,
-              userAge,
-              userGender,
-            ),
-          })),
-        );
-
-        const { monday } = getCurrentWeekRange();
-        const { data: workouts, error: workoutsError } = await supabase
-          .from("workouts")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("order_index", { ascending: true });
-
-        if (!workoutsError && workouts) {
-          const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-          const fullDayNames = [
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-            "Sunday",
-          ];
-          const workoutChartData: WorkoutChartData[] = [];
-
-          for (let i = 0; i < 7; i++) {
-            const date = new Date(monday);
-            date.setDate(monday.getDate() + i);
-            const fullDayName = fullDayNames[i];
-            const dayWorkout = workouts.find(
-              (w: any) => w.day_name === fullDayName,
-            );
-            let completedExercisesCount = 0;
-
-            if (dayWorkout?.id) {
-              const { data: exercises, error: exercisesError } = await supabase
-                .from("exercises")
-                .select("*")
-                .eq("workout_id", dayWorkout.id);
-              if (!exercisesError && exercises) {
-                completedExercisesCount = exercises.filter(
-                  (ex: any) => ex.completed,
-                ).length;
-              }
-            }
-
-            workoutChartData.push({
-              date: date.toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              }),
-              day: daysOfWeek[i],
-              workouts: completedExercisesCount,
-              calories: completedExercisesCount * 20,
-            });
-          }
-          setWorkoutData(workoutChartData);
-        }
-
-        setLoading(false);
-      } catch (error) {
-        console.error("Error in getUserData:", error);
-        setLoading(false);
-      }
-    };
-
-    getUserData();
-  }, [user]);
-
-  useEffect(() => {
-    const getProgressPhotos = async () => {
-      if (!user) return;
-
-      const { data: photos, error: photosError } = await supabase
-        .from("progress_photos")
-        .select("image_path, label, taken_at")
+      const { data: initialMeasurements } = await supabase
+        .from("starting_measurements")
+        .select("*")
         .eq("user_id", user.id);
 
-      if (photosError || !photos || photos.length === 0) return;
+      const { data: profileData } = await supabase
+        .from("profile_details")
+        .select("gender, age")
+        .eq("user_id", user.id)
+        .single();
 
-      const sortedPhotos = [...photos].sort((a, b) => {
-        const weekA = parseInt(a.label.split(" ")[1]);
-        const weekB = parseInt(b.label.split(" ")[1]);
-        return weekA - weekB;
-      });
-
-      const lastWeek = parseInt(
-        sortedPhotos[sortedPhotos.length - 1].label.split(" ")[1],
-      );
-      let newSlots = [...progressPhotos];
-
-      if (lastWeek > 3) {
-        const extra = [];
-        let i = 4;
-        for (; i <= lastWeek; i++) {
-          if (!newSlots.find((s) => s.date === `Week ${i}`)) {
-            extra.push({ date: `Week ${i}`, imagePath: null });
-          }
-        }
-        newSlots = [...newSlots, ...extra];
-        setImageLimit(i - 1);
+      if (
+        measurementsError ||
+        !allMeasurements ||
+        allMeasurements.length === 0
+      ) {
+        setLoading(false);
+        return;
       }
 
-      const updatedPhotos = await Promise.all(
-        newSlots.map(async (slot) => {
-          const match = photos.find((p) => p.label == slot.date);
-          if (!match) return slot;
-          const { data: signed } = await supabase.storage
-            .from("progress-photos")
-            .createSignedUrl(match.image_path, 60 * 60);
-          return { ...slot, imagePath: signed?.signedUrl ?? null };
-        }),
+      const startingMeasurement = initialMeasurements[0];
+      const currentMeasurement = allMeasurements[allMeasurements.length - 1];
+
+      const calculateBodyFat = (
+        weight: number,
+        height: number,
+        age: number,
+        gender: string,
+      ): number => {
+        const heightInMeters = height / 100;
+        const bmi = weight / (heightInMeters * heightInMeters);
+        let bodyFat: number;
+        if (
+          gender?.toLowerCase() === "female" ||
+          gender?.toLowerCase() === "woman"
+        ) {
+          bodyFat = 1.2 * bmi + 0.23 * age - 5.4;
+        } else {
+          bodyFat = 1.2 * bmi + 0.23 * age - 16.2;
+        }
+        return Math.max(0, parseFloat(bodyFat.toFixed(1)));
+      };
+
+      const userGender = profileData?.gender || "male";
+      const userAge = profileData?.age || 25;
+      const currentBodyFat = calculateBodyFat(
+        currentMeasurement.weight_kg,
+        currentMeasurement.height_cm,
+        userAge,
+        userGender,
+      );
+      const weightLost =
+        startingMeasurement.weight_kg - currentMeasurement.weight_kg;
+
+      setStats({
+        startingWeight: startingMeasurement.weight_kg,
+        currentWeight: currentMeasurement.weight_kg,
+        weightLost,
+        bodyFat: currentBodyFat,
+      });
+
+      setMeasurements([
+        {
+          label: "Chest",
+          current: currentMeasurement.chest_cm,
+          previous: startingMeasurement.chest_cm,
+          unit: "cm",
+        },
+        {
+          label: "Waist",
+          current: currentMeasurement.waist_cm,
+          previous: startingMeasurement.waist_cm,
+          unit: "cm",
+        },
+        {
+          label: "Hips",
+          current: currentMeasurement.hips_cm,
+          previous: startingMeasurement.hips_cm,
+          unit: "cm",
+        },
+        {
+          label: "Arms",
+          current: currentMeasurement.arms_cm,
+          previous: startingMeasurement.arms_cm,
+          unit: "cm",
+        },
+        {
+          label: "Thighs",
+          current: currentMeasurement.thighs_cm,
+          previous: startingMeasurement.thighs_cm,
+          unit: "cm",
+        },
+      ]);
+      
+      setMeasurementsInCm([
+        {
+          label: "Chest",
+          current: currentMeasurement.chest_cm,
+          previous: startingMeasurement.chest_cm,
+          unit: "cm",
+        },
+        {
+          label: "Waist",
+          current: currentMeasurement.waist_cm,
+          previous: startingMeasurement.waist_cm,
+          unit: "cm",
+        },
+        {
+          label: "Hips",
+          current: currentMeasurement.hips_cm,
+          previous: startingMeasurement.hips_cm,
+          unit: "cm",
+        },
+        {
+          label: "Arms",
+          current: currentMeasurement.arms_cm,
+          previous: startingMeasurement.arms_cm,
+          unit: "cm",
+        },
+        {
+          label: "Thighs",
+          current: currentMeasurement.thighs_cm,
+          previous: startingMeasurement.thighs_cm,
+          unit: "cm",
+        },
+      ]);
+
+      setMeasurementsInInch([
+        {
+          label: "Chest",
+          current: currentMeasurement.chest_cm/2.54,
+          previous: startingMeasurement.chest_cm/2.54,
+          unit: "inch",
+        },
+        {
+          label: "Waist",
+          current: currentMeasurement.waist_cm/2.54,
+          previous: startingMeasurement.waist_cm/2.54,
+          unit: "inch",
+        },
+        {
+          label: "Hips",
+          current: currentMeasurement.hips_cm/2.54,
+          previous: startingMeasurement.hips_cm/2.54,
+          unit: "inch",
+        },
+        {
+          label: "Arms",
+          current: currentMeasurement.arms_cm/2.54,
+          previous: startingMeasurement.arms_cm/2.54,
+          unit: "inch",
+        },
+        {
+          label: "Thighs",
+          current: currentMeasurement.thighs_cm/2.54,
+          previous: startingMeasurement.thighs_cm/2.54,
+          unit: "inch",
+        },
+      ]);
+
+      setWeightData(
+        allMeasurements.map((m) => ({
+          date: new Date(m.created_at).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          weight: m.weight_kg,
+        })),
       );
 
-      setProgressPhotos(updatedPhotos);
-    };
+      setBodyFatData(
+        allMeasurements.map((m) => ({
+          date: new Date(m.created_at).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          value: calculateBodyFat(
+            m.weight_kg,
+            m.height_cm,
+            userAge,
+            userGender,
+          ),
+        })),
+      );
+
+      const { monday } = getCurrentWeekRange();
+      const { data: workouts, error: workoutsError } = await supabase
+        .from("workouts")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("order_index", { ascending: true });
+
+      if (!workoutsError && workouts) {
+        const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+        const fullDayNames = [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday",
+        ];
+        const workoutChartData: WorkoutChartData[] = [];
+
+        for (let i = 0; i < 7; i++) {
+          const date = new Date(monday);
+          date.setDate(monday.getDate() + i);
+          const fullDayName = fullDayNames[i];
+          const dayWorkout = workouts.find(
+            (w: any) => w.day_name === fullDayName,
+          );
+          let completedExercisesCount = 0;
+
+          if (dayWorkout?.id) {
+            const { data: exercises, error: exercisesError } = await supabase
+              .from("exercises")
+              .select("*")
+              .eq("workout_id", dayWorkout.id);
+            if (!exercisesError && exercises) {
+              completedExercisesCount = exercises.filter(
+                (ex: any) => ex.completed,
+              ).length;
+            }
+          }
+
+          workoutChartData.push({
+            date: date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            }),
+            day: daysOfWeek[i],
+            workouts: completedExercisesCount,
+            calories: completedExercisesCount * 20,
+          });
+        }
+        setWorkoutData(workoutChartData);
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error("Error in getUserData:", error);
+      setLoading(false);
+    }
+  };
+  
+  const getProgressPhotos = async () => {
+    if (!user) return;
+
+    const { data: photos, error: photosError } = await supabase
+      .from("progress_photos")
+      .select("image_path, label, taken_at")
+      .eq("user_id", user.id);
+
+    if (photosError || !photos || photos.length === 0) return;
+
+    const sortedPhotos = [...photos].sort((a, b) => {
+      const weekA = parseInt(a.label.split(" ")[1]);
+      const weekB = parseInt(b.label.split(" ")[1]);
+      return weekA - weekB;
+    });
+
+    const lastWeek = parseInt(
+      sortedPhotos[sortedPhotos.length - 1].label.split(" ")[1],
+    );
+    let newSlots = [...progressPhotos];
+
+    if (lastWeek > 3) {
+      const extra = [];
+      let i = 4;
+      for (; i <= lastWeek; i++) {
+        if (!newSlots.find((s) => s.date === `Week ${i}`)) {
+          extra.push({ date: `Week ${i}`, imagePath: null });
+        }
+      }
+      newSlots = [...newSlots, ...extra];
+      setImageLimit(i - 1);
+    }
+
+    const updatedPhotos = await Promise.all(
+      newSlots.map(async (slot) => {
+        const match = photos.find((p) => p.label == slot.date);
+        if (!match) return slot;
+        const { data: signed } = await supabase.storage
+          .from("progress-photos")
+          .createSignedUrl(match.image_path, 60 * 60);
+        return { ...slot, imagePath: signed?.signedUrl ?? null };
+      }),
+    );
+
+    setProgressPhotos(updatedPhotos);
+  };
+
+  useEffect(() => {
     getProgressPhotos();
+    getUserData();
+    // console.log(measurements);
   }, [user]);
+
+  const handleMeasurementValueByOption = (value: 'cm' | 'inch') => {
+    setMeasurementOption(value);
+    // const newMeasurements = [];
+    if(value === 'cm'){
+      console.log(measurementsInInch)
+      setMeasurements(measurementsInCm);
+    }
+    else{
+      console.log(measurementsInCm)
+      setMeasurements(measurementsInInch);
+    }
+    // console.log("After Changing value", newMeasurements);
+  }
+
+  // useEffect(() => {
+  //   const getProgressPhotos = async () => {
+  //     if (!user) return;
+
+  //     const { data: photos, error: photosError } = await supabase
+  //       .from("progress_photos")
+  //       .select("image_path, label, taken_at")
+  //       .eq("user_id", user.id);
+
+  //     if (photosError || !photos || photos.length === 0) return;
+
+  //     const sortedPhotos = [...photos].sort((a, b) => {
+  //       const weekA = parseInt(a.label.split(" ")[1]);
+  //       const weekB = parseInt(b.label.split(" ")[1]);
+  //       return weekA - weekB;
+  //     });
+
+  //     const lastWeek = parseInt(
+  //       sortedPhotos[sortedPhotos.length - 1].label.split(" ")[1],
+  //     );
+  //     let newSlots = [...progressPhotos];
+
+  //     if (lastWeek > 3) {
+  //       const extra = [];
+  //       let i = 4;
+  //       for (; i <= lastWeek; i++) {
+  //         if (!newSlots.find((s) => s.date === `Week ${i}`)) {
+  //           extra.push({ date: `Week ${i}`, imagePath: null });
+  //         }
+  //       }
+  //       newSlots = [...newSlots, ...extra];
+  //       setImageLimit(i - 1);
+  //     }
+
+  //     const updatedPhotos = await Promise.all(
+  //       newSlots.map(async (slot) => {
+  //         const match = photos.find((p) => p.label == slot.date);
+  //         if (!match) return slot;
+  //         const { data: signed } = await supabase.storage
+  //           .from("progress-photos")
+  //           .createSignedUrl(match.image_path, 60 * 60);
+  //         return { ...slot, imagePath: signed?.signedUrl ?? null };
+  //       }),
+  //     );
+
+  //     setProgressPhotos(updatedPhotos);
+  //   };
+  //   getProgressPhotos();
+  // }, [user]);
 
   const handleAddProgressPhoto = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -749,12 +881,32 @@ export default function Progress() {
             animate={{ opacity: 1, y: 0 }}
             className="bg-card border border-border rounded-xl p-4 sm:p-6"
           >
-            <h3 className="font-display font-semibold text-base sm:text-lg mb-4 sm:mb-6">
-              Body Measurements
-            </h3>
+            <div className="flex w-full justify-between">
+              <h3 className="font-display font-semibold text-base sm:text-lg mb-4 sm:mb-6">
+                Body Measurements
+              </h3>
+
+              <Select
+                value={measurementOption}
+                onValueChange={(value: "cm" | "inch") =>{
+                  setMeasurementOption(value)
+                  handleMeasurementValueByOption(value);
+                }
+                }
+              >
+                <SelectTrigger className="bg-primary text-black font-medium border-border mb-4 px-4 rounded-lg">
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cm">cm</SelectItem>
+                  <SelectItem value="inch">Inch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             {measurements.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                 {measurements.map((m, index) => {
+                  // console.log(measurements);
                   const change = m.current - m.previous;
                   const isPositive =
                     m.label === "Arms" || m.label === "Thighs"
@@ -773,7 +925,7 @@ export default function Progress() {
                         {m.label}
                       </p>
                       <p className="text-xl sm:text-2xl font-display font-bold">
-                        {m.current === 500 ? "NA" : m.current}{" "}
+                        {m.current === 500 ? "NA" : (m.current).toFixed(2)}{" "}
                         <span className="text-xs sm:text-sm font-normal">
                           {m.current !== 500 ? m.unit : ""}
                         </span>
