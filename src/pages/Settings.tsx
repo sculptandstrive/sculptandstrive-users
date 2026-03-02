@@ -318,7 +318,6 @@ export default function Settings() {
    fetchPlanDetails();
   }, [user]);
 
-
   //  Notification Toggle Function
   const handleToggle = async (rowName: string, enabled: boolean) => {
   const {
@@ -579,12 +578,13 @@ export default function Settings() {
       if(!form.firstName){
         throw new Error("First Name Cannot be empty");
       }
+
       if (form.firstName) {
           if (form.firstName.length <= 2) {
             throw new Error("First name must be at least 3 characters long.");
           }
-          if(form.firstName.length >= 15){
-            throw new Error("First name must be less than 15 characters long.");
+          if(form.firstName.length >= 30){
+            throw new Error("First name must be less than 30 characters long.");
           }
           if (!nameRegex.test(form.firstName)) {
             throw new Error(
@@ -596,8 +596,8 @@ export default function Settings() {
       if (form.lastName) {
         if (form.lastName.length <= 2) {
           throw new Error("Last name must be greater than 2 characters long");
-        } else if (form.lastName.length > 30) {
-          throw new Error("Last name must be less than 30 characters long");
+        } else if (form.lastName.length > 20) {
+          throw new Error("Last name must be less than 20 characters long");
         } else if (!nameRegex.test(form.lastName)) {
           throw new Error("Last name should only have Alphabets");
         }
@@ -609,10 +609,17 @@ export default function Settings() {
           throw new Error("Phone Number should only contain 10 Numbers");
         }
       }
-      console.log(form.dob.split('-')[0]);
-      console.log(maxDOBYear)
+    
       if(Number(form.dob.split('-')[0]) > maxDOBYear){
         throw new Error(`Date Of Year Cannot be in greater than ${maxDOBYear}`)
+      }
+
+      const dobRegex =
+        /^(19|20)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
+
+      if(!dobRegex.test(form.dob)){
+        console.log(form.dob);
+        throw new Error('Please Input correct DOB Format (MM-DD-YYYY)')
       }
 
       const [profileRes, detailsRes] = await Promise.all([
@@ -781,7 +788,6 @@ export default function Settings() {
       rzp.open();
     } 
     catch (err) {
-      // console.error(err);
       toast({
         title: "Payment Failed",
         description: "Something went wrong.",
@@ -896,10 +902,10 @@ export default function Settings() {
                           });
                           return;
                         }
-                        if(e.target.value.length > 15){
+                        if(e.target.value.length > 30){
                           toast({
                             title: "First Name Error",
-                            description: "Cannot Add more than 15 Characters",
+                            description: "Cannot Add more than 30 Characters",
                             variant: "destructive",
                           });
                           return;
@@ -926,10 +932,10 @@ export default function Settings() {
                            });
                            return;
                          }
-                        if (e.target.value.length > 30) {
+                        if (e.target.value.length > 20) {
                           toast({
                             title: "Last Name Error",
-                            description: "Cannot Add more than 30 Characters",
+                            description: "Cannot Add more than 20 Characters",
                             variant: "destructive",
                           });
                           return;
