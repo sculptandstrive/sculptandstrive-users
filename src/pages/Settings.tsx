@@ -215,6 +215,9 @@ export default function Settings() {
     email: "",
   });
 
+  const maxDOBYear = Number(new Date().getFullYear()) - 10;
+  console.log(maxDOBYear)
+
   const fetchPlanDetails = () => {
     const expiry = new Date(user.user_metadata.expiry_at).getTime();
     // console.log(expiry)
@@ -606,6 +609,11 @@ export default function Settings() {
           throw new Error("Phone Number should only contain 10 Numbers");
         }
       }
+      console.log(form.dob.split('-')[0]);
+      console.log(maxDOBYear)
+      if(Number(form.dob.split('-')[0]) > maxDOBYear){
+        throw new Error(`Date Of Year Cannot be in greater than ${maxDOBYear}`)
+      }
 
       const [profileRes, detailsRes] = await Promise.all([
         supabase
@@ -888,6 +896,14 @@ export default function Settings() {
                           });
                           return;
                         }
+                        if(e.target.value.length > 15){
+                          toast({
+                            title: "First Name Error",
+                            description: "Cannot Add more than 15 Characters",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
                         setForm({ ...form, firstName: e.target.value })
                       }
                       }
@@ -902,10 +918,18 @@ export default function Settings() {
                       className="bg-muted border-border mt-1"
                       onChange={(e) =>
                       {
-                        if (!/^[a-zA-Z\s]*$/.test(e.target.value)) {
+                         if (!/^[a-zA-Z\s]*$/.test(e.target.value)) {
+                           toast({
+                             title: "Last Name Error",
+                             description: "Only Alphabets are allowed",
+                             variant: "destructive",
+                           });
+                           return;
+                         }
+                        if (e.target.value.length > 30) {
                           toast({
                             title: "Last Name Error",
-                            description: "Only Alphabets are allowed",
+                            description: "Cannot Add more than 30 Characters",
                             variant: "destructive",
                           });
                           return;
@@ -936,6 +960,7 @@ export default function Settings() {
                         type="tel"
                         className="bg-muted border-border pl-10"
                         placeholder="Enter Phone Number"
+                        maxLength={10}
                         value={form.phone}
                         onChange={(e) => {
                           const value = e.target.value.replace(/\D{0,10}/g, "");
