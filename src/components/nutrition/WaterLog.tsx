@@ -87,6 +87,15 @@ export default function WaterLog({ onWaterLogged, onClose }: WaterLogProps) {
     if (!user) return;
 
     const waterMl = Math.round(litres * 1000);
+    if(waterMl > 99999){
+      toast({
+        title: "Water Update Failed",
+        description: 'Cannot Add More than 99.9 L',
+        variant: "destructive",
+      });
+      return;
+    }
+
 
     const { error } = await supabase
       .from("nutrition_requirements")

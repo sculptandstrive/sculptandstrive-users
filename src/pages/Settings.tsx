@@ -215,6 +215,9 @@ export default function Settings() {
     email: "",
   });
 
+  const maxDOBYear = Number(new Date().getFullYear()) - 10;
+  console.log(maxDOBYear)
+
   const fetchPlanDetails = () => {
     const expiry = new Date(user.user_metadata.expiry_at).getTime();
     // console.log(expiry)
@@ -314,7 +317,6 @@ export default function Settings() {
     
    fetchPlanDetails();
   }, [user]);
-
 
   //  Notification Toggle Function
   const handleToggle = async (rowName: string, enabled: boolean) => {
@@ -576,12 +578,13 @@ export default function Settings() {
       if(!form.firstName){
         throw new Error("First Name Cannot be empty");
       }
+
       if (form.firstName) {
           if (form.firstName.length <= 2) {
             throw new Error("First name must be at least 3 characters long.");
           }
-          if(form.firstName.length >= 15){
-            throw new Error("First name must be less than 15 characters long.");
+          if(form.firstName.length >= 30){
+            throw new Error("First name must be less than 30 characters long.");
           }
           if (!nameRegex.test(form.firstName)) {
             throw new Error(
@@ -593,8 +596,8 @@ export default function Settings() {
       if (form.lastName) {
         if (form.lastName.length <= 2) {
           throw new Error("Last name must be greater than 2 characters long");
-        } else if (form.lastName.length > 30) {
-          throw new Error("Last name must be less than 30 characters long");
+        } else if (form.lastName.length > 20) {
+          throw new Error("Last name must be less than 20 characters long");
         } else if (!nameRegex.test(form.lastName)) {
           throw new Error("Last name should only have Alphabets");
         }
@@ -605,6 +608,18 @@ export default function Settings() {
         if (!phoneRegex.test(form.phone)) {
           throw new Error("Phone Number should only contain 10 Numbers");
         }
+      }
+    
+      if(Number(form.dob.split('-')[0]) > maxDOBYear){
+        throw new Error(`Date Of Year Cannot be in greater than ${maxDOBYear}`)
+      }
+
+      const dobRegex =
+        /^(19|20)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
+
+      if(!dobRegex.test(form.dob)){
+        console.log(form.dob);
+        throw new Error('Please Input correct DOB Format (MM-DD-YYYY)')
       }
 
       const [profileRes, detailsRes] = await Promise.all([
@@ -773,7 +788,6 @@ export default function Settings() {
       rzp.open();
     } 
     catch (err) {
-      // console.error(err);
       toast({
         title: "Payment Failed",
         description: "Something went wrong.",
@@ -879,8 +893,25 @@ export default function Settings() {
                       placeholder="Enter your first name "
                       value={form.firstName}
                       className="bg-muted border-border mt-1"
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        if (!/^[a-zA-Z\s]*$/.test(e.target.value)) {
+                          toast({
+                            title: "First Name Error",
+                            description: "Only Alphabets are allowed",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                        if(e.target.value.length > 30){
+                          toast({
+                            title: "First Name Error",
+                            description: "Cannot Add more than 30 Characters",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
                         setForm({ ...form, firstName: e.target.value })
+                      }
                       }
                     />
                   </div>
@@ -892,8 +923,26 @@ export default function Settings() {
                       value={form.lastName}
                       className="bg-muted border-border mt-1"
                       onChange={(e) =>
+                      {
+                         if (!/^[a-zA-Z\s]*$/.test(e.target.value)) {
+                           toast({
+                             title: "Last Name Error",
+                             description: "Only Alphabets are allowed",
+                             variant: "destructive",
+                           });
+                           return;
+                         }
+                        if (e.target.value.length > 20) {
+                          toast({
+                            title: "Last Name Error",
+                            description: "Cannot Add more than 20 Characters",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
                         setForm({ ...form, lastName: e.target.value })
                       }
+                    }
                     />
                   </div>
                   <div>
@@ -917,6 +966,7 @@ export default function Settings() {
                         type="tel"
                         className="bg-muted border-border pl-10"
                         placeholder="Enter Phone Number"
+                        maxLength={10}
                         value={form.phone}
                         onChange={(e) => {
                           const value = e.target.value.replace(/\D{0,10}/g, "");
@@ -930,10 +980,13 @@ export default function Settings() {
                     <Input
                       id="dob"
                       type="date"
-                      placeholder="10/12/1980"
                       max={getMaxDOB()}
                       value={form.dob}
-                      className="bg-muted border-border mt-1"
+                      className="bg-muted border-border mt-1 cursor-pointer"
+                      inputMode="none"
+                      onFocus={(e) => {
+                        e.target.showPicker?.();
+                      }}
                       onChange={(e) =>
                         setForm({ ...form, dob: e.target.value })
                       }
