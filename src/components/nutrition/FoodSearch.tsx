@@ -20,6 +20,7 @@ export function FoodSearch({ mealType, onFoodLogged, onClose, nutritionGoals }: 
   const [customWeights, setCustomWeights] = useState<Record<string, number>>({});
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
+  const pendingFoods = useRef<any[]>([]);
   // console.log(nutritionGoals);
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -45,65 +46,162 @@ export function FoodSearch({ mealType, onFoodLogged, onClose, nutritionGoals }: 
     }
   };
 
-  const logFood = async (food: any) => {
-    // Get weight (default to 100g)
-    const weight = customWeights[food.id] || 100;
-    const multiplier = weight / 100;
+  const handleFoodClick = (food: any) => {
+    // 1. Accumulate the food item locally first
+    pendingFoods.current.push(food);
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-      
-      const caloriesReq = nutritionGoals?.calories?.target;
-      const currCalories = nutritionGoals?.calories?.current;
-      if(currCalories >= caloriesReq){
-         toast({
-           title: "Calorie Limit Reached",
-           variant: "destructive",
-           description: "Daily Safe Calorie Limit Reached",
-         });
-         return;
+    // 2. Clear any existing timer
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+    // 3. Set the debounce timer (e.g., 500ms)
+    debounceTimer.current = setTimeout(async () => {
+      const itemsToProcess = [...pendingFoods.current];
+      pendingFoods.current = []; // Clear immediately to prevent double-processing
+
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not authenticated");
+
+        // Get your current goal state
+        let runningCurrentCalories = nutritionGoals?.calories?.current || 0;
+        const caloriesTarget = nutritionGoals?.calories?.target || 2000;
+
+        const finalDataBatch = itemsToProcess
+          .map((item) => {
+            const weight = customWeights[item.id] || 100;
+            const multiplier = weight / 100;
+
+            // Local clones of nutrient values to avoid mutating state objects
+            let itemCals = item.calories * multiplier;
+            let itemProt = (item.protein_g || item.protein) * multiplier;
+            let itemCarbs = (item.carbs_g || item.carbs) * multiplier;
+            let itemFats = (item.fats_g || item.fats) * multiplier;
+
+            // Check if we are already over the limit
+            if (runningCurrentCalories >= caloriesTarget) {
+              return null; // Skip this item
+            }
+
+            // Check if this specific item pushes us over
+            if (runningCurrentCalories + itemCals > caloriesTarget) {
+              const availableRoom = caloriesTarget - runningCurrentCalories;
+              const ratio = availableRoom / itemCals;
+
+              itemCals = availableRoom;
+              itemProt *= ratio;
+              itemCarbs *= ratio;
+              itemFats *= ratio;
+            }
+
+            runningCurrentCalories += itemCals;
+
+            return {
+              user_id: user.id,
+              meal_type: mealType,
+              meal_name: item.name,
+              calories: Math.round(itemCals),
+              protein_g: Number(itemProt.toFixed(1)),
+              carbs_g: Number(itemCarbs.toFixed(1)),
+              fats_g: Number(itemFats.toFixed(1)),
+              log_date: new Date().toISOString().split("T")[0],
+            };
+          })
+          .filter(Boolean); // Remove nulls (items skipped due to limit)
+
+        if (finalDataBatch.length === 0) {
+          toast({
+            title: "Limit Reached",
+            variant: "destructive",
+            description: "No more calories allowed today!",
+          });
+          return;
+        }
+
+        // 4. Batch insert into Supabase
+        const { error } = await supabase
+          .from("nutrition_logs")
+          .insert(finalDataBatch);
+        if (error) throw error;
+
+        toast({
+          title: "Foods Logged",
+          description: `Successfully added ${finalDataBatch.length} items.`,
+        });
+
+        onFoodLogged();
+        onClose();
+      } catch (err: any) {
+        console.error("Batch log error:", err);
+        toast({
+          title: "Error",
+          variant: "destructive",
+          description: "Failed to save logs.",
+        });
       }
-      else if((currCalories + food.calories) > caloriesReq){
-        const required = caloriesReq - currCalories;
-        const percAdd = (required / food.calories);
-        food.calories = percAdd * food.calories;
-        food.protein_g = percAdd * food.protien_g;
-        food.carbs_g = percAdd * food.carbs_g;
-        food.fats_g = percAdd * food.fats_g;
-      }
-
-      const foodData = {
-        user_id: user.id,
-        meal_type: mealType,
-        meal_name: food.name,
-        calories: Math.round(food.calories * multiplier),
-        protein_g: Number((food.protein * multiplier).toFixed(1)),
-        carbs_g: Number((food.carbs * multiplier).toFixed(1)),
-        fats_g: Number((food.fats * multiplier).toFixed(1)),
-        log_date: new Date().toISOString().split("T")[0],
-      };
-
-      const { error } = await supabase.from("nutrition_logs").insert(foodData);
-
-      if (error) throw error;
-
-      toast({
-        title: "Food Logged",
-        description: `${food.name} (${weight}g) added to ${mealType.replace('_', ' ')}`
-      });
-
-      onFoodLogged();
-      onClose();
-    } catch (err: any) {
-      console.error("Log error:", err);
-      toast({
-        title: "Error",
-        variant: "destructive",
-        description: "Failed to save to your log."
-      });
-    }
+    }, 500);
   };
+
+  // const logFood = async (food: any) => {
+  //   // Get weight (default to 100g)
+  //   const weight = customWeights[food.id] || 100;
+  //   const multiplier = weight / 100;
+
+  //   try {
+  //     const { data: { user } } = await supabase.auth.getUser();
+  //     if (!user) throw new Error("User not authenticated");
+      
+  //     const caloriesReq = nutritionGoals?.calories?.target;
+  //     const currCalories = nutritionGoals?.calories?.current;
+  //     if(currCalories >= caloriesReq){
+  //        toast({
+  //          title: "Calorie Limit Reached",
+  //          variant: "destructive",
+  //          description: "Daily Safe Calorie Limit Reached",
+  //        });
+  //        return;
+  //     }
+  //     else if((currCalories + food.calories) > caloriesReq){
+  //       const required = caloriesReq - currCalories;
+  //       const percAdd = (required / food.calories);
+  //       food.calories = percAdd * food.calories;
+  //       food.protein_g = percAdd * food.protien_g;
+  //       food.carbs_g = percAdd * food.carbs_g;
+  //       food.fats_g = percAdd * food.fats_g;
+  //     }
+
+  //     const foodData = {
+  //       user_id: user.id,
+  //       meal_type: mealType,
+  //       meal_name: food.name,
+  //       calories: Math.round(food.calories * multiplier),
+  //       protein_g: Number((food.protein * multiplier).toFixed(1)),
+  //       carbs_g: Number((food.carbs * multiplier).toFixed(1)),
+  //       fats_g: Number((food.fats * multiplier).toFixed(1)),
+  //       log_date: new Date().toISOString().split("T")[0],
+  //     };
+
+  //     const { error } = await supabase.from("nutrition_logs").insert(foodData);
+
+  //     if (error) throw error;
+
+  //     toast({
+  //       title: "Food Logged",
+  //       description: `${food.name} (${weight}g) added to ${mealType.replace('_', ' ')}`
+  //     });
+
+  //     onFoodLogged();
+  //     onClose();
+  //   } catch (err: any) {
+  //     console.error("Log error:", err);
+  //     toast({
+  //       title: "Error",
+  //       variant: "destructive",
+  //       description: "Failed to save to your log."
+  //     });
+  //   }
+  // };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -192,14 +290,7 @@ export function FoodSearch({ mealType, onFoodLogged, onClose, nutritionGoals }: 
 
                     <Button
                       size="sm"
-                      onClick={() => {
-                        if (debounceTimer.current)
-                          clearTimeout(debounceTimer.current);
-
-                        debounceTimer.current = setTimeout(() => {
-                          logFood(food)
-                        }, 300);
-                      }}
+                      onClick={() => handleFoodClick(food)}
                       className="h-8 w-8 rounded-full p-0 bg-[#00D1B2] hover:bg-[#00BFA5] shrink-0"
                     >
                       <Plus className="w-4 h-4 text-white" />

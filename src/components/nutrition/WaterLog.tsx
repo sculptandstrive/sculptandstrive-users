@@ -22,6 +22,7 @@ export default function WaterLog({ onWaterLogged, onClose }: WaterLogProps) {
   const today = new Date().toISOString().split("T")[0];
 
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const pendingWater = useRef(0);
 
   const addWater = async (ml: number) => {
     if (!user) return;
@@ -243,13 +244,15 @@ export default function WaterLog({ onWaterLogged, onClose }: WaterLogProps) {
               <button
                 key={ml}
                 onClick={() => {
-                  const val = Number(ml);
+                  pendingWater.current += Number(ml);
                   if (debounceTimer.current)
                     clearTimeout(debounceTimer.current);
-
-                  debounceTimer.current = setTimeout(() => {
-                    addWater(val);
-                  }, 100);
+                  
+                  debounceTimer.current = setTimeout(async() => {
+                    const totalWaterAdd = pendingWater.current;
+                    await addWater(totalWaterAdd);
+                    pendingWater.current = 0;
+                  }, 300);
                 }}
                 className="border border-border bg-muted/50 rounded-lg py-2 text-sm hover:bg-muted transition-colors"
               >

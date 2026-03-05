@@ -486,7 +486,17 @@ export default function Progress() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
+    const maxSize = 5 * 1024 * 1024;
     setUploading(true);
+    if (file.size > maxSize) {
+      toast({
+        title: "Unsupported Image Size",
+        description: "Image Size should be less than 5MB",
+        variant: "destructive",
+      });
+      e.target.value = "";
+      return;
+    }
     const fileExt = file.name.split(".").pop();
     if(fileExt !== 'png' && fileExt !== 'jpg' && fileExt !== 'jpeg'){
       toast({
