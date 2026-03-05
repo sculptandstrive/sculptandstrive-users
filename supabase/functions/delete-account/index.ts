@@ -1,96 +1,83 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
-  //  CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    //  Safe auth header check
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing Authorization header" }),
-        { status: 401, headers: corsHeaders },
-      );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    // Identify user from session
+    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    if (userError || !user) throw new Error("User session not found");
+
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+    const uid = user.id;
+
+    // Updated Table configurations
+    const tableConfigs = [
+      { name: "user_roles", key: "user_id" },
+      { name: "progress_records", key: "user_id" },
+      { name: "progress_photos", key: "user_id" },
+      { name: "user_meal_plans", key: "user_id" },
+      { name: "nutrition_logs", key: "user_id" },
+      { name: "water_intake", key: "user_id" },
+      { name: "workouts", key: "user_id" },
+      { name: "starting_measurements", key: "user_id" },
+      { name: "current_measurements", key: "user_id" },
+      { name: "profile_details", key: "user_id" },
+      { name: "activities", key: "id" }, 
+      { name: "profiles", key: "id" }
+    ];
+
+    console.log(`Starting full wipe for user: ${uid}`);
+
+    // Delete user data from all specified tables
+    for (const table of tableConfigs) {
+      const { error } = await adminClient
+        .from(table.name)
+        .delete()
+        .eq(table.key, uid);
+
+      if (error) {
+        // If 'id' also fails for activities, log it but don't stop the process
+        console.warn(`Could not clear ${table.name}: ${error.message}`);
+      } else {
+        console.log(`Successfully cleared ${table.name}`);
+      }
     }
 
-    //  Admin client
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    // Clear storage (Progress Photos)
+    const { error: storageError } = await adminClient.storage
+      .from('progress_photos')
+      .remove([`${uid}`]);
+    
+    if (storageError) console.warn("Storage cleanup warning:", storageError.message);
 
-    //  User-scoped client
-   // Replace your userClient initialization with this:
-  // Replace lines 35-39 in index.ts with this:
-// Replace this block in index.ts (around line 35)
-// Use the standard environment variable name
-// Replace the old userClient initialization with this:
-// User-scoped client
-    const userClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!, // Standard name for Edge Functions
-      { global: { headers: { Authorization: authHeader } } },
-    );
-    // Verify user
-    const {
-      data: { user },
-      error,
-    } = await userClient.auth.getUser();
-
-    if (error || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: corsHeaders,
-      });
-    }
-
-    const userId = user.id;
-
-    // Delete avatar files
-    const { data: files } = await supabaseAdmin.storage
-      .from("user-images")
-      .list(`avatars/${userId}`); // FIXED: Changed from .list` to .list(`
-
-    if (files?.length) {
-      await supabaseAdmin.storage
-        .from("user-images")
-        .remove(files.map((f) => `avatars/${userId}/${f.name}`));
-    }
-
-    // Delete all user data
-    await supabaseAdmin.from("profiles").delete().eq("user_id", userId);
-    await supabaseAdmin.from("progress_photos").delete().eq("user_id", userId);
-    await supabaseAdmin.from("nutrition_logs").delete().eq("user_id", userId);
-    await supabaseAdmin.from("water_intake").delete().eq("user_id", userId);
-    await supabaseAdmin.from("profile_details").delete().eq("user_id", userId);
-    await supabaseAdmin
-      .from("notification_preferences")
-      .delete()
-      .eq("user_id", userId);
-
-    //  Delete auth user LAST
-    await supabaseAdmin.auth.admin.deleteUser(userId);
+    //  Delete the Auth account
+    const { error: authError } = await adminClient.auth.admin.deleteUser(uid);
+    if (authError) throw authError;
 
     return new Response(JSON.stringify({ success: true }), {
-      headers: corsHeaders,
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Internal server error";
-    return new Response(JSON.stringify({ error: message }), {
+
+  } catch (error) {
+    console.error("Critical error during account deletion:", error.message);
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: corsHeaders,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
