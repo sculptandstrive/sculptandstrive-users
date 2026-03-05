@@ -198,8 +198,13 @@ export default function Fitness() {
         completed: false,
       }));
 
+      // console.log(rowsToInsert)
+
       const { data, error } = await supabase.from("workouts").insert(rowsToInsert as any).select();
-      if (error) return null;
+      if (error){
+        console.log(error)
+        return null;
+      } 
       return data?.sort((a: any, b: any) => a.order_index - b.order_index).map(d => ({ 
         ...d, 
         workout_name: (d as any).name 
@@ -230,7 +235,7 @@ export default function Fitness() {
       } else {
         mappedPlan = plan.map(p => ({ ...p, workout_name: (p as any).name }));
       }
-
+      console.log(mappedPlan);
       setWeeklyPlan(mappedPlan);
 
       const todayWorkout = mappedPlan.find((p: any) => p.day_name === todayDayName);

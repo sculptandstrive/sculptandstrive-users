@@ -242,7 +242,15 @@ export default function WaterLog({ onWaterLogged, onClose }: WaterLogProps) {
             {glassSizes.map((ml) => (
               <button
                 key={ml}
-                onClick={() => addWater(ml)}
+                onClick={() => {
+                  const val = Number(ml);
+                  if (debounceTimer.current)
+                    clearTimeout(debounceTimer.current);
+
+                  debounceTimer.current = setTimeout(() => {
+                    addWater(val);
+                  }, 100);
+                }}
                 className="border border-border bg-muted/50 rounded-lg py-2 text-sm hover:bg-muted transition-colors"
               >
                 {ml} ml

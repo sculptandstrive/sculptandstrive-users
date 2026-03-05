@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Search, Plus, X, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,7 @@ export function FoodSearch({ mealType, onFoodLogged, onClose, nutritionGoals }: 
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [customWeights, setCustomWeights] = useState<Record<string, number>>({});
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   // console.log(nutritionGoals);
   const handleSearch = async () => {
@@ -191,7 +192,14 @@ export function FoodSearch({ mealType, onFoodLogged, onClose, nutritionGoals }: 
 
                     <Button
                       size="sm"
-                      onClick={() => logFood(food)}
+                      onClick={() => {
+                        if (debounceTimer.current)
+                          clearTimeout(debounceTimer.current);
+
+                        debounceTimer.current = setTimeout(() => {
+                          logFood(food)
+                        }, 300);
+                      }}
                       className="h-8 w-8 rounded-full p-0 bg-[#00D1B2] hover:bg-[#00BFA5] shrink-0"
                     >
                       <Plus className="w-4 h-4 text-white" />

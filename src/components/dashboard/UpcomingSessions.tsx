@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function UpcomingSessions() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const {user} = useAuth()
+  
   useEffect(() => {
     fetchUserSessions();
 
@@ -208,13 +210,22 @@ export function UpcomingSessions() {
                     <span>{startTime}</span>
                   </div>
 
-                  <Button
-                    size="sm"
-                    className={`h-8 px-3 text-xs ${isWhatsApp ? "bg-[#25D366] hover:bg-[#128C7E]" : "bg-primary"}`}
-                    onClick={() => handleSessionJoin(session)}
-                  >
-                    {isWhatsApp ? "Contact" : "Join"}
-                  </Button>
+                  {user?.user_metadata?.plan_role === "trial_user" ? (
+                    <Button
+                      size="sm"
+                      className={`h-8 px-3 text-xs cursor-not-allowed ${isWhatsApp ? "bg-[#25D366] hover:bg-[#128C7E]" : "bg-primary"}`}
+                    >
+                      {isWhatsApp ? "Contact" : "Join"}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className={`h-8 px-3 text-xs ${isWhatsApp ? "bg-[#25D366] hover:bg-[#128C7E]" : "bg-primary"}`}
+                      onClick={() => handleSessionJoin(session)}
+                    >
+                      {isWhatsApp ? "Contact" : "Join"}
+                    </Button>
+                  )}
                 </motion.div>
               );
             })}

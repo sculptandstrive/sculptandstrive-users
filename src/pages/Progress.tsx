@@ -488,6 +488,15 @@ export default function Progress() {
 
     setUploading(true);
     const fileExt = file.name.split(".").pop();
+    if(fileExt !== 'png' && fileExt !== 'jpg' && fileExt !== 'jpeg'){
+      toast({
+        title: "Upload Failed",
+        description: "Please Upload image in jpg/jpeg or png Format",
+        variant: "destructive",
+      });
+      setUploading(false);
+      return ;
+    }
     const filePath = `${user.id}/${progressPhotos[index].date}-${Date.now()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage

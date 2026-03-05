@@ -187,7 +187,6 @@ export default function Nutrition() {
     return "breakfast";
   };
 
-
   const deleteFood = async (id: string) => {
     try {
       const { error } = await supabase.from("nutrition_logs").delete().eq("id", id);
@@ -198,7 +197,6 @@ export default function Nutrition() {
       console.error("Error deleting food:", error);
     }
   };
-
   
   const nutritionGoals = {
     calories: { current: totals.calories, target: dynamicGoals.calories },

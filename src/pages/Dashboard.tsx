@@ -82,6 +82,19 @@ export default function Dashboard() {
 
   const today = new Date().toISOString().split('T')[0];
 
+  // Was in implementation
+  // const now = new Date();
+
+  // const endOfDay = new Date(
+  //   now.getFullYear(),
+  //   now.getMonth(),
+  //   now.getDate(),
+  //   23,
+  //   59,
+  //   59,
+  //   999,
+  // );
+
   const fetchNotifications = async () => {
     if (!user) return;
 
@@ -96,7 +109,24 @@ export default function Dashboard() {
       console.error("Fetch notifications error:", error);
       return;
     }
-    setNotifications(data || []);
+
+  // Was in implementation
+  //   const { data: sessionData, error: sessionError } = await supabase
+  //     .from("sessions")
+  //     .select(
+  //       `
+  //   *,
+  //   session_assignments!left(client_id)
+  // `,
+  //     )
+  //     .eq("session_assignments.client_id", user.id)
+  //     .gte("created_at", now.toISOString())
+  //     .lte("created_at", endOfDay.toISOString());
+
+
+  //   console.log(sessionData);
+  //   // console.log(data);
+  //   setNotifications(data || []);
   };
 
   const fetchDailyNotifications = async () => {
@@ -226,7 +256,7 @@ export default function Dashboard() {
 
       const { data } = await supabase.from("user_roles").select('*').eq("user_id", user.id);
 
-      console.log(data);
+      // console.log(data);
 
     } catch(err: any) {
       toast({
@@ -289,20 +319,32 @@ export default function Dashboard() {
         {user?.user_metadata?.signup_source === "trial_user" &&
           user?.user_metadata?.expiry_at && (
             <div className="bg-primary/15 px-4 py-2 rounded-md text-base font-semibold">
-              Your Trial ends in: <span className="font-bold gradient-text">{timeLeft}</span>
+              Your Trial ends in:{" "}
+              <span className="font-bold gradient-text">{timeLeft}</span>
             </div>
           )}
 
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="icon"
-            className="relative"
-            onClick={() => setNotificationWindow(true)}
-          >
-            <Bell className="w-5 h-5" />
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full" />
-          </Button>
+          {user?.user_metadata?.plan_role === "user" ? (
+            <Button
+              variant="outline"
+              size="icon"
+              className="relative"
+              onClick={() => setNotificationWindow(true)}
+            >
+              <Bell className="w-5 h-5" />
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full" />
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="icon"
+              className="relative cursor-not-allowed"
+            >
+              <Bell className="w-5 h-5" />
+            </Button>
+          )}
+
           <NavLink to="/fitness">
             <Button className="bg-gradient-primary hover:opacity-90 text-primary-foreground">
               Start Workout
