@@ -277,8 +277,8 @@ export default function Fitness() {
   //  HANDLERS 
   const updateExerciseField = async (id: string, field: string, value: string) => {
     let numValue = parseInt(value) || 0;
-    if ((field === 'sets' || field === 'reps') && numValue <= 0) numValue = 1;
-    if (field === 'weight_kg' && numValue < 0) numValue = 0;
+    // if ((field === 'sets' || field === 'reps') && numValue <= 0) numValue = 1;
+    if (numValue < 0) numValue = 0;
 
     if((field === 'sets' || field === 'reps' || field === 'weight_kg') && numValue > 999){
       toast({
@@ -304,11 +304,19 @@ export default function Fitness() {
     setShowRestOptions(false);
   };
 
-  const toggleExercise = async (id: string, currentStatus: boolean) => {
+  const toggleExercise = async (exercise: any, id: string, currentStatus: boolean) => {
     const nextStatus = !currentStatus;
+    if(exercise.sets == 0 || exercise.reps == 0){
+      toast({
+        title: 'Exercise Date error',
+        description: 'Sets or Reps Cannot be 0',
+        variant: 'destructive'
+      })
+      return;
+    }
     setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, completed: nextStatus } : ex));
     if (nextStatus) setFocusedExerciseId(null);
-
+    console.log(nextStatus);
     await supabase.from('exercises').update({ completed: nextStatus }).eq('id', id);
 
     if (activeWorkoutId) {
@@ -509,7 +517,7 @@ export default function Fitness() {
                   }`}
                 >
                   <button
-                    onClick={() => toggleExercise(exercise.id, exercise.completed)}
+                    onClick={() => toggleExercise(exercise, exercise.id, exercise.completed)}
                     className={`w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center shrink-0 transition-all ${
                       exercise.completed ? "bg-emerald-500 text-black border-emerald-500" : "border-2 border-slate-700 hover:border-[#2dd4bf]"
                     }`}

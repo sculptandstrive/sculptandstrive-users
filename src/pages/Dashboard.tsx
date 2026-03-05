@@ -228,17 +228,19 @@ export default function Dashboard() {
         supabase.from('nutrition_requirements').select('water_requirement').eq('user_id', user.id).single()
       ]);
 
+      
       if(logsResult.error) throw logsResult.error;
       if(waterResult.error) throw waterResult.error;
       if(workoutsResult.error) throw workoutsResult.error;
-
+      
       // console.log(workoutsResult);
-
+      
       setNutritionLogs(logsResult.data || []);
       setWaterIntake(waterResult.data || []);
-
+      
       const allWorkouts = workoutsResult.data || [];
       const completedWorkouts = allWorkouts.filter(w => w.completed);
+      // console.log(completedWorkouts);
 
       // Calculate calories and minutes from completed workouts
       const totalCalories = completedWorkouts.reduce((sum, w) => sum + (w.calories_burned || 0), 0);
