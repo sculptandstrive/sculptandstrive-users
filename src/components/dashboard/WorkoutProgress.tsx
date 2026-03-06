@@ -32,7 +32,7 @@ export default function WorkoutProgress() {
       if (error) throw error;
 
       if (data) {
-        
+        console.log(data)
         const normalizedData = data.reduce((acc: any[], current: any) => {
           const exists = acc.find(item => item.day_name === current.day_name);
           if (!exists) {

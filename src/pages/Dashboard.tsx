@@ -224,7 +224,7 @@ export default function Dashboard() {
           .from('workouts')
           .select('*')
           .eq('user_id', user.id)
-          .returns<Workout[]>(),
+          .order('order_index', { ascending: true }),
         supabase.from('nutrition_requirements').select('water_requirement').eq('user_id', user.id).single()
       ]);
 
@@ -237,14 +237,24 @@ export default function Dashboard() {
       
       setNutritionLogs(logsResult.data || []);
       setWaterIntake(waterResult.data || []);
-      
+      // console.log(workoutsResult);
+
+      const normalizedData = workoutsResult.data.reduce((acc: any[], current: any) => {
+        const exists = acc.find((item) => item.day_name === current.day_name);
+        if (!exists) {
+          return [...acc, current];
+        }
+        return acc;
+      }, []);
+
       const allWorkouts = workoutsResult.data || [];
       const completedWorkouts = allWorkouts.filter(w => w.completed);
-      // console.log(completedWorkouts);
 
-      // Calculate calories and minutes from completed workouts
-      const totalCalories = completedWorkouts.reduce((sum, w) => sum + (w.calories_burned || 0), 0);
-      const totalMinutes = completedWorkouts.reduce((sum, w) => sum + (w.duration_minutes || 0), 0);
+      const totalCalories = normalizedData.reduce((sum, w) => sum + (w.calories_burned || 0), 0);
+      const totalMinutes = completedWorkouts.reduce(
+        (sum, w) => sum + (w.duration_minutes || 0),
+        0,
+      );
 
       setWaterGoal(waterRequirement.data.water_requirement); 
 
@@ -258,7 +268,6 @@ export default function Dashboard() {
 
       const { data } = await supabase.from("user_roles").select('*').eq("user_id", user.id);
 
-      // console.log(data);
 
     } catch(err: any) {
       toast({

@@ -198,8 +198,6 @@ export default function Fitness() {
         completed: false,
       }));
 
-      // console.log(rowsToInsert)
-
       const { data, error } = await supabase.from("workouts").insert(rowsToInsert as any).select();
       if (error){
         console.log(error)
