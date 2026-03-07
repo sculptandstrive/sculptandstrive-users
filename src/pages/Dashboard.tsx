@@ -70,6 +70,7 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState<Notifications[]>([]);
   const [nutritionLogs, setNutritionLogs] = useState<NutritionLog[]>([]);
   const [waterIntake, setWaterIntake] = useState<WaterIntake[]>([]);
+  const [weeklyData, setWeeklyData] = useState<any[]>([])
   const [stats, setStats] = useState<DashboardStats>({
     caloriesBurned: 0,
     workoutsCompleted: 0,
@@ -256,6 +257,8 @@ export default function Dashboard() {
         0,
       );
 
+      setWeeklyData(normalizedData);
+
       setWaterGoal(waterRequirement.data.water_requirement); 
 
       setStats({
@@ -306,7 +309,7 @@ export default function Dashboard() {
     
 
     return () => clearInterval(interval);
-  }, [user, today]);
+  }, [user, today, weeklyData]);
 
   // console.log(timeLeft)
 
@@ -418,7 +421,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <WorkoutProgress />
+      <WorkoutProgress weeklyData = {weeklyData} setWeeklyData = {setWeeklyData}/>
       <AnimatePresence>
         {notificationWindow && (
           <Notification

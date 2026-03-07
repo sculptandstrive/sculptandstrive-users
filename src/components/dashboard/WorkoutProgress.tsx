@@ -13,10 +13,10 @@ const achievementsList = [
   { icon: Target, label: "Perfect Week", color: "text-green-500", goal: 7 },
 ];
 
-export default function WorkoutProgress() {
+export default function WorkoutProgress({weeklyData, setWeeklyData}) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [weeklyData, setWeeklyData] = useState<any[]>([]);
+  // const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchStats = async () => {
@@ -32,7 +32,7 @@ export default function WorkoutProgress() {
       if (error) throw error;
 
       if (data) {
-        console.log(data)
+        // console.log(data)
         const normalizedData = data.reduce((acc: any[], current: any) => {
           const exists = acc.find(item => item.day_name === current.day_name);
           if (!exists) {
@@ -69,23 +69,106 @@ export default function WorkoutProgress() {
     };
   }, [user?.id]);
 
+  // const resetWeeklyProgress = async () => {
+  //   if (!user) return;
+
+  //   // Optimistic UI update
+  //   setWeeklyData(prev => prev.map(day => ({ ...day, completed: false })));
+    
+  //   const { error } = await supabase
+  //     .from('workouts')
+  //     .update({ completed: false } as any)
+  //     .eq('user_id', user.id); // Targeted reset for current user only
+
+  //   if (error) {
+  //     toast({ title: "Reset Failed", variant: "destructive" });
+  //     fetchStats();
+  //   } else {
+  //     toast({ title: "Weekly Progress Reset" });
+  //   }
+  // };
+
   const resetWeeklyProgress = async () => {
     if (!user) return;
 
-    // Optimistic UI update
-    setWeeklyData(prev => prev.map(day => ({ ...day, completed: false })));
-    
-    const { error } = await supabase
-      .from('workouts')
-      .update({ completed: false } as any)
-      .eq('user_id', user.id); // Targeted reset for current user only
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    monday.setHours(0, 0, 0, 0);
 
-    if (error) {
-      toast({ title: "Reset Failed", variant: "destructive" });
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+
+    const mondayStr = monday.toISOString().split("T")[0];
+    const sundayStr = sunday.toISOString().split("T")[0];
+
+    // Optimistic UI update
+    setWeeklyData((prev) => prev.map((day) => ({ ...day, completed: false })));
+
+    // Step 1: Fetch workout IDs for this week belonging to the user
+    const { data: weekWorkouts, error: fetchError } = await supabase
+      .from("workouts")
+      .select("id")
+      .eq("user_id", user.id)
+      .gte("workout_date", mondayStr)
+      .lte("workout_date", sundayStr);
+
+    if (fetchError) {
+      toast({
+        title: "Reset Failed",
+        description: fetchError.message,
+        variant: "destructive",
+      });
       fetchStats();
-    } else {
-      toast({ title: "Weekly Progress Reset" });
+      return;
     }
+
+    const workoutIds = weekWorkouts?.map((w) => w.id) ?? [];
+
+    if (workoutIds.length === 0) {
+      toast({ title: "No workouts found for this week" });
+      return;
+    }
+
+    // Delete all exercises linked to this week WORKOUT ID'S
+    const { error: deleteError } = await supabase
+      .from("exercises") 
+      .delete()
+      .in("workout_id", workoutIds);
+
+    if (deleteError) {
+      toast({
+        title: "Reset Failed",
+        description: deleteError.message,
+        variant: "destructive",
+      });
+      fetchStats();
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from("workouts")
+      .update({ completed: false } as any)
+      .eq("user_id", user.id)
+      .gte("workout_date", mondayStr)
+      .lte("workout_date", sundayStr);
+
+    if (updateError) {
+      toast({
+        title: "Exercises deleted but workout status reset failed",
+        variant: "destructive",
+      });
+      fetchStats();
+      return;
+    }
+
+    toast({
+      title: "Weekly Progress Reset",
+      description: "All exercises for this week have been deleted.",
+    });
+    fetchStats();
   };
 
   const completedDays = weeklyData.filter((d) => d.completed).length;
