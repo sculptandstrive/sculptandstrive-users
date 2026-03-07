@@ -83,28 +83,25 @@ export default function Dashboard() {
 
   const today = new Date().toISOString().split('T')[0];
 
-  // Was in implementation
-  // const now = new Date();
-
-  // const endOfDay = new Date(
-  //   now.getFullYear(),
-  //   now.getMonth(),
-  //   now.getDate(),
-  //   23,
-  //   59,
-  //   59,
-  //   999,
-  // );
-
   const fetchNotifications = async () => {
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from("notifications")
+    const { data: prefs, error: prefError } = await supabase
+      .from("notification_preferences")
       .select("*")
       .eq("user_id", user.id)
-      .eq('notification_date', today)
-      .order("created_at", { ascending: false });
+      .single();
+
+    if (prefs.live_session_alerts === false)
+      return;
+
+
+    const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("notification_date", today)
+        .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Fetch notifications error:", error);
@@ -127,84 +124,10 @@ export default function Dashboard() {
 
   //   console.log(sessionData);
   //   // console.log(data);
-  //   setNotifications(data || []);
+    console.log(data);
+    setNotifications(data || []);
   };
 
-  const fetchDailyNotifications = async () => {
-    const { data: existing, error: checkError } = await supabase
-      .from("notifications")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("notification_date", today)
-      .limit(1);
-
-      if (checkError) {
-        console.error("Check error:", checkError);
-        return;
-      }
-
-      if (existing && existing.length > 0){
-        return;
-      } 
-
-      const { data: prefs, error: prefError } = await supabase
-        .from("notification_preferences")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-
-      if (prefError) {
-        console.error("Preference fetch error:", prefError);
-        return;
-      }
-      const notificationsToInsert: any[] = [];
-
-      // if (prefs.workout_reminders) {
-      //   notificationsToInsert.push({
-      //     user_id: user.id,
-      //     title: "Workout Reminder",
-      //     description: "Complete your workout today 💪",
-      //     notification_date: today,
-      //   });
-      // }
-
-      if (prefs.diet_meal_reminders) {
-        notificationsToInsert.push({
-          user_id: user.id,
-          title: "Nutrition Reminder",
-          description: "Track your meals today 🥗",
-          notification_date: today,
-        });
-      }
-
-      // if (prefs.water_intake_alerts) {
-      //   notificationsToInsert.push({
-      //     user_id: user.id,
-      //     title: "Water Intake",
-      //     description: "Stay hydrated and meet your goal 🚰",
-      //     notification_date: today,
-      //   });
-      // }
-
-      if (prefs.live_session_alerts) {
-        notificationsToInsert.push({
-          user_id: user.id,
-          title: "Live Session",
-          description: "Check today’s live training session 🎯",
-          notification_date: today,
-        });
-      }
-
-      if (notificationsToInsert.length > 0) {
-        const { error: insertError } = await supabase
-          .from("notifications")
-          .insert(notificationsToInsert);
-
-        if (insertError) {
-          console.error("Insert error:", insertError);
-        }
-      }
-  }
 
   const fetchUserReport = async() => {
     if(!user) return;
@@ -234,11 +157,8 @@ export default function Dashboard() {
       if(waterResult.error) throw waterResult.error;
       if(workoutsResult.error) throw workoutsResult.error;
       
-      // console.log(workoutsResult);
-      
       setNutritionLogs(logsResult.data || []);
       setWaterIntake(waterResult.data || []);
-      // console.log(workoutsResult);
 
       const normalizedData = workoutsResult.data.reduce((acc: any[], current: any) => {
         const exists = acc.find((item) => item.day_name === current.day_name);
@@ -282,11 +202,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchUserReport();
-    fetchDailyNotifications();
     fetchNotifications();
 
     const expiry = new Date(user.user_metadata.expiry_at).getTime();
-    // console.log(expiry)
+
     const interval = setInterval(() => {
       const now = Date.now();
       const difference = expiry - now;
@@ -309,7 +228,7 @@ export default function Dashboard() {
     
 
     return () => clearInterval(interval);
-  }, [user, today, weeklyData]);
+  }, []);
 
   // console.log(timeLeft)
 
@@ -347,7 +266,9 @@ export default function Dashboard() {
               onClick={() => setNotificationWindow(true)}
             >
               <Bell className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full" />
+              {notifications.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full" />
+              )}
             </Button>
           ) : (
             <Button
@@ -421,7 +342,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <WorkoutProgress weeklyData = {weeklyData} setWeeklyData = {setWeeklyData}/>
+      <WorkoutProgress weeklyData={weeklyData} setWeeklyData={setWeeklyData} />
       <AnimatePresence>
         {notificationWindow && (
           <Notification
