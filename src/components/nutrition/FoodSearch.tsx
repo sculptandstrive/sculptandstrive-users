@@ -21,7 +21,6 @@ export function FoodSearch({ mealType, onFoodLogged, onClose, nutritionGoals }: 
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   const pendingFoods = useRef<any[]>([]);
-  // console.log(nutritionGoals);
   const handleSearch = async () => {
     if (!query.trim()) return;
     setLoading(true);

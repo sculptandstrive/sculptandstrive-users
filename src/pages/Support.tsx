@@ -81,9 +81,7 @@ const faqs = [
 
 export default function Support() { 
   const {user} = useAuth();
-  // console.log(user)
   const isTrialUser = user?.user_metadata?.plan_role === 'trial_user';
-  // console.log(role)
   const [searchQuery, setSearchQuery] = useState("");
   const [chatMessage, setChatMessage] = useState("");
   const [activeTab, setActiveTab] = useState("faq");
@@ -200,14 +198,6 @@ export default function Support() {
       setIsSending(false);
     }
   };
-
-  // const handleActiveTab = () => {
-  //   if(!item.haveAccess){
-  //       title: "Unauthorized Access",
-  //               description: "Please Upgrade Your Plan For Access",
-  //               variant: "destructive",
-  //   } 
-  // }
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto p-4">

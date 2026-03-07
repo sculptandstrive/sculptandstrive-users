@@ -35,8 +35,6 @@ export function Sidebar() {
   const location = useLocation();
   const { user, signOut } = useAuth();
 
-  // console.log(user);
-
   const userName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
   const isTrialUser = user?.user_metadata?.signup_source === "trial_user";
   const expiryAt = user?.user_metadata?.expiry_at ? new Date(user.user_metadata.expiry_at) : null;

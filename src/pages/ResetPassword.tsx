@@ -12,7 +12,6 @@ const ResetPassword = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [show, setShow] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-//   const [isReady, setIsReady] = useState(false);
 
   const navigate = useNavigate();
   const { toast } = useToast();

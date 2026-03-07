@@ -50,7 +50,6 @@ export function UpcomingSessions() {
           session_assignments!left(client_id)
         `)
         .order("id", { ascending: false });
-      // console.log(data);
       if (error) throw error;
 
       const visibleSessions = (data || []).filter(session => {

@@ -198,8 +198,6 @@ export default function Auth() {
           if(error){
             console.log("Error is: ", error);
           }  
-          // if(tempId){
-          // }
 
           toast({
             title: "Account created!",

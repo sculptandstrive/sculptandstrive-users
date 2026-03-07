@@ -16,7 +16,6 @@ const achievementsList = [
 export default function WorkoutProgress({weeklyData, setWeeklyData}) {
   const { toast } = useToast();
   const { user } = useAuth();
-  // const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchStats = async () => {
@@ -32,7 +31,6 @@ export default function WorkoutProgress({weeklyData, setWeeklyData}) {
       if (error) throw error;
 
       if (data) {
-        // console.log(data)
         const normalizedData = data.reduce((acc: any[], current: any) => {
           const exists = acc.find(item => item.day_name === current.day_name);
           if (!exists) {

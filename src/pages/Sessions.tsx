@@ -50,9 +50,7 @@ export default function Sessions() {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       
-      // console.log(user.id);
       if (!user) return;
-
 
       const { data, error } = await supabase
         .from("sessions")
@@ -68,14 +66,8 @@ export default function Sessions() {
         const isAssigned = session.session_assignments?.some(
           (a: any) => String(a.client_id) === String(user.id)
         );
-        // if(isAssigned){
-        //   console.log(true);
-        //   console.log(session.title)
-        // }
         return isMass || isAssigned;
       });
-
-      // console.log(visibleSessions);
 
       setSessions(visibleSessions);
     } catch (err: any) {

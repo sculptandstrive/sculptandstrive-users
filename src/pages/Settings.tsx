@@ -216,11 +216,9 @@ export default function Settings() {
   });
 
   const maxDOBYear = Number(new Date().getFullYear()) - 10;
-  console.log(maxDOBYear)
 
   const fetchPlanDetails = () => {
     const expiry = new Date(user.user_metadata.expiry_at).getTime();
-    // console.log(expiry)
     const interval = setInterval(() => {
       const now = Date.now();
       const difference = expiry - now;
@@ -242,9 +240,6 @@ export default function Settings() {
 
     return () => clearInterval(interval);
   }
-  
-  // console.log(user);
-  // console.log(planExpiry);
   
   useEffect(() => {
     async function loadProfile() {
@@ -296,9 +291,6 @@ export default function Settings() {
        profileRes.data?.avatar_url ??
          "https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=200",
      );
-
-    //  console.log(profileRes);
-    //  console.log(detailsRes);
      setForm((prev) => ({
        ...prev,
        dob: profileRes.data?.date_of_birth ?? "",
@@ -308,8 +300,6 @@ export default function Settings() {
        gender: detailsRes.data?.gender ?? "",
      }));
 
-    // const session = await supabase.auth.getSession()
-    // console.log(session)
 
      setLoading(false);
    }
@@ -534,9 +524,6 @@ export default function Settings() {
         },
       },
     );
-    // ... rest of the function
-
-      // console.log(res);
 
       const data = await res.json();
 
@@ -618,7 +605,6 @@ export default function Settings() {
         /^(19|20)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
 
       if(!dobRegex.test(form.dob)){
-        console.log(form.dob);
         throw new Error('Please Input correct DOB Format (MM-DD-YYYY)')
       }
 
@@ -698,9 +684,6 @@ export default function Settings() {
         });
         return;
       }
-      // console.log("Calling backend...");
-      // console.log(session.access_token)
-      // console.log(import.meta.env.VITE_SUPABASE_ANON_KEY);
       const res = await fetch(
         "https://zoxqjjuokxiyxusqapvv.functions.supabase.co/create-razorpay-order",
         {
@@ -713,7 +696,6 @@ export default function Settings() {
           body: JSON.stringify({ amount: price }),
         },
       );
-      // console.log("Backend response status:", res);
 
 
       if (!res.ok) {
@@ -721,7 +703,6 @@ export default function Settings() {
       }
 
       const order = await res.json();
-      // console.log("Order:", order);
       const options = {
       key: import.meta.env.VITE_RAZORPAY_KEY_ID,
       amount: order.amount,
@@ -738,7 +719,6 @@ export default function Settings() {
         paylater: false,
       },
         handler: async function (paymentResponse) {
-          // console.log("Payment success:", paymentResponse);
 
           const verifyRes = await fetch(
             "https://zoxqjjuokxiyxusqapvv.functions.supabase.co/verify-payment",
@@ -756,11 +736,8 @@ export default function Settings() {
             },
           );
           
-          // console.log(verifyRes);
           const verifyData = await verifyRes.json()
-          // console.log(verifyData);
           if(!verifyData.success){
-            // console.log(verifyData);
             console.error("Verification failed:", verifyData);
             toast({
               title: "Payment Verification Failed",

@@ -412,72 +412,17 @@ export default function Progress() {
   useEffect(() => {
     getProgressPhotos();
     getUserData();
-    // console.log(measurements);
   }, [user]);
 
   const handleMeasurementValueByOption = (value: 'cm' | 'inch') => {
     setMeasurementOption(value);
-    // const newMeasurements = [];
     if(value === 'cm'){
-      console.log(measurementsInInch)
       setMeasurements(measurementsInCm);
     }
     else{
-      console.log(measurementsInCm)
       setMeasurements(measurementsInInch);
     }
-    // console.log("After Changing value", newMeasurements);
   }
-
-  // useEffect(() => {
-  //   const getProgressPhotos = async () => {
-  //     if (!user) return;
-
-  //     const { data: photos, error: photosError } = await supabase
-  //       .from("progress_photos")
-  //       .select("image_path, label, taken_at")
-  //       .eq("user_id", user.id);
-
-  //     if (photosError || !photos || photos.length === 0) return;
-
-  //     const sortedPhotos = [...photos].sort((a, b) => {
-  //       const weekA = parseInt(a.label.split(" ")[1]);
-  //       const weekB = parseInt(b.label.split(" ")[1]);
-  //       return weekA - weekB;
-  //     });
-
-  //     const lastWeek = parseInt(
-  //       sortedPhotos[sortedPhotos.length - 1].label.split(" ")[1],
-  //     );
-  //     let newSlots = [...progressPhotos];
-
-  //     if (lastWeek > 3) {
-  //       const extra = [];
-  //       let i = 4;
-  //       for (; i <= lastWeek; i++) {
-  //         if (!newSlots.find((s) => s.date === `Week ${i}`)) {
-  //           extra.push({ date: `Week ${i}`, imagePath: null });
-  //         }
-  //       }
-  //       newSlots = [...newSlots, ...extra];
-  //       setImageLimit(i - 1);
-  //     }
-
-  //     const updatedPhotos = await Promise.all(
-  //       newSlots.map(async (slot) => {
-  //         const match = photos.find((p) => p.label == slot.date);
-  //         if (!match) return slot;
-  //         const { data: signed } = await supabase.storage
-  //           .from("progress-photos")
-  //           .createSignedUrl(match.image_path, 60 * 60);
-  //         return { ...slot, imagePath: signed?.signedUrl ?? null };
-  //       }),
-  //     );
-
-  //     setProgressPhotos(updatedPhotos);
-  //   };
-  //   getProgressPhotos();
-  // }, [user]);
 
   const handleAddProgressPhoto = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -925,7 +870,6 @@ export default function Progress() {
             {measurements.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                 {measurements.map((m, index) => {
-                  // console.log(measurements);
                   const change = m.current - m.previous;
                   const isPositive =
                     m.label === "Arms" || m.label === "Thighs"

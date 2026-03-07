@@ -40,7 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName?: string, userType?: string) => {
     const redirectUrl = `${window.location.origin}/`;
-    // console.log(userType);
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -53,7 +52,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
 
-    // console.log("Error is", error);
     
     return { error: error as Error | null };
   };
@@ -65,7 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if(AuthError){
-      // console.log(AuthError);
       return {error: AuthError}
     }
 
@@ -76,15 +73,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
 
     if (RoleError) {
-      // console.log(RoleError);
       await supabase.auth.signOut();
       return { error: RoleError };
     }
 
-    // console.log(profileData);
 
     if (!profileData || (profileData.role !== 'user' && profileData.role !== 'trial_user') ) {
-      // console.log(profileData.role);
       await supabase.auth.signOut();
       return {
         error: { message: "You are not authorized for this role" } as Error,

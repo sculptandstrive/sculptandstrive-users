@@ -183,7 +183,6 @@ export default function Fitness() {
       .select("*")
       .eq("workout_id", workoutId)
       .order("created_at", { ascending: true });
-      // console.log(exData);
 
     if (!exError) setExercises(exData || []);
   };
@@ -233,7 +232,6 @@ export default function Fitness() {
       } else {
         mappedPlan = plan.map(p => ({ ...p, workout_name: (p as any).name }));
       }
-      console.log(mappedPlan);
       setWeeklyPlan(mappedPlan);
 
       const todayWorkout = mappedPlan.find((p: any) => p.day_name === todayDayName);
@@ -314,7 +312,6 @@ export default function Fitness() {
     }
     setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, completed: nextStatus } : ex));
     if (nextStatus) setFocusedExerciseId(null);
-    console.log(nextStatus);
     await supabase.from('exercises').update({ completed: nextStatus }).eq('id', id);
 
     if (activeWorkoutId) {

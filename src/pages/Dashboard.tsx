@@ -64,7 +64,6 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  // console.log(user)
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
   const [notificationWindow, setNotificationWindow] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<Notifications[]>([]);
@@ -108,23 +107,6 @@ export default function Dashboard() {
       return;
     }
 
-  // Was in implementation
-  //   const { data: sessionData, error: sessionError } = await supabase
-  //     .from("sessions")
-  //     .select(
-  //       `
-  //   *,
-  //   session_assignments!left(client_id)
-  // `,
-  //     )
-  //     .eq("session_assignments.client_id", user.id)
-  //     .gte("created_at", now.toISOString())
-  //     .lte("created_at", endOfDay.toISOString());
-
-
-  //   console.log(sessionData);
-  //   // console.log(data);
-    console.log(data);
     setNotifications(data || []);
   };
 
@@ -230,7 +212,6 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // console.log(timeLeft)
 
   return (
     <div className="space-y-8">
