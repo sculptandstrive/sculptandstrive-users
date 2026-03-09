@@ -11,9 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import LogoImage from '../assets/logo.png'
 import { supabase } from "@/integrations/supabase/client";
 
-// const emailSchema = z.string().email("Please enter a valid email address");
-// const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
-
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -23,7 +20,6 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const [tempId, setTempId] = useState<string | null>(null);
-  // const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const { user, signIn, signUp } = useAuth();
   

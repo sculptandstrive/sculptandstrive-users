@@ -401,7 +401,6 @@ export default function PostQuestion() {
     navigate("/");
   };
 
-
    const handleEnter = (e, index) => {
      if (e.key === "Enter") {
        e.preventDefault();

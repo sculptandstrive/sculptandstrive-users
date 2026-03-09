@@ -802,13 +802,6 @@ export default function Settings() {
             <Bell className="w-4 h-4 mr-2" />
             Notifications
           </TabsTrigger>
-          {/* <TabsTrigger
-            value="privacy"
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-          >
-            <Shield className="w-4 h-4 mr-2" />
-            Privacy
-          </TabsTrigger> */}
           <TabsTrigger
             value="security"
             className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -1259,24 +1252,6 @@ export default function Settings() {
               </div>
             </div>
 
-            {/* 2FA */}
-            {/* <div className="bg-card border border-border rounded-xl p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-lg bg-success/10">
-                    <Shield className="w-6 h-6 text-success" />
-                  </div>
-                  <div>
-                    <p className="font-medium">Two-Factor Authentication</p>
-                    <p className="text-sm text-muted-foreground">
-                      Add an extra layer of security to your account
-                    </p>
-                  </div>
-                </div>
-                <Button variant="outline">Enable 2FA</Button>
-              </div>
-            </div> */}
-
             {/* Account Deletion */}
             <div className="bg-card border border-destructive/30 rounded-xl p-6">
               <div className="flex items-center justify-between">
@@ -1427,10 +1402,6 @@ export default function Settings() {
                       className={`w-full ${plan.popular ? "text-primary-foreground border-white/30 " : ""}`}
                       size="lg"
                       onClick={() => startPayment(plan.price)}
-
-                      // onClick={() =>
-                      //   (window.location.href = `https://users.sculptandstrive.com/auth?tempId=${tempId}`)
-                      // }
                     >
                       {user?.user_metadata?.plan_role == "trial_user"
                         ? plan.cta1
