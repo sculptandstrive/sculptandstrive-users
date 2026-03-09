@@ -26,13 +26,14 @@ export default function WaterLog({ onWaterLogged, onClose }: WaterLogProps) {
 
   const addWater = async (ml: number) => {
     if (!user) return;
-
+    const goalInMl = goalLitres * 1000;
+    const currMl = totalMl + ml;
     try {
-      if (totalMl >= goalLitres*1000) {
+      if (totalMl >= goalInMl) {
         throw new Error("Daily safe limit reached");
       }
-      else if((totalMl + ml) >= goalLitres * 1000){
-        ml = goalLitres * 1000 - totalMl;
+      else if((currMl) >= goalInMl){
+        ml = goalInMl - totalMl;
       }
   
       const { error } = await supabase.from("water_intake").insert({

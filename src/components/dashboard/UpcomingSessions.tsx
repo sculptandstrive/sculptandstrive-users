@@ -42,7 +42,6 @@ export function UpcomingSessions() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // FIX 1: Sort by ID DESC so the newest sessions appear at the top.
       const { data, error } = await supabase
         .from("sessions")
         .select(`
@@ -55,7 +54,6 @@ export function UpcomingSessions() {
       const visibleSessions = (data || []).filter(session => {
         const isMass = session.admin_is_mass === true;
         
-        // FIX 2: Strict String normalization for UUID comparison.
         const isAssigned = session.session_assignments?.some(
           (a: any) => String(a.client_id) === String(user.id)
         );
