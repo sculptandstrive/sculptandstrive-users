@@ -25,7 +25,7 @@ export function FoodSearch({ mealType, onFoodLogged, onClose, nutritionGoals }: 
     if (!query.trim()) return;
     setLoading(true);
     try {
-
+      
       const { data, error } = await supabase.functions.invoke("search-foods", {
         body: { query },
       });
@@ -65,7 +65,7 @@ export function FoodSearch({ mealType, onFoodLogged, onClose, nutritionGoals }: 
 
         // Get your current goal state
         let runningCurrentCalories = nutritionGoals?.calories?.current || 0;
-        const caloriesTarget = nutritionGoals?.calories?.target || 2000;
+        const caloriesTarget = Math.ceil(nutritionGoals?.calories?.target * 1.5) || 2000;
 
         const finalDataBatch = itemsToProcess
           .map((item) => {
@@ -112,9 +112,10 @@ export function FoodSearch({ mealType, onFoodLogged, onClose, nutritionGoals }: 
         if (finalDataBatch.length === 0) {
           toast({
             title: "Limit Reached",
+            description: "You have consumed 1.5x of Daily Nutrition Limit !",
             variant: "destructive",
-            description: "No more calories allowed today!",
           });
+          onClose()
           return;
         }
 
@@ -142,65 +143,6 @@ export function FoodSearch({ mealType, onFoodLogged, onClose, nutritionGoals }: 
     }, 500);
   };
 
-  // const logFood = async (food: any) => {
-  //   // Get weight (default to 100g)
-  //   const weight = customWeights[food.id] || 100;
-  //   const multiplier = weight / 100;
-
-  //   try {
-  //     const { data: { user } } = await supabase.auth.getUser();
-  //     if (!user) throw new Error("User not authenticated");
-      
-  //     const caloriesReq = nutritionGoals?.calories?.target;
-  //     const currCalories = nutritionGoals?.calories?.current;
-  //     if(currCalories >= caloriesReq){
-  //        toast({
-  //          title: "Calorie Limit Reached",
-  //          variant: "destructive",
-  //          description: "Daily Safe Calorie Limit Reached",
-  //        });
-  //        return;
-  //     }
-  //     else if((currCalories + food.calories) > caloriesReq){
-  //       const required = caloriesReq - currCalories;
-  //       const percAdd = (required / food.calories);
-  //       food.calories = percAdd * food.calories;
-  //       food.protein_g = percAdd * food.protien_g;
-  //       food.carbs_g = percAdd * food.carbs_g;
-  //       food.fats_g = percAdd * food.fats_g;
-  //     }
-
-  //     const foodData = {
-  //       user_id: user.id,
-  //       meal_type: mealType,
-  //       meal_name: food.name,
-  //       calories: Math.round(food.calories * multiplier),
-  //       protein_g: Number((food.protein * multiplier).toFixed(1)),
-  //       carbs_g: Number((food.carbs * multiplier).toFixed(1)),
-  //       fats_g: Number((food.fats * multiplier).toFixed(1)),
-  //       log_date: new Date().toISOString().split("T")[0],
-  //     };
-
-  //     const { error } = await supabase.from("nutrition_logs").insert(foodData);
-
-  //     if (error) throw error;
-
-  //     toast({
-  //       title: "Food Logged",
-  //       description: `${food.name} (${weight}g) added to ${mealType.replace('_', ' ')}`
-  //     });
-
-  //     onFoodLogged();
-  //     onClose();
-  //   } catch (err: any) {
-  //     console.error("Log error:", err);
-  //     toast({
-  //       title: "Error",
-  //       variant: "destructive",
-  //       description: "Failed to save to your log."
-  //     });
-  //   }
-  // };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

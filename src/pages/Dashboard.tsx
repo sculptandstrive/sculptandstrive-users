@@ -80,6 +80,24 @@ export default function Dashboard() {
   const [dailyWaterGoal, setWaterGoal] = useState<number>(3);
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
 
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  // console.log(monday, sunday);
+  const pad = (n) => String(n).padStart(2, "0");
+  const toLocalDate = (date) =>
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+
+  const startOfWeek = toLocalDate(monday);
+  const endOfWeek = toLocalDate(sunday);
+
   const today = new Date().toISOString().split('T')[0];
 
   const fetchNotifications = async () => {
@@ -114,25 +132,32 @@ export default function Dashboard() {
   const fetchUserReport = async() => {
     if(!user) return;
     try {
-      const [logsResult, waterResult, workoutsResult, waterRequirement] = await Promise.all([
-        supabase
-          .from('nutrition_logs')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('log_date', today)
-          .order('created_at', {ascending: true}),
-        supabase
-          .from('water_intake')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('log_date', today),
-        supabase
-          .from('workouts')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('order_index', { ascending: true }),
-        supabase.from('nutrition_requirements').select('water_requirement').eq('user_id', user.id).single()
-      ]);
+      const [logsResult, waterResult, workoutsResult, waterRequirement] =
+        await Promise.all([
+          supabase
+            .from("nutrition_logs")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("log_date", today)
+            .order("created_at", { ascending: true }),
+          supabase
+            .from("water_intake")
+            .select("*")
+            .eq("user_id", user.id)
+            .eq("log_date", today),
+          supabase
+            .from("workouts")
+            .select("*")
+            .eq("user_id", user.id)
+            .gte("workout_date", startOfWeek)
+            .lte("workout_date", endOfWeek)
+            .order("order_index", { ascending: true }),
+          supabase
+            .from("nutrition_requirements")
+            .select("water_requirement")
+            .eq("user_id", user.id)
+            .single(),
+        ]);
 
       
       if(logsResult.error) throw logsResult.error;
@@ -281,22 +306,22 @@ export default function Dashboard() {
           }
           subtitle="This week"
           icon={Flame}
-          trend={{ value: 12, positive: true }}
-          variant="primary"
+          // trend={{ value: 12, positive: true }}
+          variant={stats.caloriesBurned > 0 ? "primary" : "default"}
         />
         <StatCard
           title="Workouts Completed"
           value={`${stats.workoutsCompleted}/${stats.totalWorkouts}`}
           subtitle="Weekly target"
           icon={Target}
-          trend={{ value: 8, positive: true }}
+          // trend={{ value: 8, positive: true }}
         />
         <StatCard
           title="Active Minutes"
           value={stats.activeMinutes.toString()}
           subtitle="This week"
           icon={Clock}
-          trend={{ value: 5, positive: true }}
+          // trend={{ value: 5, positive: true }}
         />
         <StatCard
           title="Current Streak"
@@ -323,7 +348,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <WorkoutProgress weeklyData={weeklyData} setWeeklyData={setWeeklyData} />
+      <WorkoutProgress weeklyData={weeklyData} setWeeklyData={setWeeklyData} fetchUserReport = {fetchUserReport}/>
       <AnimatePresence>
         {notificationWindow && (
           <Notification

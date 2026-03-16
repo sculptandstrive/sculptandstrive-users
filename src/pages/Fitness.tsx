@@ -80,7 +80,24 @@ export default function Fitness() {
   const [selectedRestDuration, setSelectedRestDuration] = useState(60);
   const [showRestOptions, setShowRestOptions] = useState(false);
 
-  //  BODY STATS STATE 
+  const now = new Date()
+  const dayOfWeek = now.getDay();
+
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1))
+  monday.setHours(0,0,0,0)
+
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate()+6);
+  sunday.setHours(23, 59, 59, 999);
+  // console.log(monday, sunday);
+  const pad = (n) => String(n).padStart(2, "0");
+  const toLocalDate = (date) =>
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+
+  const startOfWeek = toLocalDate(monday);
+  const endOfWeek = toLocalDate(sunday);
+  // console.log(startOfWeek, endOfWeek)
   const [stats, setStats] = useState({
     weight: "---",
     weightChange: 0,
@@ -115,6 +132,8 @@ export default function Fitness() {
 
   const weekRangeLabel = `${weekDates[0].fullDate} - ${weekDates[6].fullDate}`;
 
+  // console.log(weekRangeLabel)
+
   //  TIMER LOGIC 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -139,11 +158,11 @@ export default function Fitness() {
   const fetchBodyStats = async (userId: string) => {
     try {
       const { data } = await supabase
-        .from("starting_measurements")
+        .from("current_measurements")
         .select("*")
         .eq("user_id", userId)
         .order('created_at', { ascending: false })
-        .limit(2);
+        .limit(1);
 
       if (data && data.length > 0) {
         const latest = data[0];
@@ -157,6 +176,7 @@ export default function Fitness() {
         };
 
         const currentBF = calculateBF(latest);
+        // console.log(currentBF)
         const currentWeight = latest.weight_kg || 0;
         const prevWeight = prev.weight_kg || currentWeight;
         const currentMuscle = currentWeight * (1 - (currentBF / 100));
@@ -218,19 +238,52 @@ export default function Fitness() {
       const user = authData?.user;
       if (!user) return;
 
-      let { data: plan } = await supabase
+      let { data: plan, error } = await supabase
         .from("workouts")
         .select("*")
         .eq("user_id", user.id)
+        .gte("workout_date", startOfWeek)
+        .lte("workout_date", endOfWeek)
         .order("order_index", { ascending: true });
+
+      if(error){
+        toast({
+          title: "Failed to Fetch Data",
+          description: "Server Failed to Fetch your current week data",
+          variant: "destructive"
+        })
+        return;
+      }
+
+      let finalPlan = plan;
+
+      if(plan.length === 0){
+         let {data: plan, error} = await supabase.rpc('insert_current_week_workouts', {
+          p_user_id: user.id
+        })
+
+        if (error) {
+          toast({
+            title: "Failed to Insert Week Data",
+            description: "Server Failed to Insert your current week data",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        finalPlan = plan;
+      }
 
       let mappedPlan: any[] = [];
 
-      if (!plan || plan.length === 0) {
+      if (!finalPlan || finalPlan.length === 0) {
         const created = await createDefaultWorkoutsForUser(user.id);
         if (created) mappedPlan = created;
       } else {
-        mappedPlan = plan.map(p => ({ ...p, workout_name: (p as any).name }));
+        mappedPlan = finalPlan.map((p) => ({
+          ...p,
+          workout_name: (p as any).name,
+        }));
       }
       setWeeklyPlan(mappedPlan);
 
@@ -468,7 +521,7 @@ export default function Fitness() {
             <div className="flex items-center gap-2 text-[#2dd4bf]">
               <Dumbbell className="w-5 h-5" />
               <h3 className="font-bold text-[15px] md:text-[16px] tracking-tight">
-                {weeklyPlan.find(d => d.id === activeWorkoutId)?.day_name === todayDayName ? "Today's" : weeklyPlan.find(d => d.id === activeWorkoutId)?.day_name}'s Workout
+                {weeklyPlan.find(d => d.id === activeWorkoutId)?.day_name === todayDayName ? "Today's" : weeklyPlan.find(d => d.id === activeWorkoutId)?.day_name} Workout
               </h3>
             </div>
             {restTime > 0 ? (

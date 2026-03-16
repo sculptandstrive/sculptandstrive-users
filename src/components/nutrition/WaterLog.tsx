@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button";
 interface WaterLogProps {
   onWaterLogged: () => void;
   onClose: () => void;
+  waterRequirement: number
 }
 
-export default function WaterLog({ onWaterLogged, onClose }: WaterLogProps) {
+export default function WaterLog({ onWaterLogged, onClose, waterRequirement }: WaterLogProps) {
   const { user } = useAuth();
   const [totalMl, setTotalMl] = useState(0);
   const [goalLitres, setGoalLitres] = useState(3);
@@ -28,13 +29,16 @@ export default function WaterLog({ onWaterLogged, onClose }: WaterLogProps) {
     if (!user) return;
     const goalInMl = goalLitres * 1000;
     const currMl = totalMl + ml;
+    const maxWaterMl = Math.ceil(goalInMl * 1.5);
     try {
-      if (totalMl >= goalInMl) {
-        throw new Error("Daily safe limit reached");
+      onClose
+      if (totalMl >= maxWaterMl) {
+        throw new Error("You have consumed 1.5x water of Daily Limit");
+      } else if (currMl >= maxWaterMl) {
+        ml = maxWaterMl - totalMl;
       }
-      else if((currMl) >= goalInMl){
-        ml = goalInMl - totalMl;
-      }
+
+      // console.log(ml)
   
       const { error } = await supabase.from("water_intake").insert({
         user_id: user.id,
@@ -84,68 +88,59 @@ export default function WaterLog({ onWaterLogged, onClose }: WaterLogProps) {
     }
   };
 
-  const updateWaterRequirement = async (litres: number) => {
-    if (!user) return;
+  // const updateWaterRequirement = async (litres: number) => {
+  //   if (!user) return;
 
-    const waterMl = Math.round(litres * 1000);
-    if(waterMl > 99999){
-      toast({
-        title: "Water Update Failed",
-        description: 'Cannot Add More than 99.9 L',
-        variant: "destructive",
-      });
-      return;
-    }
+  //   const waterMl = Math.round(litres * 1000);
+  //   if(waterMl > 99999){
+  //     toast({
+  //       title: "Water Update Failed",
+  //       description: 'Cannot Add More than 99.9 L',
+  //       variant: "destructive",
+  //     });
+  //     return;
+  //   }
 
 
-    const { error } = await supabase
-      .from("nutrition_requirements")
-      .update({ water_requirement: waterMl })
-      .eq("user_id", user.id);
+  //   const { error } = await supabase
+  //     .from("nutrition_requirements")
+  //     .update({ water_requirement: waterMl })
+  //     .eq("user_id", user.id);
 
-    if (error) {
-      toast({
-        title: "Water Update Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    } else {
-      setGoalLitres(waterMl / 1000);
-      toast({
-        title: "Water Requirements Updated Successfully",
-      });
-    }
-  };
+  //   if (error) {
+  //     toast({
+  //       title: "Water Update Failed",
+  //       description: error.message,
+  //       variant: "destructive",
+  //     });
+  //   } else {
+  //     setGoalLitres(waterMl / 1000);
+  //     toast({
+  //       title: "Water Requirements Updated Successfully",
+  //     });
+  //   }
+  // };
+
+  useEffect(()=>{
+    setGoalLitres(waterRequirement/1000)
+  },[])
 
   const fetchWaterRequirement = async () => {
     if (!user) return;
 
-    const [waterRequired, waterConsumed] = await Promise.all([
-      supabase
-        .from("nutrition_requirements")
-        .select("water_requirement")
-        .eq("user_id", user.id)
-        .single(),
+    const [waterConsumed] = await Promise.all([
       supabase
         .from("water_intake")
         .select("amount_ml")
         .eq("user_id", user.id)
         .eq("log_date", today),
     ]);
-
-    if (waterRequired.error)
-      console.log(
-        "Error while fetching water goals",
-        waterRequired.error.message,
-      );
     if (waterConsumed.error)
       console.error(
         "Error while fetching water Current Requirements",
         waterConsumed.error.message,
       );
     else {
-      setGoalLitres(waterRequired.data.water_requirement / 1000);
-      // Calculate total water consumed today
       const totalConsumed = waterConsumed.data.reduce(
         (sum, entry) => sum + entry.amount_ml,
         0,
@@ -198,20 +193,6 @@ export default function WaterLog({ onWaterLogged, onClose }: WaterLogProps) {
           <label className="block text-sm font-medium mb-1 text-foreground">
             Daily Goal (litres)
           </label>
-          <input
-            type="number"
-            step="0.1"
-            value={goalMl / 1000}
-            onChange={(e) => {
-              const val = Number(e.target.value);
-              if (debounceTimer.current) clearTimeout(debounceTimer.current);
-
-              debounceTimer.current = setTimeout(() => {
-                updateWaterRequirement(val);
-              }, 300);
-            }}
-            className="w-full border border-border bg-background rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-          />
         </div>
 
         {/* Progress */}

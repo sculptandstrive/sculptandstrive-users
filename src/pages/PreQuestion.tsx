@@ -7,6 +7,7 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, useNavigate } from "react-router-dom";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function PreQuestion() {
   const [measurements, setMeasurements] = useState({
@@ -25,52 +26,68 @@ export default function PreQuestion() {
 
   const inputRefs = useRef([]);
 
+  const [weightType, setWeightType] = useState<"pound" | "kg">("kg")
+  const [measurementOption, setMeasurementOption] = useState<"cm" | "inch">("cm");
+
   // Validation limits for each field
   const validationRules = {
     weight_kg: {
-      min: 30,
-      max: 300,
+      min_primary: 30,
+      max_primary: 300,
+      min_secondary: 66,
+      max_secondary: 660,
       label: "Weight",
       maxDecimals: 2,
       maxDigits: 3,
     },
     height_cm: {
-      min: 100,
-      max: 250,
+      min_primary: 100,
+      max_primary: 250,
+      min_secondary: 39,
+      max_secondary: 99,
       label: "Height",
       maxDecimals: 2,
       maxDigits: 3,
     },
     chest_cm: {
-      min: 50,
-      max: 200,
+      min_primary: 50,
+      max_primary: 200,
+      min_secondary: 20,
+      max_secondary: 79,
       label: "Chest",
       maxDecimals: 2,
       maxDigits: 3,
     },
     waist_cm: {
-      min: 40,
-      max: 200,
+      min_primary: 40,
+      max_primary: 200,
+      min_secondary: 16,
+      max_secondary: 79,
       label: "Waist",
       maxDecimals: 2,
       maxDigits: 3,
     },
-    hips_cm: { min: 50, max: 200, label: "Hips", maxDecimals: 2, maxDigits: 3 },
-    arms_cm: { min: 15, max: 100, label: "Arms", maxDecimals: 2, maxDigits: 3 },
+    hips_cm: { min_primary: 50, max_primary: 200,
+      min_secondary: 20,
+      max_secondary: 79, label: "Hips", maxDecimals: 2, maxDigits: 3 },
+    arms_cm: { min: 15, max: 100,
+      min_secondary: 6,
+      max_secondary: 40, label: "Arms", maxDecimals: 2, maxDigits: 3 },
     thighs_cm: {
-      min: 30,
-      max: 150,
+      min_primary: 30,
+      max_primary: 150,
+      min_secondary: 12,
+      max_secondary: 59,
       label: "Thighs",
       maxDecimals: 2,
       maxDigits: 3,
     },
-    age: { min: 10, max: 120, label: "Age", maxDecimals: 0, maxDigits: 3 },
+    age: { min_primary: 10, max_primary: 120, label: "Age", maxDecimals: 0, maxDigits: 3 },
   };
 
   const handleChange = (field, value) => {
     // Only allow numbers and one decimal point
-    const sanitized = value.replace(/[^0-9.]/g, "");
-
+    let sanitized = value.replace(/[^0-9.]/g, "");
     const decimalCount = (sanitized.match(/\./g) || []).length;
     if (decimalCount > 1) {
       toast({
@@ -80,7 +97,6 @@ export default function PreQuestion() {
       });
       return;
     }
-
     
     const parts = sanitized.split(".");
     const beforeDecimal = parts[0];
@@ -149,27 +165,53 @@ export default function PreQuestion() {
         continue;
       }
 
-      const numValue = Number(value);
+      let numValue = Number(value);
       const rules = validationRules[field];
+      let fieldType = field.includes('_') ? field.split('_')[1] : "age" ;
       
-      if (numValue < rules.min) {
-        toast({
-          title: "Validation Error",
-          description: `${rules.label} must be at least ${rules.min}`,
-          variant: "destructive",
-        });
-        return false;
+      if (field.includes("kg") && weightType === "pound") {
+        fieldType = 'pound';
+      } else if (field.includes("cm") && measurementOption === "inch") {
+        fieldType = 'inch'
       }
-
-      if (numValue > rules.max) {
-        toast({
-          title: "Validation Error",
-          description: `${rules.label} cannot exceed ${rules.max}`,
-          variant: "destructive",
-        });
-        return false;
+      
+      if(fieldType === 'pound' || fieldType === 'inch'){
+        // console.log(numValue)
+        if (numValue < rules.min_secondary) {
+          toast({
+            title: "Validation Error",
+            description: `${rules.label} must be at least ${rules.min_secondary} ${fieldType}`,
+            variant: "destructive",
+          });
+          return false;
+        }
+        else if (numValue > rules.max_secondary) {
+          toast({
+            title: "Validation Error",
+            description: `${rules.label} cannot exceed ${rules.max_secondary} ${fieldType}`,
+            variant: "destructive",
+          });
+          return false;
+        } 
       }
-
+      else {
+        if (numValue < rules.min_primary) {
+          toast({
+            title: "Validation Error",
+            description: `${rules.label} must be at least ${rules.min_primary} ${fieldType}`,
+            variant: "destructive",
+          });
+          return false;
+        }
+        else if (numValue > rules.max_primary) {
+          toast({
+            title: "Validation Error",
+            description: `${rules.label} cannot exceed ${rules.max_primary} ${fieldType}`,
+            variant: "destructive",
+          });
+          return false;
+        }
+      }
       // Validate decimal places one more time on submit
       const parts = value.split(".");
       if (parts.length === 2 && parts[1].length > rules.maxDecimals) {
@@ -198,27 +240,28 @@ export default function PreQuestion() {
   const handleSubmit = async () => {
     if (!user) return;
 
-    // Validate before submitting
     if (!validateMeasurements()) {
       return;
     }
 
     try {
+      
+
       const { error } = await supabase.from("starting_measurements").insert([
         {
           user_id: user.id,
-          weight_kg: Number(measurements.weight_kg),
-          height_cm: Number(measurements.height_cm),
+          weight_kg: weightType === 'kg' ? Number(measurements.weight_kg) : Number(measurements.weight_kg) * 0.453,
+          height_cm: measurementOption === 'cm' ? Number(measurements.height_cm) : Number(measurements.height_cm) * 2.54,
           chest_cm: measurements.chest_cm
-            ? Number(measurements.chest_cm)
+            ? measurementOption === 'cm' ? Number(measurements.chest_cm) : Number(measurements.chest_cm)  * 2.54
             : 500,
           waist_cm: measurements.waist_cm
-            ? Number(measurements.waist_cm)
+            ? measurementOption === 'cm' ? Number(measurements.waist_cm) : Number(measurements.waist_cm) * 2.54
             : 500,
-          hips_cm: measurements.hips_cm ? Number(measurements.hips_cm) : 500,
-          arms_cm: measurements.arms_cm ? Number(measurements.arms_cm) : 500,
+          hips_cm: measurements.hips_cm ? measurementOption === 'cm' ? Number(measurements.hips_cm) : Number(measurements.hips_cm) * 2.54 : 500,
+          arms_cm: measurements.arms_cm ? measurementOption === 'cm'? Number(measurements.arms_cm): Number(measurements.arms_cm) * 2.54 : 500,
           thighs_cm: measurements.thighs_cm
-            ? Number(measurements.thighs_cm)
+            ? measurementOption === 'cm' ? Number(measurements.thighs_cm) : Number(measurements.thighs_cm) * 2.54
             : 500,
           age: Number(measurements.age),
         },
@@ -229,18 +272,38 @@ export default function PreQuestion() {
       await supabase.from("current_measurements").insert([
         {
           user_id: user.id,
-          weight_kg: Number(measurements.weight_kg),
-          height_cm: Number(measurements.height_cm),
+          weight_kg:
+            weightType === "kg"
+              ? Number(measurements.weight_kg)
+              : Number(measurements.weight_kg) * 0.453,
+          height_cm:
+            measurementOption === "cm"
+              ? Number(measurements.height_cm)
+              : Number(measurements.height_cm) * 2.54,
           chest_cm: measurements.chest_cm
-            ? Number(measurements.chest_cm)
+            ? measurementOption === "cm"
+              ? Number(measurements.chest_cm)
+              : Number(measurements.chest_cm) * 2.54
             : 500,
           waist_cm: measurements.waist_cm
-            ? Number(measurements.waist_cm)
+            ? measurementOption === "cm"
+              ? Number(measurements.waist_cm)
+              : Number(measurements.waist_cm) * 2.54
             : 500,
-          hips_cm: measurements.hips_cm ? Number(measurements.hips_cm) : 500,
-          arms_cm: measurements.arms_cm ? Number(measurements.arms_cm) : 500,
+          hips_cm: measurements.hips_cm
+            ? measurementOption === "cm"
+              ? Number(measurements.hips_cm)
+              : Number(measurements.hips_cm) * 2.54
+            : 500,
+          arms_cm: measurements.arms_cm
+            ? measurementOption === "cm"
+              ? Number(measurements.arms_cm)
+              : Number(measurements.arms_cm) * 2.54
+            : 500,
           thighs_cm: measurements.thighs_cm
-            ? Number(measurements.thighs_cm)
+            ? measurementOption === "cm"
+              ? Number(measurements.thighs_cm)
+              : Number(measurements.thighs_cm) * 2.54
             : 500,
           age: Number(measurements.age),
         },
@@ -276,13 +339,45 @@ export default function PreQuestion() {
       >
         <Card className=" rounded-2xl shadow-md">
           <CardContent className="p-6 space-y-4">
-            <h2 className="text-lg font-semibold"> Measurements</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold"> Measurements</h2>
+              <div className="flex justify-between gap-2">
+                <Select
+                  value={measurementOption}
+                  onValueChange={(value: "cm" | "inch") => {
+                    setMeasurementOption(value);
+                  }}
+                >
+                  <SelectTrigger className="bg-primary text-black font-medium border-border mb-4 px-2 rounded-lg">
+                    <SelectValue placeholder="Select Dimension Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cm">cm</SelectItem>
+                    <SelectItem value="inch">inch</SelectItem>
+                  </SelectContent>
+                </Select>
 
+                <Select
+                  value={weightType}
+                  onValueChange={(value: "kg" | "pound") => {
+                    setWeightType(value);
+                  }}
+                >
+                  <SelectTrigger className="bg-primary text-black font-medium border-border mb-4 px-4 rounded-lg">
+                    <SelectValue placeholder="Select Dimension Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="kg">kg</SelectItem>
+                    <SelectItem value="pound">pound</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             {/* Weight and Height */}
             <div className="grid sm:grid-cols-1 lg:grid-cols-2 gap-4 items-center">
               <div>
                 <label className="text-sm text-gray-500 block mb-1">
-                  Weight (kg) <span className="text-red-500">*</span>
+                  Weight ({weightType}) <span className="text-red-500">*</span>
                 </label>
                 <Input
                   type="text"
@@ -292,14 +387,21 @@ export default function PreQuestion() {
                   value={measurements.weight_kg}
                   onChange={(e) => handleChange("weight_kg", e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Range: 30-300 kg
-                </p>
+                {weightType === "kg" ? (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Range: 30-300 kg
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Range: 66-660 pounds
+                  </p>
+                )}
               </div>
 
               <div>
                 <label className="text-sm text-gray-500 block mb-1">
-                  Height (cm) <span className="text-red-500">*</span>
+                  Height ({measurementOption}){" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <Input
                   type="text"
@@ -309,16 +411,22 @@ export default function PreQuestion() {
                   value={measurements.height_cm}
                   onChange={(e) => handleChange("height_cm", e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Range: 100-250 cm
-                </p>
+                {measurementOption === "cm" ? (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Range: 100-250 cm
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Range: 39-99  inch
+                  </p>
+                )}
               </div>
             </div>
 
             {/* Body Measurements */}
             <div className="pt-2 ">
               <h3 className="text-sm font-medium mb-3">
-                Body Measurements (cm)
+                Body Measurements ({measurementOption})
               </h3>
               <div className=" grid sm:grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
@@ -333,9 +441,15 @@ export default function PreQuestion() {
                     value={measurements.chest_cm}
                     onChange={(e) => handleChange("chest_cm", e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Range: 50-200 cm
-                  </p>
+                  {measurementOption === "cm" ? (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Range: 50-200 cm
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Range: 20-79 inch
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -350,9 +464,15 @@ export default function PreQuestion() {
                     value={measurements.waist_cm}
                     onChange={(e) => handleChange("waist_cm", e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Range: 40-200 cm
-                  </p>
+                  {measurementOption === "cm" ? (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Range: 40-200 cm
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Range: 16-79 inch
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -367,9 +487,15 @@ export default function PreQuestion() {
                     value={measurements.hips_cm}
                     onChange={(e) => handleChange("hips_cm", e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Range: 50-200 cm
-                  </p>
+                  {measurementOption === "cm" ? (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Range: 50-200 cm
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Range: 20-79 inch
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -384,9 +510,15 @@ export default function PreQuestion() {
                     value={measurements.arms_cm}
                     onChange={(e) => handleChange("arms_cm", e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Range: 15-100 cm
-                  </p>
+                  {measurementOption === "cm" ? (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Range: 15-100 cm
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Range: 6-40 inch
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -401,9 +533,15 @@ export default function PreQuestion() {
                     value={measurements.thighs_cm}
                     onChange={(e) => handleChange("thighs_cm", e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Range: 30-150 cm
-                  </p>
+                  {measurementOption === "cm" ? (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Range: 30-150 cm
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Range: 12-59 inch
+                    </p>
+                  )}
                 </div>
 
                 <div>

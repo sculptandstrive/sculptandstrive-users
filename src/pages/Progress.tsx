@@ -30,6 +30,8 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { SelectTrigger } from "@radix-ui/react-select";
 import { Select, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import MonthYearPicker from "@/components/progress/DateRangePicker";
+import DateRangePicker from "@/components/progress/DateRangePicker";
 
 type ProgressPhoto = {
   date: string;
@@ -88,11 +90,138 @@ export default function Progress() {
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [measurementsInCm, setMeasurementsInCm] = useState<Measurement[]>([]);
   const [measurementsInInch, setMeasurementsInInch] = useState<Measurement[]>([]);
-  const [weightData, setWeightData] = useState<any[]>([]);
+  const [weightDataPounds, setWeightDataPounds] = useState<any[]>([]);
+  const [weightDataKg, setWeightDataKg] = useState<any[]>([]);
   const [bodyFatData, setBodyFatData] = useState<any[]>([]);
   const [workoutData, setWorkoutData] = useState<WorkoutChartData[]>([]);
   const [loading, setLoading] = useState(true);
   const [measurementOption, setMeasurementOption] = useState<"cm"|"inch">("cm");
+  const [weightType, setWeightType] = useState<"kg" | "pound">("kg")
+  const [selectedRange, setSelectedRange] = useState(() => {
+    const from = new Date();
+    const to = new Date();
+    from.setDate(to.getDate() - 6);
+    return { from, to };
+  });
+  const [profileData, setProfileData] = useState<any>(null);
+  const [availableDates, setAvailableDates] = useState<Set<string>>(
+    new Set(),
+  );
+
+   const calculateBodyFat = (
+     weight: number,
+     height: number,
+     age: number,
+     gender: string,
+   ): number => {
+     const heightInMeters = height / 100;
+     const bmi = weight / (heightInMeters * heightInMeters);
+     let bodyFat: number;
+     if (
+       gender?.toLowerCase() === "female" ||
+       gender?.toLowerCase() === "woman"
+     ) {
+       bodyFat = 1.2 * bmi + 0.23 * age - 5.4;
+     } else {
+       bodyFat = 1.2 * bmi + 0.23 * age - 16.2;
+     }
+     return Math.max(0, parseFloat(bodyFat.toFixed(1)));
+   };
+
+  useEffect(() => {
+    fetchWeightData();
+    // console.log(selectedRange)
+  }, [selectedRange, user]);
+
+  const fetchWeightData = async () => {
+    // console.log(selectedRange)
+    const startOfMonth = selectedRange.from;
+    const endOfMonth = new Date(selectedRange.to);
+    endOfMonth.setUTCHours(23, 59, 59, 999);
+
+    const userGender = profileData?.gender || "male";
+    const userAge = profileData?.age || 25;
+
+    const { data: lastBeforeMonth, error: lastMonthError } = await supabase
+      .from("current_measurements")
+      .select("*")
+      .eq("user_id", user.id)
+      .lt("created_at", startOfMonth.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    const { data: currentMonth, error: currMonthError } = await supabase
+      .from("current_measurements")
+      .select("*")
+      .eq("user_id", user.id)
+      .gte("created_at", startOfMonth.toISOString())
+      .lte("created_at", endOfMonth.toISOString())
+      .order("created_at", { ascending: true });
+
+    const { data: allMeasurements } = await supabase
+      .from("current_measurements")
+      .select("created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true });
+
+    // console.log(allMeasurements);
+
+    if (allMeasurements) {
+      const dates = new Set(
+        allMeasurements.map((m) => {
+          const d = new Date(m.created_at);
+          return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getDate()}`;}),
+      );
+      setAvailableDates(dates);
+    }
+
+    // console.log(availableDates)
+
+    const dataToDisplay = (() => {
+      const base =
+        lastBeforeMonth &&
+        (currentMonth.length === 0 ||
+          new Date(currentMonth[0].created_at).getDate() !== 1)
+          ? [{ ...lastBeforeMonth, created_at: startOfMonth.toISOString() }]
+          : [];
+
+      return [...base, ...currentMonth];
+    })();
+
+    // console.log(dataToDisplay);
+
+    if (dataToDisplay.length > 0) {
+      setWeightDataKg(
+        dataToDisplay.map((m) => ({
+          date: new Date(m.created_at).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          weight: m.weight_kg,
+        })),
+      );
+
+      setWeightDataPounds(
+        dataToDisplay.map((m) => ({
+          date: new Date(m.created_at).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          weight: parseFloat((m.weight_kg * 2.54).toFixed(1)),
+        })),
+      );
+    }
+    setBodyFatData(
+      dataToDisplay.map((m) => ({
+        date: new Date(m.created_at).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        }),
+        value: calculateBodyFat(m.weight_kg, m.height_cm, userAge, userGender),
+      })),
+    );
+  };
 
   const getCurrentWeekRange = () => {
     const today = new Date();
@@ -111,10 +240,25 @@ export default function Progress() {
     if (!user) return;
 
     try {
-      const { data: allMeasurements, error: measurementsError } = await supabase
+      const now = new Date()
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+      const {data: lastBeforeMonth} = await supabase.from('current_measurements')
+      .select("*")
+      .eq('user_id', user.id)
+      .lt('created_at', startOfMonth.toISOString())
+      .order('created_at', {ascending: false})
+      .limit(1)
+      .single(); 
+
+      // console.log(lastBeforeMonth)
+
+      const { data: currentMonth, error: measurementsError } = await supabase
         .from("current_measurements")
         .select("*")
         .eq("user_id", user.id)
+        .gte("created_at", startOfMonth.toISOString())
+        .lte("created_at", now.toISOString())
         .order("created_at", { ascending: true });
 
       const { data: initialMeasurements } = await supabase
@@ -122,7 +266,7 @@ export default function Progress() {
         .select("*")
         .eq("user_id", user.id);
 
-      const { data: profileData } = await supabase
+      const { data: profileInfo } = await supabase
         .from("profile_details")
         .select("gender, age")
         .eq("user_id", user.id)
@@ -130,35 +274,16 @@ export default function Progress() {
 
       if (
         measurementsError ||
-        !allMeasurements ||
-        allMeasurements.length === 0
+        !currentMonth ||
+        currentMonth.length === 0
       ) {
         setLoading(false);
         return;
       }
+      setProfileData(profileInfo);
 
       const startingMeasurement = initialMeasurements[0];
-      const currentMeasurement = allMeasurements[allMeasurements.length - 1];
-
-      const calculateBodyFat = (
-        weight: number,
-        height: number,
-        age: number,
-        gender: string,
-      ): number => {
-        const heightInMeters = height / 100;
-        const bmi = weight / (heightInMeters * heightInMeters);
-        let bodyFat: number;
-        if (
-          gender?.toLowerCase() === "female" ||
-          gender?.toLowerCase() === "woman"
-        ) {
-          bodyFat = 1.2 * bmi + 0.23 * age - 5.4;
-        } else {
-          bodyFat = 1.2 * bmi + 0.23 * age - 16.2;
-        }
-        return Math.max(0, parseFloat(bodyFat.toFixed(1)));
-      };
+      const currentMeasurement = currentMonth[currentMonth.length - 1];
 
       const userGender = profileData?.gender || "male";
       const userAge = profileData?.age || 25;
@@ -277,18 +402,41 @@ export default function Progress() {
         },
       ]);
 
-      setWeightData(
-        allMeasurements.map((m) => ({
-          date: new Date(m.created_at).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          }),
-          weight: m.weight_kg,
-        })),
-      );
+      const dataToDisplay = (() => {
+        const base =
+          lastBeforeMonth &&
+          (currentMonth.length === 0 ||
+            new Date(currentMonth[0].created_at).getDate() !== 1)
+            ? [{ ...lastBeforeMonth, created_at: startOfMonth.toISOString() }]
+            : [];
 
+        return [...base, ...currentMonth];
+      })();
+
+      if (dataToDisplay.length > 0) {
+        setWeightDataKg(
+          dataToDisplay.map((m) => ({
+            date: new Date(m.created_at).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            }),
+            weight: m.weight_kg,
+          })),
+        );
+
+        setWeightDataPounds(
+          dataToDisplay.map((m) => ({
+            date: new Date(m.created_at).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            }),
+            weight: parseFloat((m.weight_kg * 2.54).toFixed(1)),
+          })),
+        );
+
+      }
       setBodyFatData(
-        allMeasurements.map((m) => ({
+        dataToDisplay.map((m) => ({
           date: new Date(m.created_at).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
@@ -350,9 +498,10 @@ export default function Progress() {
             }),
             day: daysOfWeek[i],
             workouts: completedExercisesCount,
-            calories: completedExercisesCount * 20,
+            calories: completedExercisesCount * 50,
           });
         }
+        // console.log(workoutChartData);
         setWorkoutData(workoutChartData);
       }
       setLoading(false);
@@ -412,6 +561,7 @@ export default function Progress() {
   useEffect(() => {
     getProgressPhotos();
     getUserData();
+    fetchWeightData()
   }, [user]);
 
   const handleMeasurementValueByOption = (value: 'cm' | 'inch') => {
@@ -569,17 +719,26 @@ export default function Progress() {
   const statsDisplay = [
     {
       label: "Starting Weight",
-      value: `${stats.startingWeight} kg`,
+      value:
+        weightType === "kg"
+          ? `${stats.startingWeight} kg`
+          : `${(stats.startingWeight * 2.54).toFixed(1)} Pounds`,
       icon: Scale,
     },
     {
       label: "Current Weight",
-      value: `${stats.currentWeight} kg`,
+      value:
+        weightType === "kg"
+          ? `${stats.currentWeight} kg`
+          : `${(stats.currentWeight * 2.54).toFixed(1)} Pounds`,
       icon: Scale,
     },
     {
       label: "Weight Lost",
-      value: `${stats.weightLost > 0 ? "-" : "+"}${Math.abs(stats.weightLost).toFixed(1)} kg`,
+      value:
+        weightType === "kg"
+          ? `${stats.weightLost > 0 ? "-" : "+"}${Math.abs(stats.weightLost).toFixed(1)} kg`
+          : `${stats.weightLost > 0 ? "-" : "+"}${Math.abs(stats.weightLost * 2.54).toFixed(1)} Pounds`,
       icon: stats.weightLost > 0 ? TrendingDown : TrendingUp,
       highlight: stats.weightLost > 0 ? 1 : -1,
     },
@@ -589,6 +748,7 @@ export default function Progress() {
       icon: Activity,
     },
   ];
+
 
   if (loading) {
     return (
@@ -606,12 +766,32 @@ export default function Progress() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col gap-2"
       >
-        <h1 className="text-2xl sm:text-3xl font-display font-bold leading-tight">
-          Progress Tracking
-        </h1>
-        <p className="text-sm sm:text-base text-muted-foreground">
-          Visualize your fitness journey and celebrate your wins
-        </p>
+        <div className="flex justify-between">
+          <div className="flex flex-col gap-2">
+            <h1 className="text-2xl sm:text-3xl font-display font-bold leading-tight">
+              Progress Tracking
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              Visualize your fitness journey and celebrate your wins
+            </p>
+          </div>
+
+          <Select
+            value={weightType}
+            onValueChange={(value: "kg" | "pound") => {
+              setWeightType(value);
+              // handleMeasurementValueByOption(value);
+            }}
+          >
+            <SelectTrigger className="bg-primary text-black font-medium border-border mb-4 px-4 py-2 rounded-lg">
+              <SelectValue placeholder="Select Dimension Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="kg">kg</SelectItem>
+              <SelectItem value="pound">pound</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </motion.div>
 
       {/* Stats Grid — 2 cols on mobile, 4 on lg */}
@@ -698,6 +878,12 @@ export default function Progress() {
 
         {/* Weight Tab */}
         <TabsContent value="weight">
+          <DateRangePicker
+            value={selectedRange}
+            onChange={setSelectedRange}
+            availableDates={availableDates}
+            minRangeDays={3}
+          />
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -709,22 +895,32 @@ export default function Progress() {
                 <h3 className="font-display font-semibold text-base sm:text-lg">
                   Weight Trend
                 </h3>
-                {stats.weightLost < 0 ? (
+                {/* {stats.weightLost < 0 ? (
                   <Badge className="bg-warning/10 text-warning text-xs">
                     <TrendingUp className="w-3 h-3 mr-1 text-warning" />
-                    {Math.abs(stats.weightLost).toFixed(1)} kg
+                    {weightType === "kg"
+                      ? Math.abs(stats.weightLost).toFixed(1)
+                      : Math.abs(stats.weightLost * 2.54).toFixed(1)}{" "}
+                    kg
                   </Badge>
                 ) : (
                   <Badge className="bg-success/10 text-success text-xs">
                     <TrendingDown className="w-3 h-3 mr-1 text-success" />
-                    {stats.weightLost.toFixed(1)} kg
+                    {weightType === "kg"
+                      ? stats.weightLost.toFixed(1)
+                      : (stats.weightLost * 2.54).toFixed(1)}{" "}
+                    {weightType === "kg" ? "kg" : "pounds"}
                   </Badge>
-                )}
+                )} */}
               </div>
-              {weightData.length > 0 ? (
+              {weightDataKg.length > 0 ? (
                 <div className="h-56 sm:h-72">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={weightData}>
+                    <AreaChart
+                      data={
+                        weightType === "kg" ? weightDataKg : weightDataPounds
+                      }
+                    >
                       <defs>
                         <linearGradient
                           id="weightGradient"
@@ -849,17 +1045,15 @@ export default function Progress() {
               <h3 className="font-display font-semibold text-base sm:text-lg mb-4 sm:mb-6">
                 Body Measurements
               </h3>
-
               <Select
                 value={measurementOption}
-                onValueChange={(value: "cm" | "inch") =>{
-                  setMeasurementOption(value)
+                onValueChange={(value: "cm" | "inch") => {
+                  setMeasurementOption(value);
                   handleMeasurementValueByOption(value);
-                }
-                }
+                }}
               >
                 <SelectTrigger className="bg-primary text-black font-medium border-border mb-4 px-4 rounded-lg">
-                  <SelectValue placeholder="Select gender" />
+                  <SelectValue placeholder="Select Dimension Type" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cm">cm</SelectItem>
@@ -888,7 +1082,7 @@ export default function Progress() {
                         {m.label}
                       </p>
                       <p className="text-xl sm:text-2xl font-display font-bold">
-                        {m.current === 500 ? "NA" : (m.current).toFixed(2)}{" "}
+                        {m.current === 500 ? "NA" : m.current.toFixed(2)}{" "}
                         <span className="text-xs sm:text-sm font-normal">
                           {m.current !== 500 ? m.unit : ""}
                         </span>

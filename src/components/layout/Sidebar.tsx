@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Calculator,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
@@ -23,8 +24,9 @@ import { toast } from "@/hooks/use-toast";
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: Calendar, label: "Sessions", path: "/sessions", restricted: true },
-  { icon: Dumbbell, label: "Fitness", path: "/fitness"},
+  { icon: Dumbbell, label: "Fitness", path: "/fitness" },
   { icon: Apple, label: "Nutrition", path: "/nutrition", restricted: true },
+  { icon: Calculator, label: "BMR Calculator", path: "/bmr-calculator", restricted: true },
   { icon: TrendingUp, label: "Progress", path: "/progress", restricted: true },
   { icon: HelpCircle, label: "Support", path: "/support" },
   { icon: Settings, label: "Settings", path: "/settings" },

@@ -19,6 +19,7 @@ import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 import PreQuestion from "./pages/PreQuestion";
 import PostQuestion from "./pages/PostQuestion";
+import BMRCalculator from "./pages/BMRCalculator";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ const App = () => (
                       <Route path="/fitness" element={<Fitness />} />
                       <Route path="/nutrition" element={<Nutrition />} />
                       <Route path="/progress" element={<Progress />} />
+                      <Route path="/bmr-calculator" element={<BMRCalculator />} />
                       <Route path="/support" element={<Support />} />
                       <Route path="/settings" element={<Settings />} />
                       <Route path="*" element={<NotFound />} />

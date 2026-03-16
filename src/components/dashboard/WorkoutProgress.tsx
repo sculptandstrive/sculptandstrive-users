@@ -13,7 +13,7 @@ const achievementsList = [
   { icon: Target, label: "Perfect Week", color: "text-green-500", goal: 7 },
 ];
 
-export default function WorkoutProgress({weeklyData, setWeeklyData}) {
+export default function WorkoutProgress({weeklyData, setWeeklyData, fetchUserReport}) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -67,25 +67,6 @@ export default function WorkoutProgress({weeklyData, setWeeklyData}) {
     };
   }, [user?.id]);
 
-  // const resetWeeklyProgress = async () => {
-  //   if (!user) return;
-
-  //   // Optimistic UI update
-  //   setWeeklyData(prev => prev.map(day => ({ ...day, completed: false })));
-    
-  //   const { error } = await supabase
-  //     .from('workouts')
-  //     .update({ completed: false } as any)
-  //     .eq('user_id', user.id); // Targeted reset for current user only
-
-  //   if (error) {
-  //     toast({ title: "Reset Failed", variant: "destructive" });
-  //     fetchStats();
-  //   } else {
-  //     toast({ title: "Weekly Progress Reset" });
-  //   }
-  // };
-
   const resetWeeklyProgress = async () => {
     if (!user) return;
 
@@ -99,8 +80,10 @@ export default function WorkoutProgress({weeklyData, setWeeklyData}) {
     sunday.setDate(monday.getDate() + 6);
     sunday.setHours(23, 59, 59, 999);
 
-    const mondayStr = monday.toISOString().split("T")[0];
-    const sundayStr = sunday.toISOString().split("T")[0];
+    const mondayStr = monday.toLocaleDateString("en-CA");
+    const sundayStr = sunday.toLocaleDateString("en-CA");
+
+    // console.log(mondayStr, sundayStr)
 
     // Optimistic UI update
     setWeeklyData((prev) => prev.map((day) => ({ ...day, completed: false })));
@@ -108,10 +91,12 @@ export default function WorkoutProgress({weeklyData, setWeeklyData}) {
     // Step 1: Fetch workout IDs for this week belonging to the user
     const { data: weekWorkouts, error: fetchError } = await supabase
       .from("workouts")
-      .select("id")
+      .select("*")
       .eq("user_id", user.id)
       .gte("workout_date", mondayStr)
       .lte("workout_date", sundayStr);
+
+    // console.log(weekWorkouts)
 
     if (fetchError) {
       toast({
@@ -167,6 +152,7 @@ export default function WorkoutProgress({weeklyData, setWeeklyData}) {
       description: "All exercises for this week have been deleted.",
     });
     fetchStats();
+    fetchUserReport();
   };
 
   const completedDays = weeklyData.filter((d) => d.completed).length;

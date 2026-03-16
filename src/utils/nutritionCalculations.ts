@@ -20,11 +20,10 @@ export const calculateNutritionTotals = (logs: NutritionLog[]) => {
 
  
 export const getNutritionGoals = (assignedPlan: any, requirement: any) => {
- 
   return {
     calories: Number(assignedPlan?.calories || requirement?.calories_requirement || 2200),
     protein: Number(assignedPlan?.protein || requirement?.protein_requirement || 150),
-    carbs: Number(assignedPlan?.carbs_g || requirement?.carbs_requirement || 250),
-    fats: Number(assignedPlan?.fats_g || requirement?.fats_requirement || 75),
+    carbs: Number(assignedPlan?.carbs || requirement?.carbs_requirement || 250),
+    fats: Number(assignedPlan?.fats || requirement?.fats_requirement || 75),
   };
 };

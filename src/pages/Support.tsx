@@ -288,7 +288,7 @@ export default function Support() {
               <div className="p-3 rounded-lg bg-primary/10 group-hover:bg-primary/20">
                 <item.icon className="w-4 h-6 md:w-6 md:h-6 text-primary" />
               </div>
-              <h3 className="font-semibold flex-1">{item.title}</h3>
+              <h3 className="font-semibold text-sm md:text-base flex-1">{item.title}</h3>
               <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
             </div>
           </motion.div>
@@ -431,7 +431,7 @@ export default function Support() {
                       />
                       <Button
                         type="submit"
-                        className="w-full h-12 text-lg"
+                        className="w-full h-12 md:text-lg"
                         disabled={isSending}
                       >
                         {isSending ? (
