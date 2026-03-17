@@ -176,7 +176,7 @@ export default function Progress() {
       setAvailableDates(dates);
     }
 
-    // console.log(availableDates)
+    console.log(availableDates)
 
     const dataToDisplay = (() => {
       const base =
@@ -189,7 +189,7 @@ export default function Progress() {
       return [...base, ...currentMonth];
     })();
 
-    // console.log(dataToDisplay);
+    console.log(dataToDisplay);
 
     if (dataToDisplay.length > 0) {
       setWeightDataKg(

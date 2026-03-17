@@ -13,6 +13,7 @@ import {
   ChevronRight,
   LogOut,
   Calculator,
+  HeartPulseIcon,
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
@@ -26,8 +27,9 @@ const navItems = [
   { icon: Calendar, label: "Sessions", path: "/sessions", restricted: true },
   { icon: Dumbbell, label: "Fitness", path: "/fitness" },
   { icon: Apple, label: "Nutrition", path: "/nutrition", restricted: true },
-  { icon: Calculator, label: "BMR Calculator", path: "/bmr-calculator", restricted: true },
+  { icon: Calculator, label: "Calculator", path: "/calculator", restricted: true },
   { icon: TrendingUp, label: "Progress", path: "/progress", restricted: true },
+  { icon: HeartPulseIcon, label: "HFCalculator", path: "/hf-calculator"},
   { icon: HelpCircle, label: "Support", path: "/support" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];

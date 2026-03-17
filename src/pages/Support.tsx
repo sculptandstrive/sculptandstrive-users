@@ -460,7 +460,7 @@ export default function Support() {
                   className="h-8 w-8"
                 >
                   <RefreshCw
-                    className={`h-4 h-4 ${loading ? "animate-spin" : ""}`}
+                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
                   />
                 </Button>
               </div>

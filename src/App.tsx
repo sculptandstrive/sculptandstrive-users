@@ -19,7 +19,18 @@ import NotFound from "./pages/NotFound";
 import ResetPassword from "./pages/ResetPassword";
 import PreQuestion from "./pages/PreQuestion";
 import PostQuestion from "./pages/PostQuestion";
-import BMRCalculator from "./pages/BMRCalculator";
+import Calculator from "./pages/Calculator";
+import HFCalculator from "./pages/HFCalculator";
+import {CATEGORIES} from './utils/Categories'
+import BMICalculator from "./components/hf-calculator/BMICalculator";
+import TDEECalculator from "./components/hf-calculator/TDEECalculator";
+import BodyFatCalculator from "./components/hf-calculator/BodyFatCalculator";
+import IdealWeightCalculator from "./components/hf-calculator/IdealWeightCalculator";
+import PaceCalculator from "./components/hf-calculator/PaceCalculator";
+import PregnancyCalculator from "./components/hf-calculator/PregnancyCalculator";
+import MacroCalculator from "./components/hf-calculator/MacroCalculator";
+import HFIndex from "./components/hf-calculator/HFIndex";
+import BMRCalculator from "./components/hf-calculator/BMRCalculator";
 
 const queryClient = new QueryClient();
 
@@ -59,8 +70,28 @@ const App = () => (
                       <Route path="/fitness" element={<Fitness />} />
                       <Route path="/nutrition" element={<Nutrition />} />
                       <Route path="/progress" element={<Progress />} />
-                      <Route path="/bmr-calculator" element={<BMRCalculator />} />
+                      <Route path="/calculator" element={<Calculator />} />
                       <Route path="/support" element={<Support />} />
+                      <Route path="/hf-calculator" element={<HFCalculator />}>
+                        <Route index element={<HFIndex />} />
+                        <Route path="bmi" element={<BMICalculator />} />
+                        <Route path="bmr" element={<BMRCalculator />} />
+                        <Route path="tdee" element={<TDEECalculator />} />
+                        <Route
+                          path="body-fat"
+                          element={<BodyFatCalculator />}
+                        />
+                        <Route
+                          path="ideal-weight"
+                          element={<IdealWeightCalculator/>}
+                        />
+                        <Route path="pace" element={<PaceCalculator />} />
+                        <Route
+                          path="pregnancy"
+                          element={<PregnancyCalculator />}
+                        />
+                        <Route path="macros" element={<MacroCalculator />} />
+                      </Route>
                       <Route path="/settings" element={<Settings />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>

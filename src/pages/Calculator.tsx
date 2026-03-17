@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import MacroCalculator from "@/components/calculator/MacroCalculator";
 
 type UnitSystem = "us" | "metric";
 type Gender = "male" | "female";
@@ -40,7 +41,7 @@ function calculateBMR(
   }
 }
 
-export default function BMRCalculator() {
+export default function Calculator() {
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("us");
   const [gender, setGender] = useState<Gender>("male");
   const [age, setAge] = useState("30");
@@ -96,10 +97,10 @@ export default function BMRCalculator() {
         animate={{ opacity: 1, y: 0 }}
       >
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-3">
+          <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground mb-3 text-center">
             BMR Calculator
           </h1>
-          <p className="text-muted-foreground mb-8 max-w-2xl leading-relaxed">
+          <p className="text-muted-foreground mb-8 max-w-full leading-relaxed text-center">
             The Basal Metabolic Rate (BMR) Calculator estimates your basal
             metabolic rate—the amount of energy expended while at rest in a
             neutrally temperate environment, and in a post-absorptive state
@@ -457,7 +458,7 @@ export default function BMRCalculator() {
           </div>
 
           {/* Info Section */}
-          <div className="mt-12 max-w-3xl space-y-6 text-sm text-muted-foreground leading-relaxed">
+          {/* <div className="mt-12 max-w-3xl space-y-6 text-sm text-muted-foreground leading-relaxed">
             <p>
               The basal metabolic rate (BMR) is the amount of energy needed
               while resting in a temperate environment when the digestive system
@@ -497,9 +498,18 @@ export default function BMRCalculator() {
                 </p>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
-       </motion.div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div className="max-w-4xl mx-auto">
+          <MacroCalculator />
+        </div>
+      </motion.div>
     </div>
   );
 }
