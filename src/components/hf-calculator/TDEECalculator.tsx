@@ -3,6 +3,9 @@ import CalculatorLayout, { StaggerItem } from "@/components/CalculatorLayout";
 import InstrumentInput from "@/components/InstrumentInput";
 import SegmentedControl from "@/components/SegmentedControl";
 import ReadoutCard from "@/components/ReadoutCard";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 const ACTIVITY_LEVELS = [
   { label: "Sedentary", value: "1.2", desc: "Little or no exercise" },
@@ -22,6 +25,8 @@ const TDEECalculator = () => {
   const [heightFt, setHeightFt] = useState("5");
   const [heightIn, setHeightIn] = useState("9");
   const [activity, setActivity] = useState("1.2");
+
+  const {user} = useAuth();
 
   const bmr = useMemo(() => {
     const a = parseFloat(age);
@@ -47,6 +52,25 @@ const TDEECalculator = () => {
     if (!bmr) return null;
     return bmr * parseFloat(activity);
   }, [bmr, activity]);
+
+  const handleTDEESave = async() => {
+    const {error} = await supabase.from('hf_data').upsert({tdee_maintain: tdee, user_id: user.id}, {onConflict: "user_id"})
+
+    // console.log(error)
+     if(error){
+        toast({
+          title: "Failed to update TDEE Values",
+          description: "Server error",
+          variant: "destructive"
+        })
+        console.error(error);
+        return;
+      }
+    
+    toast({
+      title: "Saved BMI Successfully"
+    });
+  }
 
   return (
     <CalculatorLayout
@@ -77,18 +101,60 @@ const TDEECalculator = () => {
 
       <StaggerItem>
         <div className="surface p-6 rounded-xl space-y-4">
-          <InstrumentInput label="Age" value={age} onChange={setAge} unit="years" min={1} max={120} />
+          <InstrumentInput
+            label="Age"
+            value={age}
+            onChange={setAge}
+            unit="years"
+            min={1}
+            max={120}
+          />
           {units === "metric" ? (
             <>
-              <InstrumentInput label="Weight" value={weight} onChange={setWeight} unit="kg" min={1} max={500} />
-              <InstrumentInput label="Height" value={height} onChange={setHeight} unit="cm" min={1} max={300} />
+              <InstrumentInput
+                label="Weight"
+                value={weight}
+                onChange={setWeight}
+                unit="kg"
+                min={1}
+                max={500}
+              />
+              <InstrumentInput
+                label="Height"
+                value={height}
+                onChange={setHeight}
+                unit="cm"
+                min={1}
+                max={300}
+              />
             </>
           ) : (
             <>
-              <InstrumentInput label="Weight" value={weightLbs} onChange={setWeightLbs} unit="lbs" min={1} max={1000} />
+              <InstrumentInput
+                label="Weight"
+                value={weightLbs}
+                onChange={setWeightLbs}
+                unit="lbs"
+                min={1}
+                max={1000}
+              />
               <div className="grid grid-cols-2 gap-4">
-                <InstrumentInput label="Height (ft)" value={heightFt} onChange={setHeightFt} unit="ft" min={0} max={8} />
-                <InstrumentInput label="Height (in)" value={heightIn} onChange={setHeightIn} unit="in" min={0} max={11} />
+                <InstrumentInput
+                  label="Height (ft)"
+                  value={heightFt}
+                  onChange={setHeightFt}
+                  unit="ft"
+                  min={0}
+                  max={8}
+                />
+                <InstrumentInput
+                  label="Height (in)"
+                  value={heightIn}
+                  onChange={setHeightIn}
+                  unit="in"
+                  min={0}
+                  max={11}
+                />
               </div>
             </>
           )}
@@ -109,10 +175,14 @@ const TDEECalculator = () => {
                     : "border-border hover:border-muted-foreground/30"
                 }`}
               >
-                <span className={`text-sm font-medium ${activity === level.value ? "text-primary" : "text-foreground"}`}>
+                <span
+                  className={`text-sm font-medium ${activity === level.value ? "text-primary" : "text-foreground"}`}
+                >
                   {level.label}
                 </span>
-                <span className="text-xs text-muted-foreground ml-2">{level.desc}</span>
+                <span className="text-xs text-muted-foreground ml-2">
+                  {level.desc}
+                </span>
               </button>
             ))}
           </div>
@@ -124,7 +194,13 @@ const TDEECalculator = () => {
           label="Total Daily Energy Expenditure"
           value={tdee ? Math.round(tdee).toLocaleString() : "—"}
           unit="kcal/day"
-          description={tdee ? `Based on a ${ACTIVITY_LEVELS.find(l => l.value === activity)?.label.toLowerCase()} activity level. To lose weight, consume fewer calories; to gain, consume more.` : "Enter your measurements above."}
+          description={
+            tdee
+              ? `Based on a ${ACTIVITY_LEVELS.find((l) => l.value === activity)?.label.toLowerCase()} activity level. To lose weight, consume fewer calories; to gain, consume more.`
+              : "Enter your measurements above."
+          }
+          handleDBSave={handleTDEESave}
+          showSave={true}
         />
       </StaggerItem>
 
@@ -139,11 +215,17 @@ const TDEECalculator = () => {
                 { label: "Gain weight", delta: 500, color: "text-accent" },
               ].map((goal) => (
                 <div key={goal.label} className="text-center">
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider">{goal.label}</span>
-                  <p className={`text-xl font-mono font-bold tracking-tighter mt-1 ${goal.color}`}>
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                    {goal.label}
+                  </span>
+                  <p
+                    className={`text-xl font-mono font-bold tracking-tighter mt-1 ${goal.color}`}
+                  >
                     {Math.round(tdee + goal.delta).toLocaleString()}
                   </p>
-                  <span className="text-xs text-muted-foreground">kcal/day</span>
+                  <span className="text-xs text-muted-foreground">
+                    kcal/day
+                  </span>
                 </div>
               ))}
             </div>

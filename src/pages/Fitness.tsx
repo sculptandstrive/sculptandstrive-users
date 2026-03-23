@@ -23,6 +23,11 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/AuthContext";
+import ReadoutCard from "@/components/ReadoutCard";
+import ProgressBar from "@/components/ProgressBar";
+import MacroData from "@/components/MacroData";
+import BMRData from "@/components/BMRData";
 
 //  CONFIGURATION & TYPES
 
@@ -63,6 +68,13 @@ const DEFAULT_WEEKLY_PLAN = [
   { day_name: "Sunday", workout_name: "Rest Day", order_index: 6 },
 ];
 
+const BMI_SEGMENTS = [
+  { label: "Underweight", color: "hsl(190, 90%, 50%)", threshold: 18.5 },
+  { label: "Normal", color: "hsl(150, 60%, 45%)", threshold: 25 },
+  { label: "Overweight", color: "hsl(40, 90%, 55%)", threshold: 30 },
+  { label: "Obese", color: "hsl(0, 84%, 60%)", threshold: 40 },
+];
+
 export default function Fitness() {
   const { toast } = useToast();
   const [exercises, setExercises] = useState<any[]>([]);
@@ -79,6 +91,34 @@ export default function Fitness() {
   const [isAdding, setIsAdding] = useState(false);
   const [selectedRestDuration, setSelectedRestDuration] = useState(60);
   const [showRestOptions, setShowRestOptions] = useState(false);
+
+  const [macroResult, setMacroResult] = useState<any>(null);
+  const [bmi, setbmi] = useState<number>(null);
+  const [bmr, setbmr] = useState<number>(null);
+  const [bmrUnit, setBmrUnit] = useState<string>(null);
+  const [tdee, settdee] = useState<number>(null);
+  const [bodyFat, setBodyFat] = useState<number>(null);
+  const [bodyFatType, setBodyFatType] = useState<string>(null);
+  const [idealWeight, setIdealWeight] = useState<string>(null);
+  const [idealWeightType, setIdealWeightType] = useState<string>(null);
+  const {user} = useAuth();
+
+
+  const colorClass = useMemo(() => {
+     if (!bmi) return "text-primary";
+     if (bmi < 18.5) return "text-primary";
+     if (bmi < 25) return "text-success";
+     if (bmi < 30) return "text-warning";
+     return "text-destructive";
+   }, [bmi]);
+
+   const weightCategory = useMemo(() => {
+     if (!bmi) return "";
+     if (bmi < 18.5) return "Underweight";
+     if (bmi < 25) return "Normal weight";
+     if (bmi < 30) return "Overweight";
+     return "Obese";
+   }, [bmi]);
 
   const now = new Date()
   const dayOfWeek = now.getDay();
@@ -132,8 +172,29 @@ export default function Fitness() {
 
   const weekRangeLabel = `${weekDates[0].fullDate} - ${weekDates[6].fullDate}`;
 
-  // console.log(weekRangeLabel)
-
+  const fetchCalculatorData = async () => {
+      const [macroData, hfData] = await Promise.all([
+        supabase
+          .from("macro_result")
+          .select("result")
+          .eq("user_id", user.id)
+          .single(),
+        supabase.from("hf_data").select("*").eq("user_id", user.id).single(),
+      ]);
+  
+      setMacroResult(macroData?.data?.result || null);
+      setbmi(hfData?.data?.bmi);
+      setbmr(hfData?.data?.bmr);
+      setBmrUnit(hfData?.data?.bmr_unit);
+      setBodyFat(hfData?.data?.body_fat);
+      setBodyFatType(hfData?.data?.body_fat_type);
+      if (hfData?.data.ideal_weight !== null) {
+        setIdealWeight(hfData.data.ideal_weight.split(" ")[0] || null);
+        setIdealWeightType(hfData?.data?.ideal_weight.split(" ")[1] || null);
+      }
+      settdee(hfData?.data?.tdee_maintain);
+    }
+  
   //  TIMER LOGIC 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -303,6 +364,7 @@ export default function Fitness() {
   };
 
   useEffect(() => {
+    fetchCalculatorData();
     let unsub: any = null;
     const init = async () => {
       const { data: authData } = await supabase.auth.getUser();
@@ -801,6 +863,76 @@ export default function Fitness() {
           </p>
         </div>
       </div>
+
+      <div className="flex flex-col gap-8">
+              <div className="flex flex-col md:flex-row justify-around">
+                {macroResult && <MacroData result={macroResult} />}
+                {bmr && <BMRData bmr={bmr} resultUnit={bmrUnit} />}
+              </div>
+      
+              <div className="flex flex-row justify-between gap-4">
+                {bmi && (
+                  <ReadoutCard
+                    label="Your BMI"
+                    value={bmi ? bmi.toFixed(1) : "-"}
+                    unit="kg/m²"
+                    colorClass={colorClass}
+                    description={
+                      bmi
+                        ? `${weightCategory}. BMI is a screening tool and does not diagnose body fatness or health.`
+                        : "Enter your measurements above."
+                    }
+                    showSave={false}
+                  >
+                    {bmi && (
+                      <ProgressBar
+                        value={0}
+                        segments={BMI_SEGMENTS}
+                        max={40}
+                        currentValue={bmi}
+                      />
+                    )}
+                  </ReadoutCard>
+                )}
+                {bodyFat && (
+                  <ReadoutCard
+                    label="Estimated Body Fat"
+                    value={bodyFat ? bodyFat.toFixed(1) : "—"}
+                    unit="%"
+                    description={
+                      bodyFat
+                        ? `${bodyFatType}. U.S. Navy method is an estimate; DEXA or hydrostatic weighing provides higher accuracy.`
+                        : "Enter your measurements above."
+                    }
+                    showSave={false}
+                  />
+                )}
+      
+                {tdee && (
+                  <ReadoutCard
+                    label="Total Daily Energy Expenditure"
+                    value={tdee ? Math.round(tdee).toLocaleString() : "—"}
+                    unit="kcal/day"
+                    description={
+                      tdee
+                        ? `Based on a your selected activity level. To lose weight, consume fewer calories; to gain, consume more.`
+                        : "Enter your measurements above."
+                    }
+                    showSave={false}
+                  />
+                )}
+      
+                {idealWeight && (
+                  <ReadoutCard
+                    label="Average Ideal Weight"
+                    value={idealWeight ? idealWeight : "—"}
+                    unit={idealWeightType}
+                    showSave={false}
+                  />
+                )}
+              </div>
+            </div>
+      
 
       {/* Add Exercise Modal */}
       <AnimatePresence>

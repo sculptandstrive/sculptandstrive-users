@@ -27,11 +27,5 @@ export const CATEGORIES = [
     calculators: [
       { name: "Pregnancy Calculator", path: "/hf-calculator/pregnancy", icon: Baby, desc: "Due date & progress" },
     ],
-  },
-  {
-    title: "Nutrition",
-    calculators: [
-      { name: "Macro Calculator", path: "/hf-calculator/macros", icon: Apple, desc: "Protein, carbs & fat" },
-    ],
-  },
+  }
 ];

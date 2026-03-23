@@ -1,11 +1,11 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { 
-  Flame, 
-  Target, 
-  Clock, 
-  TrendingUp, 
+import {
+  Flame,
+  Target,
+  Clock,
+  TrendingUp,
   Bell,
-  ChevronRight 
+  ChevronRight,
 } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { UpcomingSessions } from "@/components/dashboard/UpcomingSessions";
@@ -14,11 +14,22 @@ import WorkoutProgress from "@/components/dashboard/WorkoutProgress";
 import { ProgressChart } from "@/components/dashboard/ProgressChart";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { NavLink } from "react-router-dom";
 import { Notification } from "@/components/dashboard/Notification";
+import MacroData from "@/components/MacroData";
+import ReadoutCard from "@/components/ReadoutCard";
+import ProgressBar from "@/components/ProgressBar";
+import BMRData from "@/components/BMRData";
+
+const BMI_SEGMENTS = [
+  { label: "Underweight", color: "hsl(190, 90%, 50%)", threshold: 18.5 },
+  { label: "Normal", color: "hsl(150, 60%, 45%)", threshold: 25 },
+  { label: "Overweight", color: "hsl(40, 90%, 55%)", threshold: 30 },
+  { label: "Obese", color: "hsl(0, 84%, 60%)", threshold: 40 },
+];
 
 // --- INTERFACES ---
 
@@ -47,7 +58,7 @@ interface WaterIntake {
 interface Workout {
   id: string;
   name: string;
-  completed: boolean; 
+  completed: boolean;
   calories_burned: number;
   duration_minutes: number;
   user_id: string;
@@ -64,18 +75,33 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
+  const firstName =
+    user?.user_metadata?.full_name?.split(" ")[0] ||
+    user?.email?.split("@")[0] ||
+    "there";
   const [notificationWindow, setNotificationWindow] = useState<boolean>(false);
   const [notifications, setNotifications] = useState<Notifications[]>([]);
   const [nutritionLogs, setNutritionLogs] = useState<NutritionLog[]>([]);
   const [waterIntake, setWaterIntake] = useState<WaterIntake[]>([]);
-  const [weeklyData, setWeeklyData] = useState<any[]>([])
+  const [nutritionRequirement, setNutritionRequirement] = useState<any>(null);
+  const [assignedPlan, setAssignedPlan] = useState<any>(null);
+  const [macroResult, setMacroResult] = useState<any>(null);
+  const [bmi, setbmi] = useState<number>(null);
+  const [bmr, setbmr] = useState<number>(null);
+  const [bmrUnit, setBmrUnit] = useState<string>(null);
+  const [tdee, settdee] = useState<number>(null);
+  const [bodyFat, setBodyFat] = useState<number>(null);
+  const [bodyFatType, setBodyFatType] = useState<string>(null);
+  const [idealWeight, setIdealWeight] = useState<string>(null);
+  const [idealWeightType, setIdealWeightType] = useState<string>(null);
+
+  const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     caloriesBurned: 0,
     workoutsCompleted: 0,
     totalWorkouts: 0,
     activeMinutes: 0,
-    streak: 0
+    streak: 0,
   });
   const [dailyWaterGoal, setWaterGoal] = useState<number>(3);
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
@@ -98,7 +124,7 @@ export default function Dashboard() {
   const startOfWeek = toLocalDate(monday);
   const endOfWeek = toLocalDate(sunday);
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split("T")[0];
 
   const fetchNotifications = async () => {
     if (!user) return;
@@ -109,16 +135,14 @@ export default function Dashboard() {
       .eq("user_id", user.id)
       .single();
 
-    if (prefs.live_session_alerts === false)
-      return;
-
+    if (prefs.live_session_alerts === false) return;
 
     const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("notification_date", today)
-        .order("created_at", { ascending: false });
+      .from("notifications")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("notification_date", today)
+      .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Fetch notifications error:", error);
@@ -128,84 +152,160 @@ export default function Dashboard() {
     setNotifications(data || []);
   };
 
-
-  const fetchUserReport = async() => {
-    if(!user) return;
+  const fetchUserReport = async () => {
+    if (!user) return;
     try {
-      const [logsResult, waterResult, workoutsResult, waterRequirement] =
-        await Promise.all([
-          supabase
-            .from("nutrition_logs")
-            .select("*")
-            .eq("user_id", user.id)
-            .eq("log_date", today)
-            .order("created_at", { ascending: true }),
-          supabase
-            .from("water_intake")
-            .select("*")
-            .eq("user_id", user.id)
-            .eq("log_date", today),
-          supabase
-            .from("workouts")
-            .select("*")
-            .eq("user_id", user.id)
-            .gte("workout_date", startOfWeek)
-            .lte("workout_date", endOfWeek)
-            .order("order_index", { ascending: true }),
-          supabase
-            .from("nutrition_requirements")
-            .select("water_requirement")
-            .eq("user_id", user.id)
-            .single(),
-        ]);
+      const [
+        logsResult,
+        waterResult,
+        workoutsResult,
+        nutritionRequired,
+        planResult,
+        macroData,
+        hfData,
+      ] = await Promise.all([
+        supabase
+          .from("nutrition_logs")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("log_date", today)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("water_intake")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("log_date", today),
+        supabase
+          .from("workouts")
+          .select("*")
+          .eq("user_id", user.id)
+          .gte("workout_date", startOfWeek)
+          .lte("workout_date", endOfWeek)
+          .order("order_index", { ascending: true }),
+        supabase
+          .from("nutrition_requirements")
+          .select(
+            "calories_requirement, protein_requirement, carbs_requirement, water_requirement, fats_requirement",
+          )
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("user_meal_plans")
+          .select(
+            `
+            meal_plans!user_meal_plans_plan_id_fkey(
+              name,
+              calories,
+              protein,
+              carbs,
+              water,
+              fats
+            )
+          `,
+          )
+          .eq("user_id", user.id),
+        supabase
+          .from("macro_result")
+          .select("result")
+          .eq("user_id", user.id)
+          .single(),
+        supabase.from("hf_data").select("*").eq("user_id", user.id).single(),
+      ]);
 
-      
-      if(logsResult.error) throw logsResult.error;
-      if(waterResult.error) throw waterResult.error;
-      if(workoutsResult.error) throw workoutsResult.error;
-      
+      if (logsResult.error) throw logsResult.error;
+      if (waterResult.error) throw waterResult.error;
+      if (workoutsResult.error) throw workoutsResult.error;
+
       setNutritionLogs(logsResult.data || []);
       setWaterIntake(waterResult.data || []);
+      setNutritionRequirement(nutritionRequired?.data);
+      setMacroResult(macroData?.data?.result || null);
+      setbmi(hfData?.data?.bmi);
+      setbmr(hfData?.data?.bmr);
+      setBmrUnit(hfData?.data?.bmr_unit);
+      setBodyFat(hfData?.data?.body_fat);
+      setBodyFatType(hfData?.data?.body_fat_type);
+      if(hfData?.data.ideal_weight !== null){
+        setIdealWeight(hfData.data.ideal_weight.split(' ')[0] || null);
+        setIdealWeightType(hfData?.data?.ideal_weight.split(' ')[1] || null)
+      }
+      settdee(hfData?.data?.tdee_maintain);
 
-      const normalizedData = workoutsResult.data.reduce((acc: any[], current: any) => {
-        const exists = acc.find((item) => item.day_name === current.day_name);
-        if (!exists) {
-          return [...acc, current];
-        }
-        return acc;
-      }, []);
+      if (planResult.data && (planResult.data as any)?.[0]?.meal_plans) {
+        const p = (planResult.data as any)[0].meal_plans;
+        setAssignedPlan({
+          name: p.name,
+          calories: Number(p.calories),
+          protein: Number(p.protein),
+          carbs: Number(p.carbs),
+          fats: Number(p.fats),
+          water: Number(p.water),
+        });
+      } else {
+        setAssignedPlan(null);
+      }
+
+      const normalizedData = workoutsResult.data.reduce(
+        (acc: any[], current: any) => {
+          const exists = acc.find((item) => item.day_name === current.day_name);
+          if (!exists) {
+            return [...acc, current];
+          }
+          return acc;
+        },
+        [],
+      );
 
       const allWorkouts = workoutsResult.data || [];
-      const completedWorkouts = allWorkouts.filter(w => w.completed);
+      const completedWorkouts = allWorkouts.filter((w) => w.completed);
 
-      const totalCalories = normalizedData.reduce((sum, w) => sum + (w.calories_burned || 0), 0);
+      const totalCalories = normalizedData.reduce(
+        (sum, w) => sum + (w.calories_burned || 0),
+        0,
+      );
       const totalMinutes = completedWorkouts.reduce(
         (sum, w) => sum + (w.duration_minutes || 0),
         0,
       );
 
       setWeeklyData(normalizedData);
-
-      setWaterGoal(waterRequirement.data.water_requirement); 
+      setWaterGoal(nutritionRequired.data.water_requirement);
 
       setStats({
         caloriesBurned: totalCalories,
         workoutsCompleted: completedWorkouts.length,
         totalWorkouts: allWorkouts.length,
         activeMinutes: totalMinutes,
-        streak: completedWorkouts.length > 0 ? 7 : 0 
+        streak: completedWorkouts.length > 0 ? 7 : 0,
       });
 
-      const { data } = await supabase.from("user_roles").select('*').eq("user_id", user.id);
-
-
-    } catch(err: any) {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("*")
+        .eq("user_id", user.id);
+    } catch (err: any) {
       toast({
-        title: 'Failed to fetch user data',
-        description: err.message || 'Unknown error'
+        title: "Failed to fetch user data",
+        description: err.message || "Unknown error",
       });
     }
-  }
+  };
+
+  const colorClass = useMemo(() => {
+    if (!bmi) return "text-primary";
+    if (bmi < 18.5) return "text-primary";
+    if (bmi < 25) return "text-success";
+    if (bmi < 30) return "text-warning";
+    return "text-destructive";
+  }, [bmi]);
+
+  const weightCategory = useMemo(() => {
+    if (!bmi) return "";
+    if (bmi < 18.5) return "Underweight";
+    if (bmi < 25) return "Normal weight";
+    if (bmi < 30) return "Overweight";
+    return "Obese";
+  }, [bmi]);
 
   useEffect(() => {
     fetchUserReport();
@@ -232,11 +332,8 @@ export default function Dashboard() {
       setTimeLeft(`${days}d ${hours}h ${minutes}m ${seconds}s`);
     }, 1000);
 
-    
-
     return () => clearInterval(interval);
   }, []);
-
 
   return (
     <div className="space-y-8">
@@ -344,11 +441,87 @@ export default function Dashboard() {
             nutritionLogs={nutritionLogs}
             waterIntake={waterIntake}
             waterRequirement={dailyWaterGoal}
+            assignedPlan={assignedPlan}
+            userRequirements={nutritionRequirement}
           />
         </div>
       </div>
 
-      <WorkoutProgress weeklyData={weeklyData} setWeeklyData={setWeeklyData} fetchUserReport = {fetchUserReport}/>
+      <WorkoutProgress
+        weeklyData={weeklyData}
+        setWeeklyData={setWeeklyData}
+        fetchUserReport={fetchUserReport}
+      />
+
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-col md:flex-row justify-around">
+          {macroResult && <MacroData result={macroResult} />}
+          {bmr && <BMRData bmr={bmr} resultUnit={bmrUnit} />}
+        </div>
+
+        <div className="flex flex-row justify-between gap-4">
+          {bmi && (
+            <ReadoutCard
+              label="Your BMI"
+              value={bmi ? bmi.toFixed(1) : "-"}
+              unit="kg/m²"
+              colorClass={colorClass}
+              description={
+                bmi
+                  ? `${weightCategory}. BMI is a screening tool and does not diagnose body fatness or health.`
+                  : "Enter your measurements above."
+              }
+              showSave={false}
+            >
+              {bmi && (
+                <ProgressBar
+                  value={0}
+                  segments={BMI_SEGMENTS}
+                  max={40}
+                  currentValue={bmi}
+                />
+              )}
+            </ReadoutCard>
+          )}
+          {bodyFat && (
+            <ReadoutCard
+              label="Estimated Body Fat"
+              value={bodyFat ? bodyFat.toFixed(1) : "—"}
+              unit="%"
+              description={
+                bodyFat
+                  ? `${bodyFatType}. U.S. Navy method is an estimate; DEXA or hydrostatic weighing provides higher accuracy.`
+                  : "Enter your measurements above."
+              }
+              showSave={false}
+            />
+          )}
+
+          {tdee && (
+            <ReadoutCard
+              label="Total Daily Energy Expenditure"
+              value={tdee ? Math.round(tdee).toLocaleString() : "—"}
+              unit="kcal/day"
+              description={
+                tdee
+                  ? `Based on a your selected activity level. To lose weight, consume fewer calories; to gain, consume more.`
+                  : "Enter your measurements above."
+              }
+              showSave={false}
+            />
+          )}
+
+          {idealWeight && (
+            <ReadoutCard
+              label="Average Ideal Weight"
+              value={idealWeight ? idealWeight : "—"}
+              unit={idealWeightType}
+              showSave={false}
+            />
+          )}
+        </div>
+      </div>
+
       <AnimatePresence>
         {notificationWindow && (
           <Notification

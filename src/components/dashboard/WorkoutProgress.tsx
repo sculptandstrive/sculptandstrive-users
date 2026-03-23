@@ -18,15 +18,35 @@ export default function WorkoutProgress({weeklyData, setWeeklyData, fetchUserRep
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
 
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  const pad = (n) => String(n).padStart(2, "0");
+  const toLocalDate = (date) =>
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+
+  const startOfWeek = toLocalDate(monday);
+  const endOfWeek = toLocalDate(sunday);
+
+
   const fetchStats = async () => {
     if (!user) return;
     
     try {
       const { data, error } = await supabase
-        .from('workouts')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('order_index', { ascending: true });
+        .from("workouts")
+        .select("*")
+        .eq("user_id", user.id)
+        .gte("workout_date", startOfWeek)
+        .lte("workout_date", endOfWeek)
+        .order("order_index", { ascending: true });
 
       if (error) throw error;
 

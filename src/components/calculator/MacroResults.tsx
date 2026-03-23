@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Button } from "../ui/button";
+import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface MacroResult {
   calories: number;
@@ -53,8 +57,19 @@ function MacroCard({
   );
 }
 
+interface AssignedPlan {
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  water: number;
+  recommendations?: any[]
+}
+
 export function MacroResults({ result }: { result: MacroResult }) {
   const [plan, setPlan] = useState<Plan>("balanced");
+  const [assignedPlan, setAssignedPlan] = useState<AssignedPlan | any>(null);
   const plans: { key: Plan; label: string }[] = [
     { key: "balanced", label: "Balanced" },
     { key: "lowFat", label: "Low Fat" },
@@ -72,6 +87,73 @@ export function MacroResults({ result }: { result: MacroResult }) {
   const proteinPct = Math.round((protein * 4 / totalCal) * 100);
   const carbsPct = Math.round((carbs * 4 / totalCal) * 100);
   const fatPct = 100 - proteinPct - carbsPct;
+  
+  const {user} = useAuth()
+
+  async function fetchPlan () {
+    const {data: planResult, error: planError} = await supabase.from('user_meal_plans')
+    .select(`meal_plans!user_meal_plans_plan_id_fkey(name, calories, protein, carbs, water, fats)`,)
+    .eq("user_id", user.id)
+
+    if(planResult && (planResult as any)?.[0]?.meal_plans){
+      const p = (planResult as any)[0].meal_plans;
+
+      setAssignedPlan({
+        name: p.name,
+        calories: Number(p.calories),
+        carbs: Number(p.carbs),
+        fats: Number(p.fats),
+        water: Number(p.water)
+      })
+    }
+    else{
+      setAssignedPlan(null);
+    }
+  }
+  useEffect(()=>{ 
+    fetchPlan();
+  },[])
+
+  const handleNutritionRequirements = async() => {
+    try{
+      if(assignedPlan){
+        throw new Error("Plan has already been assigned by Trainer")
+      }
+
+      let dbResult = result;
+      dbResult.carbs.grams = carbs;
+      dbResult.fat.grams = fat;
+      dbResult.protein.grams = protein;
+      
+      const {error} = await supabase.from('nutrition_requirements').update({
+        calories_requirement: cal,
+        protein_requirement: protein,
+        fats_requirement: fat,
+        carbs_requirement: carbs
+      })
+      .eq('user_id', user.id)
+
+      const {error: macroError} = await supabase.from('macro_result').upsert({result: dbResult, user_id: user.id},{onConflict: 'user_id'});
+
+      if(error || macroError){
+        console.log(macroError)
+        throw new Error("Server Error");
+      }
+
+      toast({
+        title: "Updated Nutrition Requirements successfully"
+      })
+    }
+    catch(error){
+      toast({
+        title: "Failed to update requirements",
+        description: error.message,
+        variant: "destructive"
+      })
+      console.error(error);
+      return;
+    }
+  }
 
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm fade-in-up">
@@ -87,7 +169,9 @@ export function MacroResults({ result }: { result: MacroResult }) {
             key={p.key}
             onClick={() => setPlan(p.key)}
             className={`flex-1 rounded-full py-2 px-3 text-sm font-medium whitespace-nowrap transition-all ${
-              plan === p.key ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"
+              plan === p.key
+                ? "bg-card shadow-sm text-foreground"
+                : "text-muted-foreground"
             }`}
           >
             {p.label}
@@ -98,43 +182,107 @@ export function MacroResults({ result }: { result: MacroResult }) {
       {/* Macro Bar */}
       <div className="mb-6">
         <div className="flex h-4 w-full overflow-hidden rounded-full">
-          <div className="bg-protein transition-all" style={{ width: `${proteinPct}%` }} />
-          <div className="bg-carbs transition-all" style={{ width: `${carbsPct}%` }} />
-          <div className="bg-fat transition-all" style={{ width: `${fatPct}%` }} />
+          <div
+            className="bg-protein transition-all"
+            style={{ width: `${proteinPct}%` }}
+          />
+          <div
+            className="bg-carbs transition-all"
+            style={{ width: `${carbsPct}%` }}
+          />
+          <div
+            className="bg-fat transition-all"
+            style={{ width: `${fatPct}%` }}
+          />
         </div>
         <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-protein" />Protein {proteinPct}%</span>
-          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-carbs" />Carbs {carbsPct}%</span>
-          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-fat" />Fat {fatPct}%</span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full bg-protein" />
+            Protein {proteinPct}%
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full bg-carbs" />
+            Carbs {carbsPct}%
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full bg-fat" />
+            Fat {fatPct}%
+          </span>
         </div>
       </div>
 
       {/* Macro Cards */}
       <div className="grid gap-4 sm:grid-cols-3 mb-6">
-        <MacroCard label="Protein" grams={protein} min={result.protein.min} max={result.protein.max} color="bg-protein" />
-        <MacroCard label="Carbs" grams={carbs} min={result.carbs.min} max={result.carbs.max} color="bg-carbs" subtitle="Includes Sugar" />
-        <MacroCard label="Fat" grams={fat} min={result.fat.min} max={result.fat.max} color="bg-fat" subtitle="Includes Saturated Fat" />
+        <MacroCard
+          label="Protein"
+          grams={protein}
+          min={result.protein.min}
+          max={result.protein.max}
+          color="bg-protein"
+        />
+        <MacroCard
+          label="Carbs"
+          grams={carbs}
+          min={result.carbs.min}
+          max={result.carbs.max}
+          color="bg-carbs"
+          subtitle="Includes Sugar"
+        />
+        <MacroCard
+          label="Fat"
+          grams={fat}
+          min={result.fat.min}
+          max={result.fat.max}
+          color="bg-fat"
+          subtitle="Includes Saturated Fat"
+        />
       </div>
 
       {/* Additional Info */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <div className="rounded-lg bg-muted p-4">
           <p className="text-xs text-muted-foreground">Sugar</p>
-          <p className="text-lg font-bold">&lt;{result.sugar}g<span className="text-xs font-normal text-muted-foreground">/day</span></p>
+          <p className="text-lg font-bold">
+            &lt;{result.sugar}g
+            <span className="text-xs font-normal text-muted-foreground">
+              /day
+            </span>
+          </p>
         </div>
         <div className="rounded-lg bg-muted p-4">
           <p className="text-xs text-muted-foreground">Saturated Fat</p>
-          <p className="text-lg font-bold">&lt;{result.saturatedFat}g<span className="text-xs font-normal text-muted-foreground">/day</span></p>
+          <p className="text-lg font-bold">
+            &lt;{result.saturatedFat}g
+            <span className="text-xs font-normal text-muted-foreground">
+              /day
+            </span>
+          </p>
         </div>
         <div className="rounded-lg bg-muted p-4 col-span-2 sm:col-span-1">
           <p className="text-xs text-muted-foreground">Food Energy</p>
-          <p className="text-lg font-bold">{cal.toLocaleString()}<span className="text-xs font-normal text-muted-foreground"> Cal/day</span></p>
-          <p className="text-xs text-muted-foreground">or {result.kj.toLocaleString()} kJ/day</p>
+          <p className="text-lg font-bold">
+            {cal.toLocaleString()}
+            <span className="text-xs font-normal text-muted-foreground">
+              {" "}
+              Cal/day
+            </span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            or {result.kj.toLocaleString()} kJ/day
+          </p>
         </div>
       </div>
 
+      <div className="w-full flex justify-center items-center mt-6">
+        <Button className="bg-gradient-primary hover:opacity-90 text-primary-foreground" onClick={handleNutritionRequirements}>
+          Set Nutrition Goals
+        </Button>
+      </div>
+
       <p className="mt-6 text-xs text-muted-foreground leading-relaxed">
-        These results are guidelines for typical situations. The protein range follows ADA and CDC guidelines. Carbohydrate ranges are based on recommendations from The Institute of Medicine, FAO, and WHO.
+        These results are guidelines for typical situations. The protein range
+        follows ADA and CDC guidelines. Carbohydrate ranges are based on
+        recommendations from The Institute of Medicine, FAO, and WHO.
       </p>
     </div>
   );

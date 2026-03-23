@@ -62,7 +62,7 @@ function calculateMacros(data: FormData): MacroResult {
 
 export default function MacroCalculator() {
   const [result, setResult] = useState<MacroResult | null>(null);
-
+  // console.log(result)
   const handleCalculate = (data: FormData) => {
     setResult(calculateMacros(data));
   };
@@ -71,11 +71,11 @@ export default function MacroCalculator() {
     <div className="min-h-screen bg-background">
       <div className="container max-w-6xl py-8 md:py-12">
         {/* Header */}
-        <div className="mb-8 text-center">
+        <div className="mb-8 ">
           <h1 className="text-2xl font-extrabold tracking-tight md:text-3xl">
             Macro Calculator
           </h1>
-          <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
+          <p className="mt-2 text-muted-foreground">
             Calculate your daily macronutrient needs based on your body metrics, activity level, and goals.
           </p>
         </div>

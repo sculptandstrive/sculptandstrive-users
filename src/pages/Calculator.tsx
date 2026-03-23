@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import MacroCalculator from "@/components/calculator/MacroCalculator";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 type UnitSystem = "us" | "metric";
 type Gender = "male" | "female";
 type Formula = "mifflin" | "harris" | "katch";
+type FormErrors = Partial<Record<string, string>>;
 
 const ACTIVITY_LEVELS = [
   { label: "Sedentary: little or no exercise", factor: 1.2 },
@@ -41,6 +46,80 @@ function calculateBMR(
   }
 }
 
+function validateInputs(
+  unitSystem: UnitSystem,
+  formula: Formula,
+  age: string,
+  heightFeet: string,
+  heightInches: string,
+  weightLbs: string,
+  heightCm: string,
+  weightKg: string,
+  bodyFatPct: string,
+): FormErrors {
+  const errors: FormErrors = {};
+
+  const ageNum = parseInt(age);
+  if (!age.trim()) {
+    errors.age = "Age is required.";
+  } else if (isNaN(ageNum) || ageNum < 15 || ageNum > 80) {
+    errors.age = "Age must be between 15 and 80.";
+  }
+
+  if (unitSystem === "us") {
+    const feet = parseInt(heightFeet);
+    if (!heightFeet.trim()) {
+      errors.heightFeet = "Feet is required.";
+    } else if (isNaN(feet) || feet < 1 || feet > 8) {
+      errors.heightFeet = "Enter a valid feet value (1–8).";
+    }
+
+    const inches = parseInt(heightInches);
+    if (!heightInches.trim()) {
+      errors.heightInches = "Inches is required.";
+    } else if (isNaN(inches) || inches < 0 || inches > 11) {
+      errors.heightInches = "Inches must be 0–11.";
+    }
+
+    const lbs = parseFloat(weightLbs);
+    if (!weightLbs.trim()) {
+      errors.weightLbs = "Weight is required.";
+    } else if (isNaN(lbs) || lbs < 50 || lbs > 1000) {
+      errors.weightLbs = "Enter a valid weight (50–1000 lbs).";
+    }
+  } else {
+    const cm = parseFloat(heightCm);
+    if (!heightCm.trim()) {
+      errors.heightCm = "Height is required.";
+    } else if (isNaN(cm) || cm < 50 || cm > 300) {
+      errors.heightCm = "Enter a valid height (50–300 cm).";
+    }
+
+    const kg = parseFloat(weightKg);
+    if (!weightKg.trim()) {
+      errors.weightKg = "Weight is required.";
+    } else if (isNaN(kg) || kg < 20 || kg > 500) {
+      errors.weightKg = "Enter a valid weight (20–500 kg).";
+    }
+  }
+
+  if (formula === "katch") {
+    const bf = parseFloat(bodyFatPct);
+    if (!bodyFatPct.trim()) {
+      errors.bodyFatPct = "Body fat % is required for this formula.";
+    } else if (isNaN(bf) || bf < 1 || bf > 70) {
+      errors.bodyFatPct = "Body fat % must be between 1 and 70.";
+    }
+  }
+
+  return errors;
+}
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="text-xs text-destructive mt-1">{message}</p>;
+}
+
 export default function Calculator() {
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("us");
   const [gender, setGender] = useState<Gender>("male");
@@ -55,8 +134,59 @@ export default function Calculator() {
   const [resultUnit, setResultUnit] = useState<"cal" | "kj">("cal");
   const [bmr, setBmr] = useState<number | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [submitted, setSubmitted] = useState(false); // ← key: tracks first submit
+
+  const { user } = useAuth();
+
+  // Runs full validation and updates errors, but ONLY after first submit
+  const revalidate = (
+    overrides: Partial<{
+      unitSystem: UnitSystem;
+      formula: Formula;
+      age: string;
+      heightFeet: string;
+      heightInches: string;
+      weightLbs: string;
+      heightCm: string;
+      weightKg: string;
+      bodyFatPct: string;
+    }> = {},
+  ) => {
+    if (!submitted) return; // no errors before first submit
+    setErrors(
+      validateInputs(
+        overrides.unitSystem ?? unitSystem,
+        overrides.formula ?? formula,
+        overrides.age ?? age,
+        overrides.heightFeet ?? heightFeet,
+        overrides.heightInches ?? heightInches,
+        overrides.weightLbs ?? weightLbs,
+        overrides.heightCm ?? heightCm,
+        overrides.weightKg ?? weightKg,
+        overrides.bodyFatPct ?? bodyFatPct,
+      ),
+    );
+  };
 
   const handleCalculate = () => {
+    setSubmitted(true); // first submit — turn on live validation from here
+
+    const validationErrors = validateInputs(
+      unitSystem,
+      formula,
+      age,
+      heightFeet,
+      heightInches,
+      weightLbs,
+      heightCm,
+      weightKg,
+      bodyFatPct,
+    );
+
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+
     const ageNum = parseInt(age);
     let wKg: number, hCm: number;
 
@@ -68,10 +198,6 @@ export default function Calculator() {
       hCm = parseFloat(heightCm);
     }
 
-    if (isNaN(ageNum) || isNaN(wKg) || isNaN(hCm) || ageNum < 15 || ageNum > 80)
-      return;
-    if (formula === "katch" && !bodyFatPct) return;
-
     const result = calculateBMR(
       wKg,
       hCm,
@@ -80,12 +206,51 @@ export default function Calculator() {
       formula,
       bodyFatPct ? parseFloat(bodyFatPct) : undefined,
     );
+
     setBmr(Math.round(result));
   };
 
   const displayValue = (val: number) => {
     const converted = resultUnit === "kj" ? Math.round(val * 4.184) : val;
     return converted.toLocaleString();
+  };
+
+  const handleBMRSave = async () => {
+    if (!user) {
+      toast({
+        title: "Not logged in",
+        description: "Please log in to save your results.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (bmr === null) {
+      toast({
+        title: "Nothing to save",
+        description: "Calculate your BMR first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("hf_data")
+      .upsert(
+        { bmr, bmr_unit: resultUnit, user_id: user.id },
+        { onConflict: "user_id" },
+      );
+
+    if (error) {
+      toast({
+        title: "Failed to update BMR",
+        description: "Server error",
+        variant: "destructive",
+      });
+      console.error(error);
+      return;
+    }
+
+    toast({ title: "Saved BMR Successfully" });
   };
 
   const unitLabel = resultUnit === "kj" ? "kJ/day" : "Calories/day";
@@ -97,10 +262,10 @@ export default function Calculator() {
         animate={{ opacity: 1, y: 0 }}
       >
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground mb-3 text-center">
+          <h1 className="text-2xl md:text-3xl font-display font-bold text-foreground mb-3">
             BMR Calculator
           </h1>
-          <p className="text-muted-foreground mb-8 max-w-full leading-relaxed text-center">
+          <p className="text-muted-foreground mb-8 max-w-full leading-relaxed">
             The Basal Metabolic Rate (BMR) Calculator estimates your basal
             metabolic rate—the amount of energy expended while at rest in a
             neutrally temperate environment, and in a post-absorptive state
@@ -109,31 +274,26 @@ export default function Calculator() {
           </p>
 
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-            {/* Input Form */}
             <div className="lg:col-span-2">
               <div className="bg-card rounded-lg border p-6 space-y-5">
                 {/* Unit Toggle */}
                 <div className="flex rounded-lg border overflow-hidden">
-                  <button
-                    onClick={() => setUnitSystem("us")}
-                    className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-                      unitSystem === "us"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-card text-muted-foreground hover:bg-secondary"
-                    }`}
-                  >
-                    US Units
-                  </button>
-                  <button
-                    onClick={() => setUnitSystem("metric")}
-                    className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-                      unitSystem === "metric"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-card text-muted-foreground hover:bg-secondary"
-                    }`}
-                  >
-                    Metric Units
-                  </button>
+                  {(["us", "metric"] as UnitSystem[]).map((u) => (
+                    <button
+                      key={u}
+                      onClick={() => {
+                        setUnitSystem(u);
+                        revalidate({ unitSystem: u });
+                      }}
+                      className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                        unitSystem === u
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-card text-muted-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      {u === "us" ? "US Units" : "Metric Units"}
+                    </button>
+                  ))}
                 </div>
 
                 {/* Age */}
@@ -147,45 +307,42 @@ export default function Calculator() {
                       min={15}
                       max={80}
                       value={age}
-                      onChange={(e) => setAge(e.target.value)}
-                      className="w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      onChange={(e) => {
+                        setAge(e.target.value);
+                        revalidate({ age: e.target.value });
+                      }}
+                      className={`w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${errors.age ? "border-destructive" : ""}`}
                     />
                     <span className="text-sm text-muted-foreground whitespace-nowrap">
                       ages 15-80
                     </span>
                   </div>
+                  <FieldError message={errors.age} />
                 </div>
 
-                {/* Gender Toggle */}
+                {/* Gender */}
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">
                     Gender
                   </label>
                   <div className="flex rounded-lg border overflow-hidden">
-                    <button
-                      onClick={() => setGender("male")}
-                      className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                        gender === "male"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-card text-muted-foreground hover:bg-secondary"
-                      }`}
-                    >
-                      Male
-                    </button>
-                    <button
-                      onClick={() => setGender("female")}
-                      className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                        gender === "female"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-card text-muted-foreground hover:bg-secondary"
-                      }`}
-                    >
-                      Female
-                    </button>
+                    {(["male", "female"] as Gender[]).map((g) => (
+                      <button
+                        key={g}
+                        onClick={() => setGender(g)}
+                        className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                          gender === g
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-card text-muted-foreground hover:bg-secondary"
+                        }`}
+                      >
+                        {g.charAt(0).toUpperCase() + g.slice(1)}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* Height & Weight */}
+                {/* Height & Weight — US */}
                 {unitSystem === "us" ? (
                   <>
                     <div>
@@ -193,27 +350,39 @@ export default function Calculator() {
                         Height
                       </label>
                       <div className="flex gap-2">
-                        <div className="flex-1 flex items-center gap-1.5">
-                          <input
-                            type="number"
-                            value={heightFeet}
-                            onChange={(e) => setHeightFeet(e.target.value)}
-                            className="w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                          />
-                          <span className="text-sm text-muted-foreground">
-                            ft
-                          </span>
+                        <div className="flex-1 flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              value={heightFeet}
+                              onChange={(e) => {
+                                setHeightFeet(e.target.value);
+                                revalidate({ heightFeet: e.target.value });
+                              }}
+                              className={`w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${errors.heightFeet ? "border-destructive" : ""}`}
+                            />
+                            <span className="text-sm text-muted-foreground">
+                              ft
+                            </span>
+                          </div>
+                          <FieldError message={errors.heightFeet} />
                         </div>
-                        <div className="flex-1 flex items-center gap-1.5">
-                          <input
-                            type="number"
-                            value={heightInches}
-                            onChange={(e) => setHeightInches(e.target.value)}
-                            className="w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                          />
-                          <span className="text-sm text-muted-foreground">
-                            in
-                          </span>
+                        <div className="flex-1 flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              value={heightInches}
+                              onChange={(e) => {
+                                setHeightInches(e.target.value);
+                                revalidate({ heightInches: e.target.value });
+                              }}
+                              className={`w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${errors.heightInches ? "border-destructive" : ""}`}
+                            />
+                            <span className="text-sm text-muted-foreground">
+                              in
+                            </span>
+                          </div>
+                          <FieldError message={errors.heightInches} />
                         </div>
                       </div>
                     </div>
@@ -225,13 +394,17 @@ export default function Calculator() {
                         <input
                           type="number"
                           value={weightLbs}
-                          onChange={(e) => setWeightLbs(e.target.value)}
-                          className="w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                          onChange={(e) => {
+                            setWeightLbs(e.target.value);
+                            revalidate({ weightLbs: e.target.value });
+                          }}
+                          className={`w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${errors.weightLbs ? "border-destructive" : ""}`}
                         />
                         <span className="text-sm text-muted-foreground">
                           lbs
                         </span>
                       </div>
+                      <FieldError message={errors.weightLbs} />
                     </div>
                   </>
                 ) : (
@@ -244,13 +417,17 @@ export default function Calculator() {
                         <input
                           type="number"
                           value={heightCm}
-                          onChange={(e) => setHeightCm(e.target.value)}
-                          className="w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                          onChange={(e) => {
+                            setHeightCm(e.target.value);
+                            revalidate({ heightCm: e.target.value });
+                          }}
+                          className={`w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${errors.heightCm ? "border-destructive" : ""}`}
                         />
                         <span className="text-sm text-muted-foreground">
                           cm
                         </span>
                       </div>
+                      <FieldError message={errors.heightCm} />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-foreground mb-1.5">
@@ -260,13 +437,17 @@ export default function Calculator() {
                         <input
                           type="number"
                           value={weightKg}
-                          onChange={(e) => setWeightKg(e.target.value)}
-                          className="w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                          onChange={(e) => {
+                            setWeightKg(e.target.value);
+                            revalidate({ weightKg: e.target.value });
+                          }}
+                          className={`w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${errors.weightKg ? "border-destructive" : ""}`}
                         />
                         <span className="text-sm text-muted-foreground">
                           kg
                         </span>
                       </div>
+                      <FieldError message={errors.weightKg} />
                     </div>
                   </>
                 )}
@@ -286,24 +467,20 @@ export default function Calculator() {
                           Results unit
                         </label>
                         <div className="flex gap-4">
-                          <label className="flex items-center gap-1.5 text-sm text-foreground cursor-pointer">
-                            <input
-                              type="radio"
-                              checked={resultUnit === "cal"}
-                              onChange={() => setResultUnit("cal")}
-                              className="accent-primary"
-                            />
-                            Calories
-                          </label>
-                          <label className="flex items-center gap-1.5 text-sm text-foreground cursor-pointer">
-                            <input
-                              type="radio"
-                              checked={resultUnit === "kj"}
-                              onChange={() => setResultUnit("kj")}
-                              className="accent-primary"
-                            />
-                            Kilojoules
-                          </label>
+                          {(["cal", "kj"] as const).map((u) => (
+                            <label
+                              key={u}
+                              className="flex items-center gap-1.5 text-sm text-foreground cursor-pointer"
+                            >
+                              <input
+                                type="radio"
+                                checked={resultUnit === u}
+                                onChange={() => setResultUnit(u)}
+                                className="accent-primary"
+                              />
+                              {u === "cal" ? "Calories" : "Kilojoules"}
+                            </label>
+                          ))}
                         </div>
                       </div>
                       <div>
@@ -311,33 +488,29 @@ export default function Calculator() {
                           BMR estimation formula
                         </label>
                         <div className="space-y-1.5">
-                          <label className="flex items-center gap-1.5 text-sm text-foreground cursor-pointer">
-                            <input
-                              type="radio"
-                              checked={formula === "mifflin"}
-                              onChange={() => setFormula("mifflin")}
-                              className="accent-primary"
-                            />
-                            Mifflin-St Jeor
-                          </label>
-                          <label className="flex items-center gap-1.5 text-sm text-foreground cursor-pointer">
-                            <input
-                              type="radio"
-                              checked={formula === "harris"}
-                              onChange={() => setFormula("harris")}
-                              className="accent-primary"
-                            />
-                            Revised Harris-Benedict
-                          </label>
-                          <label className="flex items-center gap-1.5 text-sm text-foreground cursor-pointer">
-                            <input
-                              type="radio"
-                              checked={formula === "katch"}
-                              onChange={() => setFormula("katch")}
-                              className="accent-primary"
-                            />
-                            Katch-McArdle
-                          </label>
+                          {(["mifflin", "harris", "katch"] as Formula[]).map(
+                            (f) => (
+                              <label
+                                key={f}
+                                className="flex items-center gap-1.5 text-sm text-foreground cursor-pointer"
+                              >
+                                <input
+                                  type="radio"
+                                  checked={formula === f}
+                                  onChange={() => {
+                                    setFormula(f);
+                                    revalidate({ formula: f });
+                                  }}
+                                  className="accent-primary"
+                                />
+                                {f === "mifflin"
+                                  ? "Mifflin-St Jeor"
+                                  : f === "harris"
+                                    ? "Revised Harris-Benedict"
+                                    : "Katch-McArdle"}
+                              </label>
+                            ),
+                          )}
                         </div>
                       </div>
                       {formula === "katch" && (
@@ -349,14 +522,18 @@ export default function Calculator() {
                             <input
                               type="number"
                               value={bodyFatPct}
-                              onChange={(e) => setBodyFatPct(e.target.value)}
+                              onChange={(e) => {
+                                setBodyFatPct(e.target.value);
+                                revalidate({ bodyFatPct: e.target.value });
+                              }}
                               placeholder="e.g. 20"
-                              className="w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                              className={`w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring ${errors.bodyFatPct ? "border-destructive" : ""}`}
                             />
                             <span className="text-sm text-muted-foreground">
                               %
                             </span>
                           </div>
+                          <FieldError message={errors.bodyFatPct} />
                         </div>
                       )}
                     </div>
@@ -378,9 +555,12 @@ export default function Calculator() {
               {bmr !== null ? (
                 <div className="animate-fade-in space-y-6">
                   <div>
-                    <h2 className="text-xl font-display font-bold text-foreground mb-3">
-                      Result
-                    </h2>
+                    <div className="flex flex-row justify-between">
+                      <h2 className="text-xl font-display font-bold text-foreground mb-3">
+                        Result
+                      </h2>
+                      <Button onClick={handleBMRSave}>Save</Button>
+                    </div>
                     <div className="result-card">
                       <p className="text-muted-foreground text-sm">
                         Your Basal Metabolic Rate
@@ -456,49 +636,6 @@ export default function Calculator() {
               )}
             </div>
           </div>
-
-          {/* Info Section */}
-          {/* <div className="mt-12 max-w-3xl space-y-6 text-sm text-muted-foreground leading-relaxed">
-            <p>
-              The basal metabolic rate (BMR) is the amount of energy needed
-              while resting in a temperate environment when the digestive system
-              is inactive. For most people, upwards of ~70% of total energy
-              burned each day is due to upkeep. Physical activity makes up ~20%
-              of expenditure and ~10% is used for the digestion of food, also
-              known as thermogenesis.
-            </p>
-
-            <div>
-              <h3 className="text-base font-display font-bold text-foreground mb-2">
-                Formulas Used
-              </h3>
-              <div className="space-y-3">
-                <div>
-                  <p className="font-semibold text-foreground">
-                    Mifflin-St Jeor Equation:
-                  </p>
-                  <p>Men: BMR = 10W + 6.25H − 5A + 5</p>
-                  <p>Women: BMR = 10W + 6.25H − 5A − 161</p>
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground">
-                    Revised Harris-Benedict Equation:
-                  </p>
-                  <p>Men: BMR = 13.397W + 4.799H − 5.677A + 88.362</p>
-                  <p>Women: BMR = 9.247W + 3.098H − 4.330A + 447.593</p>
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground">
-                    Katch-McArdle Formula:
-                  </p>
-                  <p>BMR = 370 + 21.6(1 − F)W</p>
-                </div>
-                <p className="text-xs">
-                  W = weight (kg), H = height (cm), A = age, F = body fat (%)
-                </p>
-              </div>
-            </div>
-          </div> */}
         </div>
       </motion.div>
 

@@ -776,21 +776,29 @@ export default function Progress() {
             </p>
           </div>
 
-          <Select
-            value={weightType}
-            onValueChange={(value: "kg" | "pound") => {
-              setWeightType(value);
-              // handleMeasurementValueByOption(value);
-            }}
-          >
-            <SelectTrigger className="bg-primary text-black font-medium border-border mb-4 px-4 py-2 rounded-lg">
-              <SelectValue placeholder="Select Dimension Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="kg">kg</SelectItem>
-              <SelectItem value="pound">pound</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex gap-4">
+            <a href="/post-measurement">
+              <Button className="bg-gradient-primary hover:opacity-90 text-primary-foreground">
+                Update Progress
+              </Button>
+            </a>
+
+            <Select
+              value={weightType}
+              onValueChange={(value: "kg" | "pound") => {
+                setWeightType(value);
+                // handleMeasurementValueByOption(value);
+              }}
+            >
+              <SelectTrigger className="bg-primary text-black font-medium border-border mb-4 px-4 py-2 rounded-lg text-base">
+                <SelectValue placeholder="Select Dimension Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="kg">kg</SelectItem>
+                <SelectItem value="pound">pound</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </motion.div>
 

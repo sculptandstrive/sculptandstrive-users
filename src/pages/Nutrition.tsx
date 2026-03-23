@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Apple,
@@ -20,6 +20,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import WaterLog from "@/components/nutrition/WaterLog";
+import MacroData from "@/components/MacroData";
+import BMRData from "@/components/BMRData";
+import ReadoutCard from "@/components/ReadoutCard";
+import ProgressBar from "@/components/ProgressBar";
 
 // IMPORT DYNAMIC UTILS
 import {
@@ -77,18 +81,50 @@ const mealTimes = {
   dinner: "7:00 PM",
 };
 
+const BMI_SEGMENTS = [
+  { label: "Underweight", color: "hsl(190, 90%, 50%)", threshold: 18.5 },
+  { label: "Normal", color: "hsl(150, 60%, 45%)", threshold: 25 },
+  { label: "Overweight", color: "hsl(40, 90%, 55%)", threshold: 30 },
+  { label: "Obese", color: "hsl(0, 84%, 60%)", threshold: 40 },
+];
+
 export default function Nutrition() {
   const [nutritionLogs, setNutritionLogs] = useState<NutritionLog[]>([]);
   const [waterIntake, setWaterIntake] = useState<WaterIntake[]>([]);
   const [nutritionRequirement, setNutritionRequirement] =
     useState<NutritionRequirement | null>(null);
   const [draftRequirement, setDraftRequirement] =
-      useState<NutritionRequirement | null>(null);
+    useState<NutritionRequirement | null>(null);
   const [assignedPlan, setAssignedPlan] = useState<AssignedPlan | null>(null);
   const [searchMealType, setSearchMealType] = useState<string | null>(null);
   const [waterBar, setWaterBar] = useState<boolean>(false);
+  const [macroResult, setMacroResult] = useState<any>(null);
+  const [bmi, setbmi] = useState<number>(null);
+  const [bmr, setbmr] = useState<number>(null);
+  const [bmrUnit, setBmrUnit] = useState<string>(null);
+  const [tdee, settdee] = useState<number>(null);
+  const [bodyFat, setBodyFat] = useState<number>(null);
+  const [bodyFatType, setBodyFatType] = useState<string>(null);
+  const [idealWeight, setIdealWeight] = useState<string>(null);
+  const [idealWeightType, setIdealWeightType] = useState<string>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+
+  const colorClass = useMemo(() => {
+    if (!bmi) return "text-primary";
+    if (bmi < 18.5) return "text-primary";
+    if (bmi < 25) return "text-success";
+    if (bmi < 30) return "text-warning";
+    return "text-destructive";
+  }, [bmi]);
+
+  const weightCategory = useMemo(() => {
+    if (!bmi) return "";
+    if (bmi < 18.5) return "Underweight";
+    if (bmi < 25) return "Normal weight";
+    if (bmi < 30) return "Overweight";
+    return "Obese";
+  }, [bmi]);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -98,30 +134,36 @@ export default function Nutrition() {
     }
 
     try {
-      const [logsResult, waterResult, nutritionRequired, planResult] =
-        await Promise.all([
-          supabase
-            .from("nutrition_logs")
-            .select("*")
-            .eq("user_id", user.id)
-            .eq("log_date", today)
-            .order("created_at", { ascending: true }),
-          supabase
-            .from("water_intake")
-            .select("*")
-            .eq("user_id", user.id)
-            .eq("log_date", today),
-          supabase
-            .from("nutrition_requirements")
-            .select(
-              "calories_requirement, protein_requirement, carbs_requirement, water_requirement, fats_requirement",
-            )
-            .eq("user_id", user.id)
-            .maybeSingle(),
-          supabase
-            .from("user_meal_plans")
-            .select(
-              `
+      const [
+        logsResult,
+        waterResult,
+        nutritionRequired,
+        planResult,
+        macroData,
+        hfData,
+      ] = await Promise.all([
+        supabase
+          .from("nutrition_logs")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("log_date", today)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("water_intake")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("log_date", today),
+        supabase
+          .from("nutrition_requirements")
+          .select(
+            "calories_requirement, protein_requirement, carbs_requirement, water_requirement, fats_requirement",
+          )
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("user_meal_plans")
+          .select(
+            `
             meal_plans!user_meal_plans_plan_id_fkey(
               name,
               calories,
@@ -131,16 +173,33 @@ export default function Nutrition() {
               fats
             )
           `,
-            )
-            .eq("user_id", user.id),
-        ]);
-  
+          )
+          .eq("user_id", user.id),
+        supabase
+          .from("macro_result")
+          .select("result")
+          .eq("user_id", user.id)
+          .single(),
+        supabase.from("hf_data").select("*").eq("user_id", user.id).single(),
+      ]);
+
       setNutritionLogs(logsResult.data || []);
       setWaterIntake(waterResult.data || []);
       // console.log(nutritionRequired)
-      const fetchedReq = nutritionRequired?.data || null
+      const fetchedReq = nutritionRequired?.data || null;
       setNutritionRequirement(fetchedReq);
-      setDraftRequirement(fetchedReq)
+      setDraftRequirement(fetchedReq);
+      setMacroResult(macroData?.data?.result || null);
+      setbmi(hfData?.data?.bmi);
+      setbmr(hfData?.data?.bmr);
+      setBmrUnit(hfData?.data?.bmr_unit);
+      setBodyFat(hfData?.data?.body_fat);
+      setBodyFatType(hfData?.data?.body_fat_type);
+      if (hfData?.data.ideal_weight !== null) {
+        setIdealWeight(hfData.data.ideal_weight.split(" ")[0] || null);
+        setIdealWeightType(hfData?.data?.ideal_weight.split(" ")[1] || null);
+      }
+      settdee(hfData?.data?.tdee_maintain);
 
       if (planResult.data && (planResult.data as any)?.[0]?.meal_plans) {
         const p = (planResult.data as any)[0].meal_plans;
@@ -157,8 +216,8 @@ export default function Nutrition() {
           protein_requirement: p.protein,
           fats_requirement: p.fats,
           carbs_requirement: p.carbs,
-          water_requirement: p.water
-        })
+          water_requirement: p.water,
+        });
       } else {
         setAssignedPlan(null);
       }
@@ -171,18 +230,17 @@ export default function Nutrition() {
     fetchData();
   }, [fetchData, waterBar]);
 
-
   const totals = calculateNutritionTotals(nutritionLogs);
-  const nutritionRequirementFixed = {...nutritionRequirement};
-  // console.log(nutritionRequirementFixed)
+  const nutritionRequirementFixed = { ...nutritionRequirement };
   const dynamicGoals = getNutritionGoals(
     assignedPlan,
-    nutritionRequirementFixed
+    nutritionRequirementFixed,
   );
 
   const totalWaterMl = waterIntake.reduce((sum, w) => sum + w.amount_ml, 0);
   const totalLitres = (totalWaterMl / 1000).toFixed(2);
-  const waterTargetMl = assignedPlan?.water || nutritionRequirement?.water_requirement || 3000;
+  const waterTargetMl =
+    assignedPlan?.water || nutritionRequirement?.water_requirement || 3000;
   const waterProgress = Math.min((totalWaterMl / waterTargetMl) * 100, 100);
 
   const getMealTypeByTime = () => {
@@ -227,45 +285,60 @@ export default function Nutrition() {
   };
 
   const updateNutritionRequirements = async () => {
-    try{
-      if(assignedPlan){
+    try {
+      if (assignedPlan) {
         toast({
           title: "You are not allowed",
           description: "You have been assigned with a diet plan",
-          variant: 'destructive'
-        })
+          variant: "destructive",
+        });
         return;
       }
 
-      if (draftRequirement.calories_requirement > 6000 || draftRequirement.calories_requirement < 1200) {
+      if (
+        draftRequirement.calories_requirement > 6000 ||
+        draftRequirement.calories_requirement < 1200
+      ) {
         toast({
           title: "Validation Error",
           description: "Calories range is between 1200g to 6000g",
           variant: "destructive",
         });
         return;
-      } else if (draftRequirement.protein_requirement > 400 || draftRequirement.protein_requirement < 0) {
+      } else if (
+        draftRequirement.protein_requirement > 400 ||
+        draftRequirement.protein_requirement < 0
+      ) {
         toast({
           title: "Validation Error",
           description: "Protein range is between 0g to 400g",
           variant: "destructive",
         });
         return;
-      } else if (draftRequirement.fats_requirement > 400 || draftRequirement.fats_requirement < 0) {
+      } else if (
+        draftRequirement.fats_requirement > 400 ||
+        draftRequirement.fats_requirement < 0
+      ) {
         toast({
           title: "Validation Error",
           description: "Fats range is between 0 to 400",
           variant: "destructive",
         });
         return;
-      } else if (draftRequirement.carbs_requirement > 600 || draftRequirement.carbs_requirement < 100) {
+      } else if (
+        draftRequirement.carbs_requirement > 600 ||
+        draftRequirement.carbs_requirement < 100
+      ) {
         toast({
           title: "Validation Error",
           description: "Carbs range is between 100g to 600g",
           variant: "destructive",
         });
         return;
-      } else if (draftRequirement.water_requirement > 12000 || draftRequirement.water_requirement < 1000) {
+      } else if (
+        draftRequirement.water_requirement > 12000 ||
+        draftRequirement.water_requirement < 1000
+      ) {
         toast({
           title: "Validation Error",
           description: "Water range is between 1000ml to 12000ml",
@@ -274,21 +347,22 @@ export default function Nutrition() {
         return;
       }
 
-      const {error} = await supabase.from('nutrition_requirements').update(draftRequirement).eq('user_id', user.id)
+      const { error } = await supabase
+        .from("nutrition_requirements")
+        .update(draftRequirement)
+        .eq("user_id", user.id);
 
-      if(error)
-          throw error;
+      if (error) throw error;
 
       toast({
         title: "Diet Plan Updated",
-        description: "You have updated your diet plan."
+        description: "You have updated your diet plan.",
       });
       setNutritionRequirement(draftRequirement);
-    }
-    catch(error){
+    } catch (error) {
       console.error("Error while updating requirements", error);
     }
-  }
+  };
 
   const handleNutritionChange = (field: string, value: number) => {
     if (assignedPlan) {
@@ -301,7 +375,8 @@ export default function Nutrition() {
     }
     setDraftRequirement((prev: any) => ({
       ...prev,
-      [field]: value }))
+      [field]: value,
+    }));
   };
 
   const nutritionGoals = {
@@ -542,7 +617,10 @@ export default function Nutrition() {
                   min={130}
                   value={draftRequirement?.carbs_requirement ?? 150}
                   onChange={(e) => {
-                    handleNutritionChange("carbs_requirement", Number(e.target.value));
+                    handleNutritionChange(
+                      "carbs_requirement",
+                      Number(e.target.value),
+                    );
                   }}
                 />
               </div>
@@ -671,6 +749,76 @@ export default function Nutrition() {
         </div>
       </div>
 
+      <div className="flex flex-col gap-8">
+                    <div className="flex flex-col md:flex-row justify-around">
+                      {macroResult && <MacroData result={macroResult} />}
+                      {bmr && <BMRData bmr={bmr} resultUnit={bmrUnit} />}
+                    </div>
+            
+                    <div className="flex flex-row justify-between gap-4">
+                      {bmi && (
+                        <ReadoutCard
+                          label="Your BMI"
+                          value={bmi ? bmi.toFixed(1) : "-"}
+                          unit="kg/m²"
+                          colorClass={colorClass}
+                          description={
+                            bmi
+                              ? `${weightCategory}. BMI is a screening tool and does not diagnose body fatness or health.`
+                              : "Enter your measurements above."
+                          }
+                          showSave={false}
+                        >
+                          {bmi && (
+                            <ProgressBar
+                              value={0}
+                              segments={BMI_SEGMENTS}
+                              max={40}
+                              currentValue={bmi}
+                            />
+                          )}
+                        </ReadoutCard>
+                      )}
+                      {bodyFat && (
+                        <ReadoutCard
+                          label="Estimated Body Fat"
+                          value={bodyFat ? bodyFat.toFixed(1) : "—"}
+                          unit="%"
+                          description={
+                            bodyFat
+                              ? `${bodyFatType}. U.S. Navy method is an estimate; DEXA or hydrostatic weighing provides higher accuracy.`
+                              : "Enter your measurements above."
+                          }
+                          showSave={false}
+                        />
+                      )}
+            
+                      {tdee && (
+                        <ReadoutCard
+                          label="Total Daily Energy Expenditure"
+                          value={tdee ? Math.round(tdee).toLocaleString() : "—"}
+                          unit="kcal/day"
+                          description={
+                            tdee
+                              ? `Based on a your selected activity level. To lose weight, consume fewer calories; to gain, consume more.`
+                              : "Enter your measurements above."
+                          }
+                          showSave={false}
+                        />
+                      )}
+            
+                      {idealWeight && (
+                        <ReadoutCard
+                          label="Average Ideal Weight"
+                          value={idealWeight ? idealWeight : "—"}
+                          unit={idealWeightType}
+                          showSave={false}
+                        />
+                      )}
+                    </div>
+                  </div>
+            
+
       <AnimatePresence>
         {searchMealType && (
           <FoodSearch
@@ -684,7 +832,9 @@ export default function Nutrition() {
           <WaterLog
             onWaterLogged={fetchData}
             onClose={() => setWaterBar(false)}
-            waterRequirement = {assignedPlan?.water || nutritionRequirement?.water_requirement}
+            waterRequirement={
+              assignedPlan?.water || nutritionRequirement?.water_requirement
+            }
           />
         )}
       </AnimatePresence>

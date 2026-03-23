@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { ReactNode } from "react";
+import { Button } from "./ui/button";
 
 interface ReadoutCardProps {
   label: string;
@@ -8,15 +9,20 @@ interface ReadoutCardProps {
   description?: string;
   children?: ReactNode;
   colorClass?: string;
+  handleDBSave?: ()=>void
+  showSave?: Boolean
 }
 
-const ReadoutCard = ({ label, value, unit, description, children, colorClass = "text-primary" }: ReadoutCardProps) => {
+const ReadoutCard = ({ label, value, unit, description, handleDBSave, children, colorClass = "text-primary", showSave }: ReadoutCardProps) => {
   return (
-    <motion.div
-      layout
-      className="surface-elevated p-6 rounded-xl"
-    >
-      <span className="label-instrument">{label}</span>
+    <motion.div layout className="surface-elevated p-6 rounded-xl">
+      <div className="flex justify-between">
+        <span className="label-instrument">{label}</span>
+        {
+          showSave ? <Button onClick={handleDBSave}>Save</Button> :
+          <></>
+        }
+      </div>
       <div className="flex items-baseline gap-2 mt-2">
         <AnimatePresence mode="popLayout">
           <motion.h2
@@ -32,7 +38,9 @@ const ReadoutCard = ({ label, value, unit, description, children, colorClass = "
           </motion.h2>
         </AnimatePresence>
         {unit && (
-          <span className="text-lg font-medium text-muted-foreground">{unit}</span>
+          <span className="text-lg font-medium text-muted-foreground">
+            {unit}
+          </span>
         )}
       </div>
       {description && (

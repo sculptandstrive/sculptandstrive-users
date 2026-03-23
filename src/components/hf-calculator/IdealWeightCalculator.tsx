@@ -3,6 +3,9 @@ import CalculatorLayout, { StaggerItem } from "@/components/CalculatorLayout";
 import InstrumentInput from "@/components/InstrumentInput";
 import SegmentedControl from "@/components/SegmentedControl";
 import ReadoutCard from "@/components/ReadoutCard";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const IdealWeightCalculator = () => {
   const [units, setUnits] = useState("metric");
@@ -46,6 +49,29 @@ const IdealWeightCalculator = () => {
     return Math.round(val);
   };
 
+  const {user} = useAuth();
+
+  const handleAverageWeight = async() => {
+
+    const weight = avg + " " + displayUnit;
+    console.log(weight)
+     const {error} = await supabase.from("hf_data").upsert({ideal_weight: weight, user_id: user.id}, {onConflict: "user_id"});
+    
+    if(error){
+      toast({
+        title: "Failed to update Ideal Weight",
+        description: "Server error",
+        variant: "destructive"
+      })
+      console.error(error);
+      return;
+    }
+
+    toast({
+      title: "Saved Ideal Weight Successfully"
+    });
+  }
+
   return (
     <CalculatorLayout
       title="Ideal Weight Calculator"
@@ -76,11 +102,28 @@ const IdealWeightCalculator = () => {
       <StaggerItem>
         <div className="surface p-6 rounded-xl space-y-4">
           {units === "metric" ? (
-            <InstrumentInput label="Height" value={height} onChange={setHeight} unit="cm" min={100} max={250} />
+            <InstrumentInput
+              label="Height"
+              value={height}
+              onChange={setHeight}
+              unit="cm"
+              min={100}
+              max={250}
+            />
           ) : (
             <div className="grid grid-cols-2 gap-4">
-              <InstrumentInput label="Height (ft)" value={heightFt} onChange={setHeightFt} unit="ft" />
-              <InstrumentInput label="Height (in)" value={heightIn} onChange={setHeightIn} unit="in" />
+              <InstrumentInput
+                label="Height (ft)"
+                value={heightFt}
+                onChange={setHeightFt}
+                unit="ft"
+              />
+              <InstrumentInput
+                label="Height (in)"
+                value={heightIn}
+                onChange={setHeightIn}
+                unit="in"
+              />
             </div>
           )}
         </div>
@@ -91,7 +134,13 @@ const IdealWeightCalculator = () => {
           label="Average Ideal Weight"
           value={avg ? convert(avg).toLocaleString() : "—"}
           unit={displayUnit}
-          description={results ? "Average across Robinson, Miller, Devine, and Hamwi formulas." : "Enter your height above."}
+          description={
+            results
+              ? "Average across Robinson, Miller, Devine, and Hamwi formulas."
+              : "Enter your height above."
+          }
+          handleDBSave={handleAverageWeight}
+          showSave={true}
         />
       </StaggerItem>
 
@@ -106,10 +155,18 @@ const IdealWeightCalculator = () => {
                 { name: "Devine", val: results.devine },
                 { name: "Hamwi", val: results.hamwi },
               ].map((f) => (
-                <div key={f.name} className="text-center p-3 bg-background rounded-lg">
-                  <span className="text-xs text-muted-foreground">{f.name}</span>
+                <div
+                  key={f.name}
+                  className="text-center p-3 bg-background rounded-lg"
+                >
+                  <span className="text-xs text-muted-foreground">
+                    {f.name}
+                  </span>
                   <p className="text-xl font-mono font-bold tracking-tighter text-foreground mt-1">
-                    {convert(f.val)} <span className="text-sm text-muted-foreground font-normal">{displayUnit}</span>
+                    {convert(f.val)}{" "}
+                    <span className="text-sm text-muted-foreground font-normal">
+                      {displayUnit}
+                    </span>
                   </p>
                 </div>
               ))}

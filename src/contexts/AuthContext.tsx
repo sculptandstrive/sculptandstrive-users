@@ -9,6 +9,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName?: string, userType?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  macroResult?: any
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,6 +18,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [macroResult, setMacroResult] = useState<any>(null);
+  
+
+  async function fetchCalculatorData(){
+    // console.log("User id is: ", user.id);
+    const {data: MacroData, error: MacroError} = await supabase.from('macro_result').select('result').eq('user_id', user.id).single()
+    console.log(MacroData);
+    setMacroResult(MacroData?.result || null);
+  }
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -34,6 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       setLoading(false);
     });
+    console.log(user);
+    fetchCalculatorData();
 
     return () => subscription.unsubscribe();
   }, []);
@@ -93,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut, macroResult }}>
       {children}
     </AuthContext.Provider>
   );
