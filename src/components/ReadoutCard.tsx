@@ -15,7 +15,7 @@ interface ReadoutCardProps {
 
 const ReadoutCard = ({ label, value, unit, description, handleDBSave, children, colorClass = "text-primary", showSave }: ReadoutCardProps) => {
   return (
-    <motion.div layout className="surface-elevated p-6 rounded-xl">
+    <motion.div layout className="surface-elevated p-6    rounded-xl">
       <div className="flex justify-between">
         <span className="label-instrument">{label}</span>
         {

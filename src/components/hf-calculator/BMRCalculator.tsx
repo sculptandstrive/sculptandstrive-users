@@ -1,22 +1,70 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
+import { useForm, Controller } from "react-hook-form";
 import CalculatorLayout, { StaggerItem } from "@/components/CalculatorLayout";
 import InstrumentInput from "@/components/InstrumentInput";
 import SegmentedControl from "@/components/SegmentedControl";
 import ReadoutCard from "@/components/ReadoutCard";
 
+type FormValues = {
+  units: "metric" | "imperial";
+  gender: "male" | "female";
+  age: string;
+  weight: string;
+  height: string;
+  weightLbs: string;
+  heightFt: string;
+  heightIn: string;
+};
 
 const BMRCalculator = () => {
-  const [units, setUnits] = useState("metric");
-  const [gender, setGender] = useState("male");
-  const [age, setAge] = useState("25");
-  const [weight, setWeight] = useState("70");
-  const [height, setHeight] = useState("175");
-  const [weightLbs, setWeightLbs] = useState("154");
-  const [heightFt, setHeightFt] = useState("5");
-  const [heightIn, setHeightIn] = useState("9");
+  const {
+    control,
+    watch,
+    reset,
+    formState: { errors, isValid },
+  } = useForm<FormValues>({
+    mode: "onChange",
+    defaultValues: {
+      units: "metric",
+      gender: "male",
+      age: "25",
+      weight: "70",
+      height: "175",
+      weightLbs: "154",
+      heightFt: "5",
+      heightIn: "9",
+    },
+  });
 
+  const units = watch("units");
+  const gender = watch("gender");
+  const age = watch("age");
+  const weight = watch("weight");
+  const height = watch("height");
+  const weightLbs = watch("weightLbs");
+  const heightFt = watch("heightFt");
+  const heightIn = watch("heightIn");
+
+  const handleUnitsChange = (newUnits: string) => {
+    reset({
+      units: newUnits as "metric" | "imperial",
+      gender,
+      age,
+      weight: "70",
+      height: "175",
+      weightLbs: "154",
+      heightFt: "5",
+      heightIn: "9",
+    });
+  };
+
+  const handleGenderChange = (newGender: string) => {
+    reset({ ...watch(), gender: newGender as "male" | "female" });
+  };
 
   const bmr = useMemo(() => {
+    if (!isValid) return null;
+
     const a = parseFloat(age);
     let w: number, h: number;
 
@@ -30,12 +78,20 @@ const BMRCalculator = () => {
 
     if (!a || !w || !h) return null;
 
-    // Mifflin-St Jeor
-    if (gender === "male") {
-      return 10 * w + 6.25 * h - 5 * a + 5;
-    }
-    return 10 * w + 6.25 * h - 5 * a - 161;
-  }, [units, gender, age, weight, height, weightLbs, heightFt, heightIn]);
+    return gender === "male"
+      ? 10 * w + 6.25 * h - 5 * a + 5
+      : 10 * w + 6.25 * h - 5 * a - 161;
+  }, [
+    units,
+    gender,
+    age,
+    weight,
+    height,
+    weightLbs,
+    heightFt,
+    heightIn,
+    isValid,
+  ]);
 
   return (
     <CalculatorLayout
@@ -49,7 +105,7 @@ const BMRCalculator = () => {
             { label: "Imperial", value: "imperial" },
           ]}
           value={units}
-          onChange={setUnits}
+          onChange={handleUnitsChange}
         />
       </StaggerItem>
 
@@ -60,65 +116,163 @@ const BMRCalculator = () => {
             { label: "Female", value: "female" },
           ]}
           value={gender}
-          onChange={setGender}
+          onChange={handleGenderChange}
         />
       </StaggerItem>
 
       <StaggerItem>
         <div className="surface p-6 rounded-xl space-y-4">
-          <InstrumentInput
-            label="Age"
-            value={age}
-            onChange={setAge}
-            unit="years"
-            min={1}
-            max={120}
+          {/* Age — always visible, no shouldUnregister needed */}
+          <Controller
+            name="age"
+            control={control}
+            rules={{
+              required: "Age is required.",
+              validate: (v) => {
+                const n = parseFloat(v);
+                if (isNaN(n)) return "Age must be a valid number.";
+                if (n < 1) return "Age must be at least 1.";
+                if (n > 120) return "Age must be no more than 120.";
+                return true;
+              },
+            }}
+            render={({ field }) => (
+              <InstrumentInput
+                label="Age"
+                value={field.value}
+                onChange={field.onChange}
+                unit="years"
+                error={errors.age?.message}
+              />
+            )}
           />
+
           {units === "metric" ? (
             <>
-              <InstrumentInput
-                label="Weight"
-                value={weight}
-                onChange={setWeight}
-                unit="kg"
-                min={1}
-                max={500}
+              <Controller
+                name="weight"
+                control={control}
+                shouldUnregister
+                rules={{
+                  required: "Weight is required.",
+                  validate: (v) => {
+                    const n = parseFloat(v);
+                    if (isNaN(n)) return "Weight must be a valid number.";
+                    if (n < 1) return "Weight must be at least 1 kg.";
+                    if (n > 500) return "Weight must be no more than 500 kg.";
+                    return true;
+                  },
+                }}
+                render={({ field }) => (
+                  <InstrumentInput
+                    label="Weight"
+                    value={field.value}
+                    onChange={field.onChange}
+                    unit="kg"
+                    error={errors.weight?.message}
+                  />
+                )}
               />
-              <InstrumentInput
-                label="Height"
-                value={height}
-                onChange={setHeight}
-                unit="cm"
-                min={1}
-                max={300}
+              <Controller
+                name="height"
+                control={control}
+                shouldUnregister
+                rules={{
+                  required: "Height is required.",
+                  validate: (v) => {
+                    const n = parseFloat(v);
+                    if (isNaN(n)) return "Height must be a valid number.";
+                    if (n < 1) return "Height must be at least 1 cm.";
+                    if (n > 300) return "Height must be no more than 300 cm.";
+                    return true;
+                  },
+                }}
+                render={({ field }) => (
+                  <InstrumentInput
+                    label="Height"
+                    value={field.value}
+                    onChange={field.onChange}
+                    unit="cm"
+                    error={errors.height?.message}
+                  />
+                )}
               />
             </>
           ) : (
             <>
-              <InstrumentInput
-                label="Weight"
-                value={weightLbs}
-                onChange={setWeightLbs}
-                unit="lbs"
-                min={1}
-                max={1000}
+              <Controller
+                name="weightLbs"
+                control={control}
+                shouldUnregister
+                rules={{
+                  required: "Weight is required.",
+                  validate: (v) => {
+                    const n = parseFloat(v);
+                    if (isNaN(n)) return "Weight must be a valid number.";
+                    if (n < 1) return "Weight must be at least 1 lbs.";
+                    if (n > 1000)
+                      return "Weight must be no more than 1000 lbs.";
+                    return true;
+                  },
+                }}
+                render={({ field }) => (
+                  <InstrumentInput
+                    label="Weight"
+                    value={field.value}
+                    onChange={field.onChange}
+                    unit="lbs"
+                    error={errors.weightLbs?.message}
+                  />
+                )}
               />
               <div className="grid grid-cols-2 gap-4">
-                <InstrumentInput
-                  label="Height (ft)"
-                  value={heightFt}
-                  onChange={setHeightFt}
-                  unit="ft"
-                  min={0}
-                  max={8}
+                <Controller
+                  name="heightFt"
+                  control={control}
+                  shouldUnregister
+                  rules={{
+                    required: "Feet is required.",
+                    validate: (v) => {
+                      const n = parseFloat(v);
+                      if (isNaN(n)) return "Must be a valid number.";
+                      if (n < 0) return "Height must be at least 0 ft.";
+                      if (n > 8) return "Height must be no more than 8 ft.";
+                      return true;
+                    },
+                  }}
+                  render={({ field }) => (
+                    <InstrumentInput
+                      label="Height (ft)"
+                      value={field.value}
+                      onChange={field.onChange}
+                      unit="ft"
+                      error={errors.heightFt?.message}
+                    />
+                  )}
                 />
-                <InstrumentInput
-                  label="Height (in)"
-                  value={heightIn}
-                  onChange={setHeightIn}
-                  unit="in"
-                  min={0}
-                  max={11}
+                <Controller
+                  name="heightIn"
+                  control={control}
+                  shouldUnregister
+                  rules={{
+                    required: "Inches is required.",
+                    validate: (v) => {
+                      const n = parseFloat(v);
+                      if (isNaN(n)) return "Must be a valid number.";
+                      if (n < 0) return "Inches must be at least 0.";
+                      if (n > 11) return "Inches must be no more than 11.";
+                      return true;
+                    },
+                  }}
+                  render={({ field }) => (
+                    <InstrumentInput
+                      label="Height (in)"
+                      value={field.value}
+                      onChange={field.onChange}
+                      unit="in"
+                      error={errors.heightIn?.message}
+                    />
+                  )}
                 />
               </div>
             </>

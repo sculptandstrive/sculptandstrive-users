@@ -749,75 +749,74 @@ export default function Nutrition() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-8">
-                    <div className="flex flex-col md:flex-row justify-around">
-                      {macroResult && <MacroData result={macroResult} />}
-                      {bmr && <BMRData bmr={bmr} resultUnit={bmrUnit} />}
-                    </div>
-            
-                    <div className="flex flex-row justify-between gap-4">
-                      {bmi && (
-                        <ReadoutCard
-                          label="Your BMI"
-                          value={bmi ? bmi.toFixed(1) : "-"}
-                          unit="kg/m²"
-                          colorClass={colorClass}
-                          description={
-                            bmi
-                              ? `${weightCategory}. BMI is a screening tool and does not diagnose body fatness or health.`
-                              : "Enter your measurements above."
-                          }
-                          showSave={false}
-                        >
-                          {bmi && (
-                            <ProgressBar
-                              value={0}
-                              segments={BMI_SEGMENTS}
-                              max={40}
-                              currentValue={bmi}
-                            />
-                          )}
-                        </ReadoutCard>
-                      )}
-                      {bodyFat && (
-                        <ReadoutCard
-                          label="Estimated Body Fat"
-                          value={bodyFat ? bodyFat.toFixed(1) : "—"}
-                          unit="%"
-                          description={
-                            bodyFat
-                              ? `${bodyFatType}. U.S. Navy method is an estimate; DEXA or hydrostatic weighing provides higher accuracy.`
-                              : "Enter your measurements above."
-                          }
-                          showSave={false}
-                        />
-                      )}
-            
-                      {tdee && (
-                        <ReadoutCard
-                          label="Total Daily Energy Expenditure"
-                          value={tdee ? Math.round(tdee).toLocaleString() : "—"}
-                          unit="kcal/day"
-                          description={
-                            tdee
-                              ? `Based on a your selected activity level. To lose weight, consume fewer calories; to gain, consume more.`
-                              : "Enter your measurements above."
-                          }
-                          showSave={false}
-                        />
-                      )}
-            
-                      {idealWeight && (
-                        <ReadoutCard
-                          label="Average Ideal Weight"
-                          value={idealWeight ? idealWeight : "—"}
-                          unit={idealWeightType}
-                          showSave={false}
-                        />
-                      )}
-                    </div>
-                  </div>
-            
+      <div className="flex flex-col gap-8 space-y-6">
+        <div className="flex flex-col gap-8 md:gap-0 md:flex-row justify-around">
+          {macroResult && <MacroData result={macroResult} />}
+          {bmr && <BMRData bmr={bmr} resultUnit={bmrUnit} />}
+        </div>
+
+        <div className="flex flex-col md:flex-row justify-between gap-4">
+          {bmi && (
+            <ReadoutCard
+              label="Your BMI"
+              value={bmi ? bmi.toFixed(1) : "-"}
+              unit="kg/m²"
+              colorClass={colorClass}
+              description={
+                bmi
+                  ? `${weightCategory}. BMI is a screening tool and does not diagnose body fatness or health.`
+                  : "Enter your measurements above."
+              }
+              showSave={false}
+            >
+              {bmi && (
+                <ProgressBar
+                  value={0}
+                  segments={BMI_SEGMENTS}
+                  max={40}
+                  currentValue={bmi}
+                />
+              )}
+            </ReadoutCard>
+          )}
+          {bodyFat && (
+            <ReadoutCard
+              label="Estimated Body Fat"
+              value={bodyFat ? bodyFat.toFixed(1) : "—"}
+              unit="%"
+              description={
+                bodyFat
+                  ? `${bodyFatType}. U.S. Navy method is an estimate; DEXA or hydrostatic weighing provides higher accuracy.`
+                  : "Enter your measurements above."
+              }
+              showSave={false}
+            />
+          )}
+
+          {tdee && (
+            <ReadoutCard
+              label="Total Daily Energy Expenditure"
+              value={tdee ? Math.round(tdee).toLocaleString() : "—"}
+              unit="kcal/day"
+              description={
+                tdee
+                  ? `Based on a your selected activity level. To lose weight, consume fewer calories; to gain, consume more.`
+                  : "Enter your measurements above."
+              }
+              showSave={false}
+            />
+          )}
+
+          {idealWeight && (
+            <ReadoutCard
+              label="Average Ideal Weight"
+              value={idealWeight ? idealWeight : "—"}
+              unit={idealWeightType}
+              showSave={false}
+            />
+          )}
+        </div>
+      </div>
 
       <AnimatePresence>
         {searchMealType && (

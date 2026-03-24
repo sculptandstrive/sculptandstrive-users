@@ -78,7 +78,7 @@ const PaceCalculator = () => {
                 onChange={setDistanceUnit}
               />
             </div>
-          </div>
+          </div> 
 
           {mode === "pace" ? (
             <>
@@ -101,9 +101,9 @@ const PaceCalculator = () => {
         </div>
       </StaggerItem>
 
-      <StaggerItem>
+       <StaggerItem>
         {mode === "pace" && result && "paceKm" in result ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <ReadoutCard
               label="Pace (per km)"
               value={`${result.paceKm.min}:${String(result.paceKm.sec).padStart(2, "0")}`}
@@ -123,7 +123,7 @@ const PaceCalculator = () => {
         ) : (
           <ReadoutCard label="Result" value="—" description="Enter your values above." />
         )}
-      </StaggerItem>
+      </StaggerItem> 
 
       {result && (
         <StaggerItem>
@@ -134,7 +134,7 @@ const PaceCalculator = () => {
             colorClass="text-foreground"
           />
         </StaggerItem>
-      )}
+      )} 
     </CalculatorLayout>
   );
 };

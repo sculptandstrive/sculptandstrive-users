@@ -453,13 +453,13 @@ export default function Dashboard() {
         fetchUserReport={fetchUserReport}
       />
 
-      <div className="flex flex-col gap-8">
-        <div className="flex flex-col md:flex-row justify-around">
-          {macroResult && <MacroData result={macroResult} />}
-          {bmr && <BMRData bmr={bmr} resultUnit={bmrUnit} />}
+      <div className="flex flex-col gap-8 space-y-6">
+        <div className="flex flex-col gap-8 md:gap-0 md:flex-row justify-around">
+          { macroResult && <MacroData result={macroResult} />} 
+          { bmr && <BMRData bmr={bmr} resultUnit={bmrUnit} />}
         </div>
 
-        <div className="flex flex-row justify-between gap-4">
+        <div className="flex flex-col md:flex-row justify-between gap-4">
           {bmi && (
             <ReadoutCard
               label="Your BMI"

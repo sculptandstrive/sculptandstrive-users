@@ -290,7 +290,7 @@ const TDEECalculator = () => {
                   />
                 )}
               />
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gridd-cols-1 md:grid-cols-2 gap-4">
                 <Controller
                   name="heightFt"
                   control={control}

@@ -156,14 +156,14 @@ export function MacroResults({ result }: { result: MacroResult }) {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6 shadow-sm fade-in-up">
+    <div className="rounded-xl border border-border bg-card p-6 shadow-sm fade-in-up ">
       <h2 className="text-xl font-bold mb-1">Results</h2>
       <p className="text-sm text-muted-foreground mb-5">
         Suggested daily macronutrient breakdown based on your inputs.
       </p>
 
       {/* Plan Tabs */}
-      <div className="flex rounded-full bg-muted p-1 gap-1 mb-6 overflow-x-auto">
+      <div className="flex flex-col md:flex-row rounded-xl md:rounded-full bg-muted p-1 gap-1 mb-6 overflow-x-auto">
         {plans.map((p) => (
           <button
             key={p.key}

@@ -1,22 +1,41 @@
-import { useState, useMemo } from "react";
-import { addDays, addWeeks, format, differenceInDays, differenceInWeeks } from "date-fns";
+import { useMemo } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { addDays, addWeeks, format, differenceInDays } from "date-fns";
 import CalculatorLayout, { StaggerItem } from "@/components/CalculatorLayout";
 import InstrumentInput from "@/components/InstrumentInput";
 import ReadoutCard from "@/components/ReadoutCard";
 import ProgressBar from "@/components/ProgressBar";
 
+type FormValues = {
+  lmpDate: string;
+};
+
 const PregnancyCalculator = () => {
-  const [lmpDate, setLmpDate] = useState("");
+  const today = new Date();
+  const minDate = format(addDays(today, -280), "yyyy-MM-dd");
+  const maxDate = format(today, "yyyy-MM-dd");
+
+  const {
+    control,
+    watch,
+    formState: { errors, isValid },
+  } = useForm<FormValues>({
+    mode: "onChange",
+    defaultValues: { lmpDate: "" },
+  });
+
+  const lmpDate = watch("lmpDate");
 
   const results = useMemo(() => {
-    if (!lmpDate) return null;
+    if (!lmpDate || !isValid) return null;
     const lmp = new Date(lmpDate);
     if (isNaN(lmp.getTime())) return null;
 
-    const today = new Date();
+    const daysSinceLmp = differenceInDays(today, lmp);
+    if (daysSinceLmp < 0 || daysSinceLmp > 280) return null;
+
     const dueDate = addDays(lmp, 280);
     const conceptionDate = addDays(lmp, 14);
-    const daysSinceLmp = differenceInDays(today, lmp);
     const weeksPregnant = Math.floor(daysSinceLmp / 7);
     const daysExtra = daysSinceLmp % 7;
     const daysUntilDue = differenceInDays(dueDate, today);
@@ -34,7 +53,7 @@ const PregnancyCalculator = () => {
       firstTrimesterEnd: addWeeks(lmp, 13),
       secondTrimesterEnd: addWeeks(lmp, 27),
     };
-  }, [lmpDate]);
+  }, [lmpDate, isValid]);
 
   return (
     <CalculatorLayout
@@ -43,11 +62,29 @@ const PregnancyCalculator = () => {
     >
       <StaggerItem>
         <div className="surface p-6 rounded-xl">
-          <InstrumentInput
-            label="Last Menstrual Period (LMP)"
-            value={lmpDate}
-            onChange={setLmpDate}
-            type="date"
+          <Controller
+            name="lmpDate"
+            control={control}
+            rules={{
+              required: "Please select a date.",
+              validate: (v) => {
+                if (v > maxDate) return "Last Menstrual Period date cannot be in the future.";
+                if (v < minDate)
+                  return "Last Menstrual Period date cannot be more than 280 days ago.";
+                return true;
+              },
+            }}
+            render={({ field }) => (
+              <InstrumentInput
+                label="Last Menstrual Period (LMP)"
+                value={field.value}
+                onChange={field.onChange}
+                type="date"
+                min={minDate}
+                max={maxDate}
+                error={errors.lmpDate?.message}
+              />
+            )}
           />
         </div>
       </StaggerItem>
@@ -85,13 +122,27 @@ const PregnancyCalculator = () => {
               <span className="label-instrument mb-4 block">Key Dates</span>
               <div className="space-y-3">
                 {[
-                  { label: "Estimated Conception", date: results.conceptionDate },
-                  { label: "End of First Trimester", date: results.firstTrimesterEnd },
-                  { label: "End of Second Trimester", date: results.secondTrimesterEnd },
+                  {
+                    label: "Estimated Conception",
+                    date: results.conceptionDate,
+                  },
+                  {
+                    label: "End of First Trimester",
+                    date: results.firstTrimesterEnd,
+                  },
+                  {
+                    label: "End of Second Trimester",
+                    date: results.secondTrimesterEnd,
+                  },
                   { label: "Due Date", date: results.dueDate },
                 ].map((item) => (
-                  <div key={item.label} className="flex justify-between items-center py-2 border-b border-border last:border-0">
-                    <span className="text-sm text-muted-foreground">{item.label}</span>
+                  <div
+                    key={item.label}
+                    className="flex justify-between items-center py-2 border-b border-border last:border-0"
+                  >
+                    <span className="text-sm text-muted-foreground">
+                      {item.label}
+                    </span>
                     <span className="text-sm font-medium text-foreground font-mono">
                       {format(item.date, "MMM d, yyyy")}
                     </span>
