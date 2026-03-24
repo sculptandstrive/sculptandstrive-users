@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 
 export interface FormData {
@@ -16,120 +16,60 @@ interface Props {
   onCalculate: (data: FormData) => void;
 }
 
-type FormErrors = Partial<Record<string, string>>;
-
-function validateInputs(
-  unit: "us" | "metric",
-  age: number,
-  heightFt: number,
-  heightIn: number,
-  weight: number,
-): FormErrors {
-  const errors: FormErrors = {};
-
-  if (!age || isNaN(age) || age < 18 || age > 80) {
-    errors.age = "Age must be between 18 and 80.";
-  }
-
-  if (unit === "us") {
-    if (!heightFt || isNaN(heightFt) || heightFt < 1 || heightFt > 8) {
-      errors.heightFt = "Feet must be between 1 and 8.";
-    }
-    if (isNaN(heightIn) || heightIn < 0 || heightIn > 11) {
-      errors.heightIn = "Inches must be between 0 and 11.";
-    }
-    if (!weight || isNaN(weight) || weight < 50 || weight > 1000) {
-      errors.weight = "Enter a valid weight (50–1000 lbs).";
-    }
-  } else {
-    if (!heightFt || isNaN(heightFt) || heightFt < 100 || heightFt > 250) {
-      errors.heightFt = "Height must be between 100 and 250 cm.";
-    }
-    if (!weight || isNaN(weight) || weight < 20 || weight > 500) {
-      errors.weight = "Enter a valid weight (20–500 kg).";
-    }
-  }
-
-  return errors;
-}
-
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return <p className="text-xs text-destructive mt-1">{message}</p>;
 }
 
 export function CalculatorForm({ onCalculate }: Props) {
-  const [unit, setUnit] = useState<"us" | "metric">("us");
-  const [age, setAge] = useState(25);
-  const [gender, setGender] = useState<"male" | "female">("male");
-  const [heightFt, setHeightFt] = useState(5);
-  const [heightIn, setHeightIn] = useState(10);
-  const [weight, setWeight] = useState(160);
-  const [activity, setActivity] = useState("moderate");
-  const [goal, setGoal] = useState("maintain");
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [submitted, setSubmitted] = useState(false); // ← tracks first submit
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    reset,
+    formState: { errors },
+  } = useForm<FormData>({
+    mode: "onChange",
+    defaultValues: {
+      unit: "us",
+      age: 25,
+      gender: "male",
+      heightFt: 5,
+      heightIn: 10,
+      weight: 160,
+      activity: "moderate",
+      goal: "maintain",
+    },
+  });
 
-  // Re-runs full validation — only after first submit
-  const revalidate = (
-    overrides: Partial<{
-      unit: "us" | "metric";
-      age: number;
-      heightFt: number;
-      heightIn: number;
-      weight: number;
-    }> = {},
-  ) => {
-    if (!submitted) return;
-    setErrors(
-      validateInputs(
-        overrides.unit ?? unit,
-        overrides.age ?? age,
-        overrides.heightFt ?? heightFt,
-        overrides.heightIn ?? heightIn,
-        overrides.weight ?? weight,
-      ),
-    );
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitted(true); // turn on live validation from here
-
-    const validationErrors = validateInputs(
-      unit,
-      age,
-      heightFt,
-      heightIn,
-      weight,
-    );
-    setErrors(validationErrors);
-    if (Object.keys(validationErrors).length > 0) return;
-
-    onCalculate({
-      unit,
-      age,
-      gender,
-      heightFt,
-      heightIn,
-      weight,
-      activity,
-      goal,
-    });
-  };
+  const unit = watch("unit");
+  const gender = watch("gender");
 
   const handleUnitSwitch = (u: "us" | "metric") => {
-    setUnit(u);
     if (u === "us") {
-      setHeightFt(5);
-      setHeightIn(10);
-      setWeight(160);
+      reset({
+        unit: "us",
+        age: watch("age"),
+        gender: watch("gender"),
+        heightFt: 5,
+        heightIn: 10,
+        weight: 160,
+        activity: watch("activity"),
+        goal: watch("goal"),
+      });
     } else {
-      setHeightFt(170);
-      setHeightIn(0);
-      setWeight(73);
+      reset({
+        unit: "metric",
+        age: watch("age"),
+        gender: watch("gender"),
+        heightFt: 170,
+        heightIn: 0,
+        weight: 73,
+        activity: watch("activity"),
+        goal: watch("goal"),
+      });
     }
-    revalidate({ unit: u });
   };
 
   const activityOptions = [
@@ -171,7 +111,7 @@ export function CalculatorForm({ onCalculate }: Props) {
 
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={handleSubmit(onCalculate)}
       className="rounded-xl border border-border bg-card p-6 shadow-sm space-y-5"
     >
       {/* Unit Toggle */}
@@ -197,23 +137,22 @@ export function CalculatorForm({ onCalculate }: Props) {
         <label className="text-sm font-medium text-foreground">Age</label>
         <input
           type="number"
-          min={18}
-          max={80}
-          value={age}
-          onChange={(e) => {
-            const val = +e.target.value;
-            setAge(val);
-            revalidate({ age: val });
-          }}
           className={inputClass(!!errors.age)}
+          {...register("age", {
+            required: "Age is required.",
+            valueAsNumber: true,
+            min: { value: 18, message: "Age must be between 18 and 80." },
+            max: { value: 80, message: "Age must be between 18 and 80." },
+            validate: (v) => !isNaN(v) || "Enter a valid age.",
+          })}
         />
-        <FieldError message={errors.age} />
+        <FieldError message={errors.age?.message} />
         {!errors.age && (
           <p className="mt-1 text-xs text-muted-foreground">Ages 18–80</p>
         )}
       </div>
 
-      {/* Gender — no validation needed, always has a value */}
+      {/* Gender */}
       <div>
         <label className="text-sm font-medium text-foreground">Gender</label>
         <div className="mt-1.5 flex rounded-full bg-muted p-1 gap-1">
@@ -221,7 +160,7 @@ export function CalculatorForm({ onCalculate }: Props) {
             <button
               key={g}
               type="button"
-              onClick={() => setGender(g)}
+              onClick={() => setValue("gender", g)}
               className={`flex-1 rounded-full py-2 text-sm font-medium transition-all capitalize ${
                 gender === g
                   ? "bg-primary shadow-sm text-primary-foreground"
@@ -242,52 +181,61 @@ export function CalculatorForm({ onCalculate }: Props) {
             <div>
               <input
                 type="number"
-                min={1}
-                max={8}
-                value={heightFt}
-                onChange={(e) => {
-                  const val = +e.target.value;
-                  setHeightFt(val);
-                  revalidate({ heightFt: val });
-                }}
                 className={inputClass(!!errors.heightFt)}
+                {...register("heightFt", {
+                  required: "Feet is required.",
+                  valueAsNumber: true,
+                  min: { value: 1, message: "Feet must be between 1 and 8." },
+                  max: { value: 8, message: "Feet must be between 1 and 8." },
+                  validate: (v) => !isNaN(v) || "Enter a valid number.",
+                })}
               />
               <span className="text-xs text-muted-foreground">feet</span>
-              <FieldError message={errors.heightFt} />
+              <FieldError message={errors.heightFt?.message} />
             </div>
             <div>
               <input
                 type="number"
-                min={0}
-                max={11}
-                value={heightIn}
-                onChange={(e) => {
-                  const val = +e.target.value;
-                  setHeightIn(val);
-                  revalidate({ heightIn: val });
-                }}
                 className={inputClass(!!errors.heightIn)}
+                {...register("heightIn", {
+                  required: "Inches is required.",
+                  valueAsNumber: true,
+                  min: {
+                    value: 0,
+                    message: "Inches must be between 0 and 11.",
+                  },
+                  max: {
+                    value: 11,
+                    message: "Inches must be between 0 and 11.",
+                  },
+                  validate: (v) => !isNaN(v) || "Enter a valid number.",
+                })}
               />
               <span className="text-xs text-muted-foreground">inches</span>
-              <FieldError message={errors.heightIn} />
+              <FieldError message={errors.heightIn?.message} />
             </div>
           </div>
         ) : (
           <div className="mt-1.5">
             <input
               type="number"
-              min={100}
-              max={250}
-              value={heightFt}
-              onChange={(e) => {
-                const val = +e.target.value;
-                setHeightFt(val);
-                revalidate({ heightFt: val });
-              }}
               className={inputClass(!!errors.heightFt)}
+              {...register("heightFt", {
+                required: "Height is required.",
+                valueAsNumber: true,
+                min: {
+                  value: 100,
+                  message: "Height must be between 100 and 250 cm.",
+                },
+                max: {
+                  value: 250,
+                  message: "Height must be between 100 and 250 cm.",
+                },
+                validate: (v) => !isNaN(v) || "Enter a valid number.",
+              })}
             />
             <span className="text-xs text-muted-foreground">cm</span>
-            <FieldError message={errors.heightFt} />
+            <FieldError message={errors.heightFt?.message} />
           </div>
         )}
       </div>
@@ -297,31 +245,39 @@ export function CalculatorForm({ onCalculate }: Props) {
         <label className="text-sm font-medium text-foreground">Weight</label>
         <input
           type="number"
-          min={1}
-          value={weight}
-          onChange={(e) => {
-            const val = +e.target.value;
-            setWeight(val);
-            revalidate({ weight: val });
-          }}
           className={`mt-1.5 ${inputClass(!!errors.weight)}`}
+          {...register("weight", {
+            required: "Weight is required.",
+            valueAsNumber: true,
+            min: {
+              value: unit === "us" ? 50 : 20,
+              message:
+                unit === "us"
+                  ? "Enter a valid weight (50–1000 lbs)."
+                  : "Enter a valid weight (20–500 kg).",
+            },
+            max: {
+              value: unit === "us" ? 1000 : 500,
+              message:
+                unit === "us"
+                  ? "Enter a valid weight (50–1000 lbs)."
+                  : "Enter a valid weight (20–500 kg).",
+            },
+            validate: (v) => !isNaN(v) || "Enter a valid number.",
+          })}
         />
         <span className="text-xs text-muted-foreground">
           {unit === "us" ? "pounds" : "kg"}
         </span>
-        <FieldError message={errors.weight} />
+        <FieldError message={errors.weight?.message} />
       </div>
 
-      {/* Activity — select, always has a value, no validation needed */}
+      {/* Activity */}
       <div>
         <label className="text-sm font-medium text-foreground">
           Activity Level
         </label>
-        <select
-          value={activity}
-          onChange={(e) => setActivity(e.target.value)}
-          className={`mt-1.5 ${inputClass()}`}
-        >
+        <select className={`mt-1.5 ${inputClass()}`} {...register("activity")}>
           {activityOptions.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}: {o.desc}
@@ -330,14 +286,10 @@ export function CalculatorForm({ onCalculate }: Props) {
         </select>
       </div>
 
-      {/* Goal — select, always has a value, no validation needed */}
+      {/* Goal */}
       <div>
         <label className="text-sm font-medium text-foreground">Your Goal</label>
-        <select
-          value={goal}
-          onChange={(e) => setGoal(e.target.value)}
-          className={`mt-1.5 ${inputClass()}`}
-        >
+        <select className={`mt-1.5 ${inputClass()}`} {...register("goal")}>
           {goalOptions.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}

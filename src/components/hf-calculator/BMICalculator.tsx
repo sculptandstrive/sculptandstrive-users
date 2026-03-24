@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
+import { useMemo } from "react";
+import { useForm, Controller } from "react-hook-form";
 import CalculatorLayout, { StaggerItem } from "@/components/CalculatorLayout";
 import InstrumentInput from "@/components/InstrumentInput";
 import SegmentedControl from "@/components/SegmentedControl";
@@ -15,128 +16,67 @@ const BMI_SEGMENTS = [
   { label: "Obese", color: "hsl(0, 84%, 60%)", threshold: 40 },
 ];
 
-// Validation constraints
-const VALIDATION_RULES = {
-  metric: {
-    weight: { min: 20, max: 300, label: "Weight" },
-    height: { min: 100, max: 250, label: "Height" },
-  },
-  imperial: {
-    weightLbs: { min: 44, max: 660, label: "Weight" },
-    heightFt: { min: 3, max: 8, label: "Height (ft)" },
-    heightIn: { min: 0, max: 11, label: "Height (in)" },
-  },
+type FormValues = {
+  units: "metric" | "imperial";
+  weight: string;
+  height: string;
+  heightFt: string;
+  heightIn: string;
+  weightLbs: string;
 };
 
-type ValidationErrors = Record<string, string>;
-type TouchedFields = Record<string, boolean>;
-
 const BMICalculator = () => {
-  const [units, setUnits] = useState("metric");
-  const [weight, setWeight] = useState("70");
-  const [height, setHeight] = useState("175");
-  const [heightFt, setHeightFt] = useState("5");
-  const [heightIn, setHeightIn] = useState("9");
-  const [weightLbs, setWeightLbs] = useState("154");
-
-  // Validation state
-  const [touched, setTouched] = useState<TouchedFields>({});
-  const [hasAttemptedSave, setHasAttemptedSave] = useState(false);
-
   const { user } = useAuth();
 
-  // Validation logic
-  const validateField = useCallback(
-    (field: string, value: string, unitSystem: string): string | null => {
-      const rules =
-        unitSystem === "metric"
-          ? VALIDATION_RULES.metric
-          : VALIDATION_RULES.imperial;
-
-      const rule = rules[field as keyof typeof rules] as {
-        min: number;
-        max: number;
-        label: string;
-      } | undefined;
-      if (!rule) return null;
-
-      const numValue = parseFloat(value);
-
-      if (value.trim() === "") {
-        return `${rule.label} is required`;
-      }
-
-      if (isNaN(numValue)) {
-        return `${rule.label} must be a valid number`;
-      }
-
-      if (numValue < rule.min) {
-        return `${rule.label} must be at least ${rule.min}`;
-      }
-
-      if (numValue > rule.max) {
-        return `${rule.label} must be no more than ${rule.max}`;
-      }
-
-      return null;
+  const {
+    control,
+    watch,
+    setValue,
+    handleSubmit,
+    reset,
+    formState: { errors, isValid },
+  } = useForm<FormValues>({
+    mode: "onChange",
+    defaultValues: {
+      units: "metric",
+      weight: "70",
+      height: "175",
+      heightFt: "5",
+      heightIn: "9",
+      weightLbs: "154",
     },
-    [],
-  );
+  });
 
-  // Compute all validation errors
-  const errors = useMemo((): ValidationErrors => {
-    const errs: ValidationErrors = {};
+  const units = watch("units");
+  const weight = watch("weight");
+  const height = watch("height");
+  const heightFt = watch("heightFt");
+  const heightIn = watch("heightIn");
+  const weightLbs = watch("weightLbs");
 
-    if (units === "metric") {
-      const weightError = validateField("weight", weight, units);
-      const heightError = validateField("height", height, units);
-      if (weightError) errs.weight = weightError;
-      if (heightError) errs.height = heightError;
-    } else {
-      const weightError = validateField("weightLbs", weightLbs, units);
-      const heightFtError = validateField("heightFt", heightFt, units);
-      const heightInError = validateField("heightIn", heightIn, units);
-      if (weightError) errs.weightLbs = weightError;
-      if (heightFtError) errs.heightFt = heightFtError;
-      if (heightInError) errs.heightIn = heightInError;
-    }
-
-    return errs;
-  }, [units, weight, height, weightLbs, heightFt, heightIn, validateField]);
-
-  const isValid = Object.keys(errors).length === 0;
-
-  // Helper to check if error should be shown (hybrid approach)
-  const shouldShowError = useCallback(
-    (field: string): boolean => {
-      return (touched[field] || hasAttemptedSave) && !!errors[field];
-    },
-    [touched, hasAttemptedSave, errors],
-  );
-
-  // Wrapped onChange handlers that also handle validation state
-  const createChangeHandler = (
-    setter: (value: string) => void,
-    field: string,
-  ) => {
-    return (value: string) => {
-      setter(value);
-      // Clear the "attempted save" state when user starts correcting
-      if (hasAttemptedSave && errors[field]) {
-        setHasAttemptedSave(false);
-      }
-    };
-  };
-
-  // Reset touched state when switching units
   const handleUnitsChange = (newUnits: string) => {
-    setUnits(newUnits);
-    setTouched({});
-    setHasAttemptedSave(false);
+    reset(
+      newUnits === "metric"
+        ? {
+            units: "metric",
+            weight: "70",
+            height: "175",
+            heightFt: "5",
+            heightIn: "9",
+            weightLbs: "154",
+          }
+        : {
+            units: "imperial",
+            weight: "70",
+            height: "175",
+            heightFt: "5",
+            heightIn: "9",
+            weightLbs: "154",
+          },
+    );
   };
 
   const bmi = useMemo(() => {
-    // Only calculate if valid
     if (!isValid) return null;
 
     if (units === "metric") {
@@ -171,21 +111,7 @@ const BMICalculator = () => {
     return "text-destructive";
   }, [bmi]);
 
-  const handleBMISave = async () => {
-    // Mark as attempted save to show all errors
-    setHasAttemptedSave(true);
-
-    // Validate before saving
-    if (!isValid) {
-      const errorMessages = Object.values(errors);
-      toast({
-        title: "Validation Error",
-        description: errorMessages[0], // Show first error
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleBMISave = handleSubmit(async () => {
     if (!bmi) {
       toast({
         title: "Cannot Save",
@@ -206,7 +132,7 @@ const BMICalculator = () => {
 
     const { error } = await supabase
       .from("hf_data")
-      .upsert({ bmi: bmi, user_id: user.id }, { onConflict: "user_id" });
+      .upsert({ bmi, user_id: user.id }, { onConflict: "user_id" });
 
     if (error) {
       toast({
@@ -218,10 +144,8 @@ const BMICalculator = () => {
       return;
     }
 
-    toast({
-      title: "Saved BMI Successfully",
-    });
-  };
+    toast({ title: "Saved BMI Successfully" });
+  });
 
   return (
     <CalculatorLayout
@@ -243,60 +167,139 @@ const BMICalculator = () => {
         <div className="surface p-6 rounded-xl space-y-4">
           {units === "metric" ? (
             <>
-              <InstrumentInput
-                label="Weight"
-                value={weight}
-                onChange={createChangeHandler(setWeight, "weight")}
-                unit="kg"
-                min={VALIDATION_RULES.metric.weight.min}
-                max={VALIDATION_RULES.metric.weight.max}
-                error={shouldShowError("weight") ? errors.weight : undefined}
+              <Controller
+                name="weight"
+                control={control}
+                shouldUnregister
+                rules={{
+                  required: "Weight is required.",
+                  validate: (v) => {
+                    const n = parseFloat(v);
+                    if (isNaN(n)) return "Weight must be a valid number.";
+                    if (n < 20) return "Weight must be at least 20 kg.";
+                    if (n > 300) return "Weight must be no more than 300 kg.";
+                    return true;
+                  },
+                }}
+                render={({ field }) => (
+                  <InstrumentInput
+                    label="Weight"
+                    value={field.value}
+                    onChange={field.onChange}
+                    unit="kg"
+                    min={20}
+                    max={300}
+                    error={errors.weight?.message}
+                  />
+                )}
               />
-              <InstrumentInput
-                label="Height"
-                value={height}
-                onChange={createChangeHandler(setHeight, "height")}
-                unit="cm"
-                min={VALIDATION_RULES.metric.height.min}
-                max={VALIDATION_RULES.metric.height.max}
-                error={shouldShowError("height") ? errors.height : undefined}
+              <Controller
+                name="height"
+                control={control}
+                shouldUnregister
+                rules={{
+                  required: "Height is required.",
+                  validate: (v) => {
+                    const n = parseFloat(v);
+                    if (isNaN(n)) return "Height must be a valid number.";
+                    if (n < 100) return "Height must be at least 100 cm.";
+                    if (n > 250) return "Height must be no more than 250 cm.";
+                    return true;
+                  },
+                }}
+                render={({ field }) => (
+                  <InstrumentInput
+                    label="Height"
+                    value={field.value}
+                    onChange={field.onChange}
+                    unit="cm"
+                    min={100}
+                    max={250}
+                    error={errors.height?.message}
+                  />
+                )}
               />
             </>
           ) : (
             <>
-              <InstrumentInput
-                label="Weight"
-                value={weightLbs}
-                onChange={createChangeHandler(setWeightLbs, "weightLbs")}
-                unit="lbs"
-                min={VALIDATION_RULES.imperial.weightLbs.min}
-                max={VALIDATION_RULES.imperial.weightLbs.max}
-                error={
-                  shouldShowError("weightLbs") ? errors.weightLbs : undefined
-                }
+              <Controller
+                name="weightLbs"
+                control={control}
+                shouldUnregister
+                rules={{
+                  required: "Weight is required.",
+                  validate: (v) => {
+                    const n = parseFloat(v);
+                    if (isNaN(n)) return "Weight must be a valid number.";
+                    if (n < 44) return "Weight must be at least 44 lbs.";
+                    if (n > 660) return "Weight must be no more than 660 lbs.";
+                    return true;
+                  },
+                }}
+                render={({ field }) => (
+                  <InstrumentInput
+                    label="Weight"
+                    value={field.value}
+                    onChange={field.onChange}
+                    unit="lbs"
+                    min={44}
+                    max={660}
+                    error={errors.weightLbs?.message}
+                  />
+                )}
               />
               <div className="grid grid-cols-2 gap-4">
-                <InstrumentInput
-                  label="Height (ft)"
-                  value={heightFt}
-                  onChange={createChangeHandler(setHeightFt, "heightFt")}
-                  unit="ft"
-                  min={VALIDATION_RULES.imperial.heightFt.min}
-                  max={VALIDATION_RULES.imperial.heightFt.max}
-                  error={
-                    shouldShowError("heightFt") ? errors.heightFt : undefined
-                  }
+                <Controller
+                  name="heightFt"
+                  control={control}
+                  shouldUnregister
+                  rules={{
+                    required: "Feet is required.",
+                    validate: (v) => {
+                      const n = parseFloat(v);
+                      if (isNaN(n)) return "Must be a valid number.";
+                      if (n < 3) return "Height must be at least 3 ft.";
+                      if (n > 8) return "Height must be no more than 8 ft.";
+                      return true;
+                    },
+                  }}
+                  render={({ field }) => (
+                    <InstrumentInput
+                      label="Height (ft)"
+                      value={field.value}
+                      onChange={field.onChange}
+                      unit="ft"
+                      min={3}
+                      max={8}
+                      error={errors.heightFt?.message}
+                    />
+                  )}
                 />
-                <InstrumentInput
-                  label="Height (in)"
-                  value={heightIn}
-                  onChange={createChangeHandler(setHeightIn, "heightIn")}
-                  unit="in"
-                  min={VALIDATION_RULES.imperial.heightIn.min}
-                  max={VALIDATION_RULES.imperial.heightIn.max}
-                  error={
-                    shouldShowError("heightIn") ? errors.heightIn : undefined
-                  }
+                <Controller
+                  name="heightIn"
+                  control={control}
+                  shouldUnregister
+                  rules={{
+                    required: "Inches is required.",
+                    validate: (v) => {
+                      const n = parseFloat(v);
+                      if (isNaN(n)) return "Must be a valid number.";
+                      if (n < 0) return "Inches must be at least 0.";
+                      if (n > 11) return "Inches must be no more than 11.";
+                      return true;
+                    },
+                  }}
+                  render={({ field }) => (
+                    <InstrumentInput
+                      label="Height (in)"
+                      value={field.value}
+                      onChange={field.onChange}
+                      unit="in"
+                      min={0}
+                      max={11}
+                      error={errors.heightIn?.message}
+                    />
+                  )}
                 />
               </div>
             </>
@@ -317,7 +320,6 @@ const BMICalculator = () => {
           colorClass={colorClass}
           handleDBSave={handleBMISave}
           showSave={true}
-          disabled={!isValid}
         >
           {bmi && (
             <ProgressBar

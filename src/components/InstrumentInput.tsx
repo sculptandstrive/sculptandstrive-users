@@ -9,14 +9,30 @@ interface InstrumentInputProps {
   min?: number;
   max?: number;
   step?: number;
+  error?: string;
 }
 
-const InstrumentInput = ({ label, value, onChange, unit, type = "number", min, max, step }: InstrumentInputProps) => {
+const InstrumentInput = ({
+  label,
+  value,
+  onChange,
+  unit,
+  type = "number",
+  // min and max are intentionally NOT spread onto the input element —
+  // they are only used for display/context. Validation is handled by RHF.
+  min: _min,
+  max: _max,
+  step,
+  error,
+}: InstrumentInputProps) => {
   const id = useId();
 
   return (
     <div className="relative">
-      <label htmlFor={id} className="absolute top-2 left-4 label-instrument pointer-events-none">
+      <label
+        htmlFor={id}
+        className="absolute top-2 left-4 label-instrument pointer-events-none"
+      >
         {label}
       </label>
       <input
@@ -24,16 +40,15 @@ const InstrumentInput = ({ label, value, onChange, unit, type = "number", min, m
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        min={min}
-        max={max}
         step={step}
-        className="input-instrument"
+        className={`input-instrument ${error ? "border-destructive" : ""}`}
       />
       {unit && (
         <span className="absolute right-12 bottom-2.5 text-sm text-muted-foreground font-medium">
           {unit}
         </span>
       )}
+      {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>
   );
 };
