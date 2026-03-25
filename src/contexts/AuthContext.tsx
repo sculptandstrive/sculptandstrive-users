@@ -22,9 +22,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
 
   async function fetchCalculatorData(){
-    // console.log("User id is: ", user.id);
     const {data: MacroData, error: MacroError} = await supabase.from('macro_result').select('result').eq('user_id', user.id).single()
-    // console.log(MacroData);
+    
     setMacroResult(MacroData?.result || null);
   }
 
@@ -44,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       setLoading(false);
     });
-    // console.log(user);
+    
     fetchCalculatorData();
 
     return () => subscription.unsubscribe();

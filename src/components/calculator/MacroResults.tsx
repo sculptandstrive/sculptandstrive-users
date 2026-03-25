@@ -136,7 +136,6 @@ export function MacroResults({ result }: { result: MacroResult }) {
       const {error: macroError} = await supabase.from('macro_result').upsert({result: dbResult, user_id: user.id},{onConflict: 'user_id'});
 
       if(error || macroError){
-        // console.log(macroError)
         throw new Error("Server Error");
       }
 

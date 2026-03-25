@@ -130,14 +130,12 @@ export default function Fitness() {
   const sunday = new Date(monday)
   sunday.setDate(monday.getDate()+6);
   sunday.setHours(23, 59, 59, 999);
-  // console.log(monday, sunday);
   const pad = (n) => String(n).padStart(2, "0");
   const toLocalDate = (date) =>
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
   const startOfWeek = toLocalDate(monday);
   const endOfWeek = toLocalDate(sunday);
-  // console.log(startOfWeek, endOfWeek)
   const [stats, setStats] = useState({
     weight: "---",
     weightChange: 0,
@@ -238,7 +236,6 @@ export default function Fitness() {
         };
 
         const currentBF = calculateBF(latest);
-        // console.log(currentBF)
         const currentWeight = latest.weight_kg || 0;
         const prevWeight = prev.weight_kg || currentWeight;
         const currentMuscle = currentWeight * (1 - (currentBF / 100));
@@ -281,7 +278,6 @@ export default function Fitness() {
 
       const { data, error } = await supabase.from("workouts").insert(rowsToInsert as any).select();
       if (error){
-        console.log(error)
         return null;
       } 
       return data?.sort((a: any, b: any) => a.order_index - b.order_index).map(d => ({ 

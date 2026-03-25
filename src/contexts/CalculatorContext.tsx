@@ -14,7 +14,6 @@ export function CalculatorProvider({children}: {children: ReactNode}){
 
     async function fetchCalculatorData(){
         const {data: MacroData, error: MacroError} = await supabase.from('macro_result').select('result').eq('user_id', user.id).single();
-        // console.log("Macro Data is: ", MacroData);
         setMacroResult(MacroData);
     }
 

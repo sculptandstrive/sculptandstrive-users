@@ -90,6 +90,9 @@ export default function DateRangePicker({
         end = addDays(start, minRangeDays - 1);
       }
 
+      end = new Date(end);
+      end.setHours(23, 59, 59, 999);
+
       onChange({ from: start, to: end });
       setSelecting(null);
       setHovered(null);

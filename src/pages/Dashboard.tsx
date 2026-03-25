@@ -119,7 +119,6 @@ export default function Dashboard() {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   sunday.setHours(23, 59, 59, 999);
-  // console.log(monday, sunday);
   const pad = (n) => String(n).padStart(2, "0");
   const toLocalDate = (date) =>
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;

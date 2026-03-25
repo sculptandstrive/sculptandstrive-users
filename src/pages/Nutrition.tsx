@@ -187,7 +187,6 @@ export default function Nutrition() {
 
       setNutritionLogs(logsResult.data || []);
       setWaterIntake(waterResult.data || []);
-      // console.log(nutritionRequired)
       const fetchedReq = nutritionRequired?.data || null;
       setNutritionRequirement(fetchedReq);
       setDraftRequirement(fetchedReq);

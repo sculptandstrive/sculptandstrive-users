@@ -119,7 +119,6 @@ export default function Progress() {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   sunday.setHours(23, 59, 59, 999);
-  // console.log(monday, sunday);
   const pad = (n) => String(n).padStart(2, "0");
   const toLocalDate = (date) =>
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -149,11 +148,11 @@ export default function Progress() {
 
   useEffect(() => {
     fetchWeightData();
-    // console.log(selectedRange)
+
   }, [selectedRange, user]);
 
   const fetchWeightData = async () => {
-    // console.log(selectedRange)
+
     const startOfMonth = selectedRange.from;
     const endOfMonth = new Date(selectedRange.to);
     endOfMonth.setUTCHours(23, 59, 59, 999);
@@ -184,7 +183,7 @@ export default function Progress() {
       .eq("user_id", user.id)
       .order("created_at", { ascending: true });
 
-    // console.log(allMeasurements);
+
 
     if (allMeasurements) {
       const dates = new Set(
@@ -195,7 +194,7 @@ export default function Progress() {
       setAvailableDates(dates);
     }
 
-    // console.log(availableDates)
+
 
     const dataToDisplay = (() => {
       const base =
@@ -208,7 +207,7 @@ export default function Progress() {
       return [...base, ...currentMonth];
     })();
 
-    // console.log(dataToDisplay);
+
 
     if (dataToDisplay.length > 0) {
       setWeightDataKg(
@@ -270,7 +269,7 @@ export default function Progress() {
       .limit(1)
       .single(); 
 
-      // console.log(lastBeforeMonth)
+  
 
       const { data: currentMonth, error: measurementsError } = await supabase
         .from("current_measurements")
@@ -522,7 +521,7 @@ export default function Progress() {
             calories: completedExercisesCount * 50,
           });
         }
-        // console.log(workoutChartData);
+    
         setWorkoutData(workoutChartData);
       }
       setLoading(false);

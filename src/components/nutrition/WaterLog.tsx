@@ -37,8 +37,6 @@ export default function WaterLog({ onWaterLogged, onClose, waterRequirement }: W
       } else if (currMl >= maxWaterMl) {
         ml = maxWaterMl - totalMl;
       }
-
-      // console.log(ml)
   
       const { error } = await supabase.from("water_intake").insert({
         user_id: user.id,

@@ -32,16 +32,13 @@ const PregnancyCalculator = () => {
 
   const results = useMemo(() => {
     if (!lmpDate || !isValid) return null;
-    // console.log(lmpDate);
     const lmp = new Date(lmpDate);
-    // console.log(lmp)
     if (isNaN(lmp.getTime())) return null;
 
     const daysSinceLmp = differenceInDays(today, lmp);
     if (daysSinceLmp < 0 || daysSinceLmp > 280) return null;
 
     const dueDate = addDays(lmp, 280);
-    // console.log(dueDate);
     const conceptionDate = addDays(lmp, 14);
     const weeksPregnant = Math.floor(daysSinceLmp / 7);
     const daysExtra = daysSinceLmp % 7;

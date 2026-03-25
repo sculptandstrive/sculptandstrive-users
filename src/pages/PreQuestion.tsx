@@ -176,7 +176,6 @@ export default function PreQuestion() {
       }
       
       if(fieldType === 'pound' || fieldType === 'inch'){
-        // console.log(numValue)
         if (numValue < rules.min_secondary) {
           toast({
             title: "Validation Error",

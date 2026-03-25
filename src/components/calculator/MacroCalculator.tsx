@@ -62,7 +62,6 @@ function calculateMacros(data: FormData): MacroResult {
 
 export default function MacroCalculator() {
   const [result, setResult] = useState<MacroResult | null>(null);
-  // console.log(result)
   const handleCalculate = (data: FormData) => {
     setResult(calculateMacros(data));
   };

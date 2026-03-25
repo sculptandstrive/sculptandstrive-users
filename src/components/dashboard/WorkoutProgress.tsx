@@ -103,7 +103,6 @@ export default function WorkoutProgress({weeklyData, setWeeklyData, fetchUserRep
     const mondayStr = monday.toLocaleDateString("en-CA");
     const sundayStr = sunday.toLocaleDateString("en-CA");
 
-    // console.log(mondayStr, sundayStr)
 
     // Optimistic UI update
     setWeeklyData((prev) => prev.map((day) => ({ ...day, completed: false })));
@@ -116,7 +115,7 @@ export default function WorkoutProgress({weeklyData, setWeeklyData, fetchUserRep
       .gte("workout_date", mondayStr)
       .lte("workout_date", sundayStr);
 
-    // console.log(weekWorkouts)
+    
 
     if (fetchError) {
       toast({
