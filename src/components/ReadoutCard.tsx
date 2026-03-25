@@ -15,11 +15,11 @@ interface ReadoutCardProps {
 
 const ReadoutCard = ({ label, value, unit, description, handleDBSave, children, colorClass = "text-primary", showSave }: ReadoutCardProps) => {
   return (
-    <motion.div layout className="surface-elevated p-6    rounded-xl">
+    <motion.div layout className="surface-elevated p-3 md:p-6 rounded-xl">
       <div className="flex justify-between">
         <span className="label-instrument">{label}</span>
         {
-          showSave ? <Button onClick={handleDBSave}>Save</Button> :
+          showSave ? <Button className="p-2" onClick={handleDBSave}>Save</Button> :
           <></>
         }
       </div>
@@ -31,7 +31,7 @@ const ReadoutCard = ({ label, value, unit, description, handleDBSave, children, 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className={`text-5xl sm:text-6xl font-mono font-bold tracking-tighter ${colorClass}`}
+            className={`md:text-5xl text-2xl font-mono font-bold tracking-tighter ${colorClass}`}
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
             {value}

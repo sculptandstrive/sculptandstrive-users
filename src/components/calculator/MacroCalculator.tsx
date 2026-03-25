@@ -69,7 +69,7 @@ export default function MacroCalculator() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container max-w-6xl py-8 md:py-12">
+      <div className=" max-w-4xl py-8 md:py-12">
         {/* Header */}
         <div className="mb-8 ">
           <h1 className="text-2xl font-extrabold tracking-tight md:text-3xl">

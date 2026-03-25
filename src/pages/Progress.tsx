@@ -108,6 +108,25 @@ export default function Progress() {
     new Set(),
   );
 
+
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  // console.log(monday, sunday);
+  const pad = (n) => String(n).padStart(2, "0");
+  const toLocalDate = (date) =>
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+
+  const startOfWeek = toLocalDate(monday);
+  const endOfWeek = toLocalDate(sunday);
+
    const calculateBodyFat = (
      weight: number,
      height: number,
@@ -176,7 +195,7 @@ export default function Progress() {
       setAvailableDates(dates);
     }
 
-    console.log(availableDates)
+    // console.log(availableDates)
 
     const dataToDisplay = (() => {
       const base =
@@ -189,7 +208,7 @@ export default function Progress() {
       return [...base, ...currentMonth];
     })();
 
-    console.log(dataToDisplay);
+    // console.log(dataToDisplay);
 
     if (dataToDisplay.length > 0) {
       setWeightDataKg(
@@ -455,6 +474,8 @@ export default function Progress() {
         .from("workouts")
         .select("*")
         .eq("user_id", user.id)
+        .gte("workout_date", startOfWeek)
+        .lte("workout_date", endOfWeek)
         .order("order_index", { ascending: true });
 
       if (!workoutsError && workouts) {
@@ -734,7 +755,7 @@ export default function Progress() {
       icon: Scale,
     },
     {
-      label: "Weight Lost",
+      label: `Weight ${stats.weightLost > 0 ? "Lost" : "Gain"}`,
       value:
         weightType === "kg"
           ? `${stats.weightLost > 0 ? "-" : "+"}${Math.abs(stats.weightLost).toFixed(1)} kg`
@@ -776,9 +797,9 @@ export default function Progress() {
             </p>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-col items-center justify-center md:flex-row gap-4">
             <a href="/post-measurement">
-              <Button className="bg-gradient-primary hover:opacity-90 text-primary-foreground">
+              <Button className="bg-gradient-primary hover:opacity-90 text-primary-foreground p-1 md:px-4 md:py-2 text-sm md:text-base">
                 Update Progress
               </Button>
             </a>
@@ -790,7 +811,7 @@ export default function Progress() {
                 // handleMeasurementValueByOption(value);
               }}
             >
-              <SelectTrigger className="bg-primary text-black font-medium border-border mb-4 px-4 py-2 rounded-lg text-base">
+              <SelectTrigger className="bg-primary text-black font-medium border-border  px-4 py-2 rounded-lg text-base">
                 <SelectValue placeholder="Select Dimension Type" />
               </SelectTrigger>
               <SelectContent>

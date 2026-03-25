@@ -32,7 +32,7 @@ const ProgressBar = ({ value, max = 100, segments, currentValue }: ProgressBarPr
         </div>
         <div className="flex justify-between gap-1 mt-2">
           {segments.map((seg) => (
-            <span key={seg.label} className="text-[8px] md:text-[10px] md:uppercase tracking-wider text-muted-foreground ">
+            <span key={seg.label} className="text-[7px] md:text-[10px] md:uppercase tracking-wider text-muted-foreground ">
               {seg.label}
             </span>
           ))}

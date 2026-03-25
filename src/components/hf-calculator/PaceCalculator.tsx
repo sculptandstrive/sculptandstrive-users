@@ -64,7 +64,7 @@ const PaceCalculator = () => {
 
       <StaggerItem>
         <div className="surface p-6 rounded-xl space-y-4">
-          <div className="flex gap-4">
+          <div className="flex flex-col md:flex-row gap-2 md:gap-4">
             <div className="flex-1">
               <InstrumentInput label="Distance" value={distance} onChange={setDistance} step={0.1} />
             </div>
@@ -83,7 +83,7 @@ const PaceCalculator = () => {
           {mode === "pace" ? (
             <>
               <span className="label-instrument block mt-2">Time</span>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <InstrumentInput label="Hours" value={hours} onChange={setHours} min={0} />
                 <InstrumentInput label="Min" value={minutes} onChange={setMinutes} min={0} max={59} />
                 <InstrumentInput label="Sec" value={seconds} onChange={setSeconds} min={0} max={59} />

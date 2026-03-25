@@ -67,7 +67,7 @@ export function FoodTable() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Macronutrients in Common Foods</h2>
+      <h2 className="text-lg md:text-2xl font-bold mb-4">Macronutrients in Common Foods</h2>
       <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories}>
         {Object.entries(foodData).map(([category, foods]) => (
           <AccordionItem key={category} value={category} className="border-border">
@@ -76,7 +76,7 @@ export function FoodTable() {
             </AccordionTrigger>
             <AccordionContent>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-xs md:text-sm">
                   <thead>
                     <tr className="text-left text-muted-foreground">
                       <th className="py-2 pr-4 font-medium">Food</th>

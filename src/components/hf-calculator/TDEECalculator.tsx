@@ -392,7 +392,7 @@ const TDEECalculator = () => {
 
       {tdee && (
         <StaggerItem>
-          <div className="surface p-6 rounded-xl">
+          <div className="surface p-3 md:p-6 rounded-xl">
             <span className="label-instrument mb-4 block">Daily Targets</span>
             <div className="grid grid-cols-3 gap-4">
               {[
