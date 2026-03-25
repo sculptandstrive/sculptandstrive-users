@@ -5,6 +5,9 @@ import CalculatorLayout, { StaggerItem } from "@/components/CalculatorLayout";
 import InstrumentInput from "@/components/InstrumentInput";
 import ReadoutCard from "@/components/ReadoutCard";
 import ProgressBar from "@/components/ProgressBar";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 type FormValues = {
   lmpDate: string;
@@ -14,6 +17,7 @@ const PregnancyCalculator = () => {
   const today = new Date();
   const minDate = format(addDays(today, -280), "yyyy-MM-dd");
   const maxDate = format(today, "yyyy-MM-dd");
+  const {user} = useAuth();
 
   const {
     control,
@@ -28,13 +32,16 @@ const PregnancyCalculator = () => {
 
   const results = useMemo(() => {
     if (!lmpDate || !isValid) return null;
+    // console.log(lmpDate);
     const lmp = new Date(lmpDate);
+    // console.log(lmp)
     if (isNaN(lmp.getTime())) return null;
 
     const daysSinceLmp = differenceInDays(today, lmp);
     if (daysSinceLmp < 0 || daysSinceLmp > 280) return null;
 
     const dueDate = addDays(lmp, 280);
+    // console.log(dueDate);
     const conceptionDate = addDays(lmp, 14);
     const weeksPregnant = Math.floor(daysSinceLmp / 7);
     const daysExtra = daysSinceLmp % 7;
@@ -54,6 +61,29 @@ const PregnancyCalculator = () => {
       secondTrimesterEnd: addWeeks(lmp, 27),
     };
   }, [lmpDate, isValid]);
+
+  const handlePregnancyCalc = async() => {
+    if(!lmpDate){
+       toast({
+         title: "Cannot Save",
+         description: "Please enter valid LMP Range",
+         variant: "destructive",
+       });
+       return;
+    }
+    const {error} = await supabase.from('hf_data').upsert({lmp_date: lmpDate, user_id: user.id}, {onConflict: "user_id"})
+
+    if(error){
+      toast({
+        title: "Failed to save Pregnancy Data",
+        description: "Server error. Please try again.",
+        variant: "destructive",
+      });
+      console.error(error);
+      return;
+    }
+    toast({ title: "Saved LMP Successfully" });
+  }
 
   return (
     <CalculatorLayout
@@ -96,6 +126,8 @@ const PregnancyCalculator = () => {
               label="Estimated Due Date"
               value={format(results.dueDate, "MMM d, yyyy")}
               colorClass="text-accent"
+              showSave = {true}
+              handleDBSave={handlePregnancyCalc}
               description={`${results.daysUntilDue > 0 ? results.daysUntilDue + " days remaining" : "Past due date"}. Currently in trimester ${results.trimester}.`}
             >
               <ProgressBar value={results.progressPercent} />

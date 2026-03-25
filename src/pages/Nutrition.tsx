@@ -813,6 +813,7 @@ export default function Nutrition() {
               value={idealWeight ? idealWeight : "—"}
               unit={idealWeightType}
               showSave={false}
+              description="Average across Robinson, Miller, Devine, and Hamwi formulas."
             />
           )}
         </div>

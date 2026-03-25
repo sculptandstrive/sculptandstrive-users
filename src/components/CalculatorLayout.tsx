@@ -7,20 +7,25 @@ interface CalculatorLayoutProps {
   title: string;
   subtitle?: string;
   children: ReactNode;
+  showBack?: Boolean;
 }
 
-const CalculatorLayout = ({ title, subtitle, children }: CalculatorLayoutProps) => {
+const CalculatorLayout = ({ title, subtitle, children, showBack = true }: CalculatorLayoutProps) => {
   const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-8 pb-16">
-        <p
+        {
+          showBack ? 
+          <p
           onClick={() => navigate(-1)}
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8 hover:cursor-pointer"
-        >
+          >
           <ArrowLeft className="w-4 h-4" />
           All Calculators
         </p>
+        : <></>
+        }
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}

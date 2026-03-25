@@ -15,7 +15,7 @@ interface ReadoutCardProps {
 
 const ReadoutCard = ({ label, value, unit, description, handleDBSave, children, colorClass = "text-primary", showSave }: ReadoutCardProps) => {
   return (
-    <motion.div layout className="surface-elevated p-3 md:p-6 rounded-xl">
+    <motion.div layout className="surface-elevated p-2 md:p-6 rounded-xl">
       <div className="flex justify-between">
         <span className="label-instrument">{label}</span>
         {
@@ -23,7 +23,7 @@ const ReadoutCard = ({ label, value, unit, description, handleDBSave, children, 
           <></>
         }
       </div>
-      <div className="flex items-baseline gap-2 mt-2">
+      <div className="flex items-center justify-center md:justify-start gap-2 mt-2">
         <AnimatePresence mode="popLayout">
           <motion.h2
             key={value}

@@ -23,6 +23,8 @@ import MacroData from "@/components/MacroData";
 import ReadoutCard from "@/components/ReadoutCard";
 import ProgressBar from "@/components/ProgressBar";
 import BMRData from "@/components/BMRData";
+import  CalculatorLayout, { StaggerItem } from '@/components/CalculatorLayout'
+import { addDays, addWeeks, differenceInDays, format } from "date-fns";
 
 const BMI_SEGMENTS = [
   { label: "Underweight", color: "hsl(190, 90%, 50%)", threshold: 18.5 },
@@ -105,6 +107,7 @@ export default function Dashboard() {
   });
   const [dailyWaterGoal, setWaterGoal] = useState<number>(3);
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
+  const [lmpDate, setLmpDate] = useState<string | null>(null);
 
   const now = new Date();
   const dayOfWeek = now.getDay();
@@ -225,6 +228,7 @@ export default function Dashboard() {
       setBmrUnit(hfData?.data?.bmr_unit);
       setBodyFat(hfData?.data?.body_fat);
       setBodyFatType(hfData?.data?.body_fat_type);
+      setLmpDate(hfData?.data?.lmp_date)
       if(hfData?.data.ideal_weight !== null){
         setIdealWeight(hfData.data.ideal_weight.split(' ')[0] || null);
         setIdealWeightType(hfData?.data?.ideal_weight.split(' ')[1] || null)
@@ -290,6 +294,37 @@ export default function Dashboard() {
       });
     }
   };
+
+  const results = useMemo(()=>{
+    if(!lmpDate) return null;
+    const lmp = new Date(lmpDate);
+
+    if(isNaN(lmp.getTime())) return null;
+    const daysSinceLmp = differenceInDays(today, lmp);
+    if(daysSinceLmp < 0 || daysSinceLmp > 280) return null;
+
+    const dueDate = addDays(lmp, 280);
+
+    const conceptionDate = addDays(lmp, 14)
+    const weeksPregnant = Math.floor(daysSinceLmp/ 7);
+    const daysExtra = daysSinceLmp % 7;
+    const daysUntilDue = differenceInDays(dueDate, today);
+    const trimester = weeksPregnant < 13 ? 1 : weeksPregnant < 27 ? 2 : 3;
+    const progressPercent = Math.min((daysSinceLmp / 280) * 100, 100);
+
+    return {
+      dueDate,
+      conceptionDate,
+      weeksPregnant,
+      daysExtra,
+      daysUntilDue,
+      trimester,
+      progressPercent,
+      firstTrimesterEnd: addWeeks(lmp, 13),
+      secondTrimesterEnd: addWeeks(lmp, 27)
+    }
+  },[lmpDate])
+
 
   const colorClass = useMemo(() => {
     if (!bmi) return "text-primary";
@@ -455,11 +490,11 @@ export default function Dashboard() {
 
       <div className="flex flex-col gap-8 space-y-6">
         <div className="flex flex-col gap-8 md:gap-0 md:flex-row justify-around">
-          { macroResult && <MacroData result={macroResult} />} 
-          { bmr && <BMRData bmr={bmr} resultUnit={bmrUnit} />}
+          {macroResult && <MacroData result={macroResult} />}
+          {bmr && <BMRData bmr={bmr} resultUnit={bmrUnit} />}
         </div>
 
-        <div className="flex flex-col md:flex-row justify-between gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 justify-between gap-4">
           {bmi && (
             <ReadoutCard
               label="Your BMI"
@@ -517,7 +552,79 @@ export default function Dashboard() {
               value={idealWeight ? idealWeight : "—"}
               unit={idealWeightType}
               showSave={false}
+              description="Average across Robinson, Miller, Devine, and Hamwi formulas."
             />
+          )}
+        </div>
+
+        <div>
+          {results && (
+            <div className="rounded-xl border p-3 md:p-6 ">
+              <CalculatorLayout title="Pregnancy Calculator" showBack={false}>
+                <StaggerItem>
+                  <ReadoutCard
+                    label="Estimated Due Date"
+                    value={format(results.dueDate, "MMM d, yyyy")}
+                    colorClass="text-accent"
+                    description={`${results.daysUntilDue > 0 ? results.daysUntilDue + " days remaining" : "Past due date"}. Currently in trimester ${results.trimester}.`}
+                  >
+                    <ProgressBar value={results.progressPercent} />
+                  </ReadoutCard>
+                </StaggerItem>
+
+                <StaggerItem>
+                  <div className="grid grid-cols-2 gap-4">
+                    <ReadoutCard
+                      label="Current Week"
+                      value={`${results.weeksPregnant}w ${results.daysExtra}d`}
+                      colorClass="text-accent"
+                    />
+                    <ReadoutCard
+                      label="Trimester"
+                      value={String(results.trimester)}
+                      colorClass="text-accent"
+                    />
+                  </div>
+                </StaggerItem>
+
+                <StaggerItem>
+                  <div className="surface p-3 md:p-6 rounded-xl">
+                    <span className="label-instrument mb-4 block">
+                      Key Dates
+                    </span>
+                    <div className="space-y-3">
+                      {[
+                        {
+                          label: "Estimated Conception",
+                          date: results.conceptionDate,
+                        },
+                        {
+                          label: "End of First Trimester",
+                          date: results.firstTrimesterEnd,
+                        },
+                        {
+                          label: "End of Second Trimester",
+                          date: results.secondTrimesterEnd,
+                        },
+                        { label: "Due Date", date: results.dueDate },
+                      ].map((item) => (
+                        <div
+                          key={item.label}
+                          className="flex justify-between py-2 border-b border-border last:border-0"
+                        >
+                          <span className="text-sm text-muted-foreground">
+                            {item.label}
+                          </span>
+                          <span className="text-sm font-medium text-foreground font-mono">
+                            {format(item.date, "MMM d, yyyy")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </StaggerItem>
+              </CalculatorLayout>
+            </div>
           )}
         </div>
       </div>
