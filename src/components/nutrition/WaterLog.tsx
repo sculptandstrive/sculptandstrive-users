@@ -31,7 +31,7 @@ export default function WaterLog({ onWaterLogged, onClose, waterRequirement }: W
     const currMl = totalMl + ml;
     const maxWaterMl = Math.ceil(goalInMl * 1.5);
     try {
-      onClose
+      
       if (totalMl >= maxWaterMl) {
         throw new Error("You have consumed 1.5x water of Daily Limit");
       } else if (currMl >= maxWaterMl) {
@@ -45,7 +45,7 @@ export default function WaterLog({ onWaterLogged, onClose, waterRequirement }: W
       });
 
       if (error) throw error;
-      setTotalMl(totalMl + ml);
+      // setTotalMl(totalMl + ml);
       onWaterLogged();
       toast({ title: "Water logged!", description: `${ml}ml added 💧` });
     } catch (error: any) {
@@ -149,7 +149,7 @@ export default function WaterLog({ onWaterLogged, onClose, waterRequirement }: W
 
   useEffect(() => {
     fetchWaterRequirement();
-  }, []);
+  }, [addWater]);
 
   const totalLitres = (totalMl / 1000).toFixed(2);
   const goalMl = goalLitres * 1000;
