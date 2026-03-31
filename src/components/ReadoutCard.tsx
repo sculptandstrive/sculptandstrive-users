@@ -31,7 +31,7 @@ const ReadoutCard = ({ label, value, unit, description, handleDBSave, children, 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className={`md:text-5xl text-2xl font-mono font-bold tracking-tighter ${colorClass}`}
+            className={`text-3xl font-mono font-bold tracking-tighter ${colorClass}`}
             style={{ fontVariantNumeric: "tabular-nums" }}
           >
             {value}

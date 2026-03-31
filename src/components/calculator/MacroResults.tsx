@@ -51,7 +51,7 @@ function MacroCard({
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
       </div>
       {subtitle && <p className="text-xs text-muted-foreground mb-1">{subtitle}</p>}
-      <p className="text-2xl font-bold">{grams}g<span className="text-sm font-normal text-muted-foreground">/day</span></p>
+      <p className="text-2xl font-bold">{grams}g<span className="text-xl font-normal text-muted-foreground">/day</span></p>
       <p className="text-xs text-muted-foreground mt-1">Range: {min} – {max}</p>
     </div>
   );
@@ -225,7 +225,7 @@ export function MacroResults({ result }: { result: MacroResult }) {
           min={result.carbs.min}
           max={result.carbs.max}
           color="bg-carbs"
-          subtitle="Includes Sugar"
+          // subtitle="Includes Sugar"
         />
         <MacroCard
           label="Fat"
@@ -233,7 +233,7 @@ export function MacroResults({ result }: { result: MacroResult }) {
           min={result.fat.min}
           max={result.fat.max}
           color="bg-fat"
-          subtitle="Includes Saturated Fat"
+          // subtitle="Includes Saturated Fat"
         />
       </div>
 

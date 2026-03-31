@@ -181,7 +181,7 @@
      }
   
      .label-instrument {
-       @apply text-xs uppercase tracking-[0.12em] text-muted-foreground  font-medium;
+       @apply sm:text-xs uppercase tracking-[0.12em] text-muted-foreground  font-medium;
      }
   
      .input-instrument {

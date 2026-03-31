@@ -49,12 +49,12 @@ function MacroCard({
           {label}
         </span>
       </div>
-      {subtitle && (
+      {/* {subtitle && (
         <p className="text-xs text-muted-foreground mb-1">{subtitle}</p>
-      )}
+      )} */}
       <p className="text-2xl font-bold">
         {grams}g
-        <span className="text-sm font-normal text-muted-foreground">/day</span>
+        <span className="text-xl font-normal text-muted-foreground">/day</span>
       </p>
       <p className="text-xs text-muted-foreground mt-1">
         Range: {min} – {max}
@@ -179,7 +179,7 @@ const MacroData = ({result}) => {
           <p className="text-xs text-muted-foreground">Sugar</p>
           <p className="text-lg font-bold">
             &lt;{result.sugar}g
-            <span className="text-xs font-normal text-muted-foreground">
+            <span className="text-base font-normal text-muted-foreground">
               /day
             </span>
           </p>
@@ -188,7 +188,7 @@ const MacroData = ({result}) => {
           <p className="text-xs text-muted-foreground">Saturated Fat</p>
           <p className="text-lg font-bold">
             &lt;{result.saturatedFat}g
-            <span className="text-xs font-normal text-muted-foreground">
+            <span className="text-base font-normal text-muted-foreground">
               /day
             </span>
           </p>
@@ -197,7 +197,7 @@ const MacroData = ({result}) => {
           <p className="text-xs text-muted-foreground">Food Energy</p>
           <p className="text-lg font-bold">
             {result.calories.toLocaleString()}
-            <span className="text-xs font-normal text-muted-foreground">
+            <span className="text-base font-normal text-muted-foreground">
               {" "}
               Cal/day
             </span>
