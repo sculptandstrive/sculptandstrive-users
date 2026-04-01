@@ -24,10 +24,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
-// import ReadoutCard from "@/components/ReadoutCard";
-// import ProgressBar from "@/components/ProgressBar";
-// import MacroData from "@/components/MacroData";
-// import BMRData from "@/components/BMRData";
+import ReadoutCard from "@/components/ReadoutCard";
+import ProgressBar from "@/components/ProgressBar";
+import MacroData from "@/components/MacroData";
+import BMRData from "@/components/BMRData";
 
 //  CONFIGURATION & TYPES
 
@@ -91,6 +91,7 @@ export default function Fitness() {
   const [isAdding, setIsAdding] = useState(false);
   const [selectedRestDuration, setSelectedRestDuration] = useState(60);
   const [showRestOptions, setShowRestOptions] = useState(false);
+  const [exerciseLibrary, setExerciseLibrary] = useState<any[]>([]);
 
   const {user} = useAuth();
 
@@ -143,6 +144,8 @@ export default function Fitness() {
   }, []);
 
   const weekRangeLabel = `${weekDates[0].fullDate} - ${weekDates[6].fullDate}`;
+
+
   
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -310,7 +313,7 @@ export default function Fitness() {
   };
 
   useEffect(() => {
-    // fetchCalculatorData();
+    fetchExercisesList();
     let unsub: any = null;
     const init = async () => {
       const { data: authData } = await supabase.auth.getUser();
@@ -476,6 +479,31 @@ export default function Fitness() {
     { label: "BMI", value: stats.bmi, unit: "", change: stats.bmiChange },
   ];
 
+  const fetchExercisesList = async () => {
+    const { data, error } = await supabase
+      .from("exercises_list")
+      .select("*, exercise_category(name)");
+
+    if (error) {
+      toast({
+        title: "Failed to load exercise library",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Map to match the shape addExercise() expects
+    const mapped = (data ?? []).map((ex) => ({
+      name: ex.name,
+      sets: 3, // default
+      reps: 10, // default
+      weight_kg: 0, // default
+      category: ex.exercise_category?.name ?? "General",
+    }));
+
+    setExerciseLibrary(mapped);
+  };
+
   const filteredLibrary = exerciseLibrary.filter(ex => 
     ex.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -491,8 +519,12 @@ export default function Fitness() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-1">Fitness Tracking</h1>
-          <p className="text-[14px] text-slate-400">Log workouts and crush your goals</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-1">
+            Fitness Tracking
+          </h1>
+          <p className="text-[14px] text-slate-400">
+            Log workouts and crush your goals
+          </p>
         </div>
         <Button
           onClick={() => setIsLogOpen(true)}
@@ -505,18 +537,34 @@ export default function Fitness() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {bodyStatsDisplay.map((stat) => (
-          <div key={stat.label} className="bg-[#161b22] border border-slate-800 p-4 md:p-5 rounded-xl">
-            <p className="text-[10px] md:text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">{stat.label}</p>
+          <div
+            key={stat.label}
+            className="bg-[#161b22] border border-slate-800 p-4 md:p-5 rounded-xl"
+          >
+            <p className="text-[10px] md:text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+              {stat.label}
+            </p>
             <div className="flex items-baseline gap-1 flex-wrap">
-              <span className="text-xl md:text-2xl font-bold">{stat.value}</span>
-              <span className="text-[12px] md:text-[13px] text-slate-500 font-bold">{stat.unit}</span>
+              <span className="text-xl md:text-2xl font-bold">
+                {stat.value}
+              </span>
+              <span className="text-[12px] md:text-[13px] text-slate-500 font-bold">
+                {stat.unit}
+              </span>
             </div>
-            <p className={`text-[10px] md:text-[11px] font-bold mt-2 truncate ${
-                stat.label === "Muscle Mass" 
-                ? (stat.change >= 0 ? "text-blue-500" : "text-red-400")
-                : (stat.change <= 0 ? "text-emerald-500" : "text-red-400")
-            }`}>
-              {stat.change > 0 ? "+" : ""}{stat.change} this week
+            <p
+              className={`text-[10px] md:text-[11px] font-bold mt-2 truncate ${
+                stat.label === "Muscle Mass"
+                  ? stat.change >= 0
+                    ? "text-blue-500"
+                    : "text-red-400"
+                  : stat.change <= 0
+                    ? "text-emerald-500"
+                    : "text-red-400"
+              }`}
+            >
+              {stat.change > 0 ? "+" : ""}
+              {stat.change} this week
             </p>
           </div>
         ))}
@@ -529,7 +577,12 @@ export default function Fitness() {
             <div className="flex items-center gap-2 text-[#2dd4bf]">
               <Dumbbell className="w-5 h-5" />
               <h3 className="font-bold text-[15px] md:text-[16px] tracking-tight">
-                {weeklyPlan.find(d => d.id === activeWorkoutId)?.day_name === todayDayName ? "Today's" : weeklyPlan.find(d => d.id === activeWorkoutId)?.day_name} Workout
+                {weeklyPlan.find((d) => d.id === activeWorkoutId)?.day_name ===
+                todayDayName
+                  ? "Today's"
+                  : weeklyPlan.find((d) => d.id === activeWorkoutId)
+                      ?.day_name}{" "}
+                Workout
               </h3>
             </div>
             {restTime > 0 ? (
@@ -542,7 +595,9 @@ export default function Fitness() {
             ) : (
               <div className="flex items-center gap-2">
                 <Settings2 className="w-3.5 h-3.5 text-slate-500" />
-                <span className="text-[10px] md:text-[11px] text-slate-500 font-bold uppercase tracking-widest">Rest: {selectedRestDuration}s</span>
+                <span className="text-[10px] md:text-[11px] text-slate-500 font-bold uppercase tracking-widest">
+                  Rest: {selectedRestDuration}s
+                </span>
               </div>
             )}
           </div>
@@ -550,9 +605,12 @@ export default function Fitness() {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-[12px] text-slate-400 font-medium">
-                {exercises.filter(e => e.completed).length}/{exercises.length} sets done
+                {exercises.filter((e) => e.completed).length}/{exercises.length}{" "}
+                sets done
               </span>
-              <span className="text-[13px] font-bold">{Math.round(progress)}%</span>
+              <span className="text-[13px] font-bold">
+                {Math.round(progress)}%
+              </span>
             </div>
             <Progress value={progress} className="h-1.5 bg-slate-800" />
           </div>
@@ -569,47 +627,83 @@ export default function Fitness() {
                   className={`group flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-xl transition-all border ${
                     focusedExerciseId === exercise.id
                       ? "border-[#2dd4bf] ring-1 ring-[#2dd4bf]"
-                      : exercise.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-[#0d1117] border-slate-800"
+                      : exercise.completed
+                        ? "bg-emerald-500/5 border-emerald-500/20"
+                        : "bg-[#0d1117] border-slate-800"
                   }`}
                 >
                   <button
-                    onClick={() => toggleExercise(exercise, exercise.id, exercise.completed)}
+                    onClick={() =>
+                      toggleExercise(exercise, exercise.id, exercise.completed)
+                    }
                     className={`w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                      exercise.completed ? "bg-emerald-500 text-black border-emerald-500" : "border-2 border-slate-700 hover:border-[#2dd4bf]"
+                      exercise.completed
+                        ? "bg-emerald-500 text-black border-emerald-500"
+                        : "border-2 border-slate-700 hover:border-[#2dd4bf]"
                     }`}
                   >
-                    {exercise.completed ? <Check className="w-4 h-4 md:w-5 md:h-5 stroke-[3px]" /> : <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />}
+                    {exercise.completed ? (
+                      <Check className="w-4 h-4 md:w-5 md:h-5 stroke-[3px]" />
+                    ) : (
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />
+                    )}
                   </button>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-[14px] md:text-[15px] font-bold truncate ${exercise.completed ? "text-slate-500 line-through" : "text-white"}`}>
+                    <p
+                      className={`text-[14px] md:text-[15px] font-bold truncate ${exercise.completed ? "text-slate-500 line-through" : "text-white"}`}
+                    >
                       {exercise.name}
                     </p>
                     <div className="flex flex-col md:flex-row items-center gap-4 mt-1.5">
                       <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">Sets</span>
-                        <Input 
-                          type="number" 
+                        <span className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">
+                          Sets
+                        </span>
+                        <Input
+                          type="number"
                           className="h-7 w-10 md:w-12 bg-[#161b22] border-slate-800 text-[11px] md:text-[12px] p-1 text-center font-bold"
                           value={exercise.sets}
-                          onChange={(e) => updateExerciseField(exercise.id, 'sets', e.target.value)}
+                          onChange={(e) =>
+                            updateExerciseField(
+                              exercise.id,
+                              "sets",
+                              e.target.value,
+                            )
+                          }
                         />
                       </div>
                       <div className="flex flex-col shrink-0">
-                        <span className="text-[8px] md:text-[9px] text-slate-500 font-bold uppercase mb-0.5">Reps</span>
-                        <Input 
-                          type="number" 
+                        <span className="text-[8px] md:text-[9px] text-slate-500 font-bold uppercase mb-0.5">
+                          Reps
+                        </span>
+                        <Input
+                          type="number"
                           className="h-7 w-10 md:w-12 bg-[#161b22] border-slate-800 text-[11px] md:text-[12px] p-1 text-center font-bold"
                           value={exercise.reps}
-                          onChange={(e) => updateExerciseField(exercise.id, 'reps', e.target.value)}
+                          onChange={(e) =>
+                            updateExerciseField(
+                              exercise.id,
+                              "reps",
+                              e.target.value,
+                            )
+                          }
                         />
                       </div>
                       <div className="flex flex-col shrink-0">
-                        <span className="text-[8px] md:text-[9px] text-slate-500 font-bold uppercase mb-0.5">Weight (kg)</span>
-                        <Input 
-                          type="number" 
+                        <span className="text-[8px] md:text-[9px] text-slate-500 font-bold uppercase mb-0.5">
+                          Weight (kg)
+                        </span>
+                        <Input
+                          type="number"
                           className="h-7 w-14 md:w-16 bg-[#161b22] border-slate-800 text-[11px] md:text-[12px] p-1 text-center font-bold"
                           value={exercise.weight_kg}
-                          onChange={(e) => updateExerciseField(exercise.id, 'weight_kg', e.target.value)}
+                          onChange={(e) =>
+                            updateExerciseField(
+                              exercise.id,
+                              "weight_kg",
+                              e.target.value,
+                            )
+                          }
                         />
                       </div>
                     </div>
@@ -625,23 +719,30 @@ export default function Fitness() {
 
               {exercises.length === 0 && (
                 <div className="flex flex-col items-center justify-center text-center py-12 md:py-20 text-slate-500 border border-dashed border-slate-800 rounded-xl">
-                  {weeklyPlan.find(d => d.id === activeWorkoutId)?.workout_name?.toLowerCase().includes("rest") 
-                    ? <><Coffee className="w-10 h-10 mb-3 opacity-20 text-[#2dd4bf]" /> <p>It's a Rest Day! Take it easy.</p></>
-                    : (
-                      <>
-                        <Dumbbell className="w-10 h-10 mb-3 opacity-20" /> 
-                        <p className="mb-4 text-sm px-4">No exercises added for this day.</p>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => setIsLogOpen(true)}
-                          className="border-[#2dd4bf]/30 text-[#2dd4bf] hover:bg-[#2dd4bf]/10"
-                        >
-                          <Plus className="w-4 h-4 mr-2" /> Add Exercise
-                        </Button>
-                      </>
-                    )
-                  }
+                  {weeklyPlan
+                    .find((d) => d.id === activeWorkoutId)
+                    ?.workout_name?.toLowerCase()
+                    .includes("rest") ? (
+                    <>
+                      <Coffee className="w-10 h-10 mb-3 opacity-20 text-[#2dd4bf]" />{" "}
+                      <p>It's a Rest Day! Take it easy.</p>
+                    </>
+                  ) : (
+                    <>
+                      <Dumbbell className="w-10 h-10 mb-3 opacity-20" />
+                      <p className="mb-4 text-sm px-4">
+                        No exercises added for this day.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsLogOpen(true)}
+                        className="border-[#2dd4bf]/30 text-[#2dd4bf] hover:bg-[#2dd4bf]/10"
+                      >
+                        <Plus className="w-4 h-4 mr-2" /> Add Exercise
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </AnimatePresence>
@@ -650,7 +751,7 @@ export default function Fitness() {
           <div className="mt-6 md:mt-8 space-y-4">
             <AnimatePresence>
               {showRestOptions && (
-                <motion.div 
+                <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
@@ -666,8 +767,8 @@ export default function Fitness() {
                           setShowRestOptions(false);
                         }}
                         className={`h-9 text-[11px] font-bold px-3 rounded-lg border transition-all ${
-                          selectedRestDuration === sec 
-                            ? "border-[#2dd4bf] text-[#2dd4bf] bg-[#2dd4bf]/5" 
+                          selectedRestDuration === sec
+                            ? "border-[#2dd4bf] text-[#2dd4bf] bg-[#2dd4bf]/5"
                             : "border-slate-800 text-slate-500 hover:border-slate-700"
                         }`}
                       >
@@ -681,18 +782,20 @@ export default function Fitness() {
                       Custom
                     </span>
                     <div className="relative flex items-center">
-                      <Input 
-                        type="number" 
+                      <Input
+                        type="number"
                         className="w-16 h-9 bg-black/40 border-slate-800 text-[12px] text-center font-mono focus-visible:ring-[#2dd4bf] focus-visible:border-[#2dd4bf] pr-4 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                       value={selectedRestDuration === 0 ? "" : selectedRestDuration} // Shows empty instead of 0
-                      placeholder="0"
-                      onChange={(e) => {
-                      const val = e.target.value;
-                     // Strip leading zeros using regex and parse
-                    const parsed = parseInt(val.replace(/^0+/, '')) || 0;
-                  setSelectedRestDuration(Math.max(0, parsed));
-                 }
-                }  />
+                        value={
+                          selectedRestDuration === 0 ? "" : selectedRestDuration
+                        } // Shows empty instead of 0
+                        placeholder="0"
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          // Strip leading zeros using regex and parse
+                          const parsed = parseInt(val.replace(/^0+/, "")) || 0;
+                          setSelectedRestDuration(Math.max(0, parsed));
+                        }}
+                      />
                       <span className="absolute right-2 text-[10px] text-slate-600 pointer-events-none font-bold">
                         s
                       </span>
@@ -704,14 +807,20 @@ export default function Fitness() {
 
             <div className="flex flex-2 md:flex-0 flex-col md:flex-row gap-4">
               <div className="flex-1 flex flex-col md:flex-row gap-2">
-                 <Button
+                <Button
                   onClick={handleContinue}
                   disabled={exercises.length === 0 || restTime > 0}
                   className="flex-1 bg-[#2dd4bf] hover:bg-[#26b4a2] text-black font-bold h-12 rounded-xl text-[12px] md:text-[13px] uppercase tracking-wider"
                 >
-                  {restTime > 0 ? `Resting (${restTime}s)...` : <><Timer className="w-4 h-4 mr-2" /> Start Rest Timer</>}
+                  {restTime > 0 ? (
+                    `Resting (${restTime}s)...`
+                  ) : (
+                    <>
+                      <Timer className="w-4 h-4 mr-2" /> Start Rest Timer
+                    </>
+                  )}
                 </Button>
-                <Button 
+                <Button
                   variant="outline"
                   onClick={() => setShowRestOptions(!showRestOptions)}
                   className={`h-12 w-12 p-0 rounded-xl border-slate-800 shrink-0 ${showRestOptions ? "text-[#2dd4bf] border-[#2dd4bf]/50" : "text-slate-500"}`}
@@ -719,7 +828,7 @@ export default function Fitness() {
                   <Settings2 className="w-5 h-5" />
                 </Button>
               </div>
-              
+
               <Button
                 onClick={handleReset}
                 variant="outline"
@@ -738,37 +847,51 @@ export default function Fitness() {
               <Target className="w-5 h-5 text-[#2dd4bf]" />
               <h3 className="font-bold text-[16px]">Weekly Plan</h3>
             </div>
-            <button 
-                onClick={() => setIsEditingPlan(!isEditingPlan)}
-                className={`p-2 rounded-lg transition-colors ${isEditingPlan ? "bg-[#2dd4bf] text-black" : "text-slate-500 hover:text-white"}`}
+            <button
+              onClick={() => setIsEditingPlan(!isEditingPlan)}
+              className={`p-2 rounded-lg transition-colors ${isEditingPlan ? "bg-[#2dd4bf] text-black" : "text-slate-500 hover:text-white"}`}
             >
-                <Edit2 className="w-4 h-4" />
+              <Edit2 className="w-4 h-4" />
             </button>
           </div>
-          
+
           <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-black/40 rounded-lg border border-slate-800/50 shrink-0">
             <Calendar className="w-3.5 h-3.5 text-slate-500" />
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">{weekRangeLabel}</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">
+              {weekRangeLabel}
+            </span>
           </div>
-          
+
           <div className="space-y-3 overflow-y-auto pr-1 flex-1 custom-scrollbar min-h-[300px]">
             {weeklyPlan.map((day) => {
-              const dateInfo = weekDates.find(wd => wd.dayName === day.day_name);
+              const dateInfo = weekDates.find(
+                (wd) => wd.dayName === day.day_name,
+              );
               const isToday = dateInfo?.isToday;
-              
+
               return (
                 <div
                   key={day.id || day.day_name}
-                  onClick={() => isEditingPlan ? setEditingDayId(day.id) : handleSwitchDay(day.id)}
+                  onClick={() =>
+                    isEditingPlan
+                      ? setEditingDayId(day.id)
+                      : handleSwitchDay(day.id)
+                  }
                   className={`p-4 rounded-xl border transition-all cursor-pointer relative overflow-hidden group/day ${
                     activeWorkoutId === day.id
                       ? "border-[#2dd4bf] bg-[#2dd4bf]/5 shadow-[0_0_15px_rgba(45,212,191,0.1)]"
-                      : isToday ? "border-slate-700 bg-slate-800/20" : day.completed ? "bg-emerald-500/5 border-emerald-500/20" : "bg-[#0d1117] border-slate-800/40"
+                      : isToday
+                        ? "border-slate-700 bg-slate-800/20"
+                        : day.completed
+                          ? "bg-emerald-500/5 border-emerald-500/20"
+                          : "bg-[#0d1117] border-slate-800/40"
                   } ${isEditingPlan ? "border-dashed border-slate-600 hover:border-[#2dd4bf]" : "hover:border-slate-700"}`}
                 >
                   <div className="flex justify-between items-start mb-0.5">
                     <div className="flex items-center gap-2">
-                      <p className={`text-[12px] font-bold ${day.completed ? "text-emerald-500" : (activeWorkoutId === day.id ? "text-[#2dd4bf]" : isToday ? "text-white" : "text-slate-400")}`}>
+                      <p
+                        className={`text-[12px] font-bold ${day.completed ? "text-emerald-500" : activeWorkoutId === day.id ? "text-[#2dd4bf]" : isToday ? "text-white" : "text-slate-400"}`}
+                      >
                         {day.day_name}
                       </p>
                       {isToday && (
@@ -777,27 +900,39 @@ export default function Fitness() {
                         </span>
                       )}
                     </div>
-                    <span className={`text-[10px] font-bold ${isToday ? "text-[#2dd4bf]" : "text-slate-600"}`}>
+                    <span
+                      className={`text-[10px] font-bold ${isToday ? "text-[#2dd4bf]" : "text-slate-600"}`}
+                    >
                       {dateInfo?.fullDate}
                     </span>
                   </div>
-                  
+
                   {editingDayId === day.id ? (
                     <div className="flex items-center gap-2 mt-1">
-                        <input
-                            autoFocus
-                            className="bg-[#0d1117] border border-[#2dd4bf] rounded px-2 py-1 text-[13px] outline-none text-white w-full"
-                            defaultValue={day.workout_name}
-                            onBlur={(e) => updateDayWorkout(day.id, e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && updateDayWorkout(day.id, (e.currentTarget as any).value)}
-                        />
+                      <input
+                        autoFocus
+                        className="bg-[#0d1117] border border-[#2dd4bf] rounded px-2 py-1 text-[13px] outline-none text-white w-full"
+                        defaultValue={day.workout_name}
+                        onBlur={(e) => updateDayWorkout(day.id, e.target.value)}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" &&
+                          updateDayWorkout(
+                            day.id,
+                            (e.currentTarget as any).value,
+                          )
+                        }
+                      />
                     </div>
                   ) : (
                     <div className="flex items-center justify-between">
-                        <p className={`text-[13px] font-medium ${activeWorkoutId === day.id ? "text-white" : "text-slate-300"}`}>
-                        {day.workout_name || 'Rest Day'}
-                        </p>
-                        {isEditingPlan && <ChevronRight className="w-3 h-3 text-slate-600 group-hover/day:text-[#2dd4bf]" />}
+                      <p
+                        className={`text-[13px] font-medium ${activeWorkoutId === day.id ? "text-white" : "text-slate-300"}`}
+                      >
+                        {day.workout_name || "Rest Day"}
+                      </p>
+                      {isEditingPlan && (
+                        <ChevronRight className="w-3 h-3 text-slate-600 group-hover/day:text-[#2dd4bf]" />
+                      )}
                     </div>
                   )}
                 </div>
@@ -805,13 +940,12 @@ export default function Fitness() {
             })}
           </div>
           <p className="text-[10px] text-slate-500 mt-4 text-center shrink-0">
-            {isEditingPlan ? "Click a workout name to rename it." : "Select a day to view its workout."}
+            {isEditingPlan
+              ? "Click a workout name to rename it."
+              : "Select a day to view its workout."}
           </p>
         </div>
       </div>
-
-
-      
 
       {/* Add Exercise Modal */}
       <AnimatePresence>
@@ -832,8 +966,8 @@ export default function Fitness() {
               <h3 className="text-xl font-bold mb-4">Add Exercise</h3>
               <div className="mb-4 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <Input 
-                  placeholder="Search library..." 
+                <Input
+                  placeholder="Search library..."
                   className="pl-10 bg-[#0d1117] border-slate-800"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -848,33 +982,32 @@ export default function Fitness() {
                     className="w-full flex items-center justify-between p-3 rounded-xl bg-[#0d1117] border border-slate-800 hover:border-[#2dd4bf] hover:bg-[#2dd4bf]/5 transition-all group"
                   >
                     <div className="text-left">
-                      <p className="font-bold text-[14px] group-hover:text-[#2dd4bf]">{ex.name}</p>
-                      <p className="text-[11px] text-slate-500">{ex.sets} sets • {ex.reps} reps</p>
+                      <p className="font-bold text-[14px] group-hover:text-[#2dd4bf]">
+                        {ex.name}
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        {ex.category} • {ex.sets} sets • {ex.reps} reps{" "}
+                        {/* ← shows category now */}
+                      </p>
                     </div>
-                    {isAdding ? <Loader2 className="w-4 h-4 animate-spin text-slate-500" /> : <Plus className="w-4 h-4 text-slate-500 group-hover:text-[#2dd4bf]" />}
+                    {isAdding ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
+                    ) : (
+                      <Plus className="w-4 h-4 text-slate-500 group-hover:text-[#2dd4bf]" />
+                    )}
                   </button>
                 ))}
-               
-                 {searchTerm.trim() !== "" && !filteredLibrary.some(e => e.name.toLowerCase() === searchTerm.toLowerCase()) && (
-                <button
-               onClick={() => addExercise({ 
-              name: searchTerm, 
-             sets: 3, 
-            reps: 10, 
-            weight_kg: 0 
-           })}
-          disabled={isAdding}
-          className="w-full flex items-center justify-between p-3 rounded-xl border border-dashed border-[#2dd4bf]/40 bg-[#2dd4bf]/5 hover:bg-[#2dd4bf]/10 transition-all group mt-2"
-          >
-        <div className="text-left">
-        <p className="font-bold text-[14px] text-[#2dd4bf]">Create "{searchTerm}"</p>
-        <p className="text-[11px] text-slate-400">Add this new exercise</p>
-       </div>
-       <Plus className="w-4 h-4 text-[#2dd4bf]" />
-       </button>
-               )}
-               {filteredLibrary.length === 0 && (
-                  <p className="text-center py-8 text-slate-500 text-sm">No exercises found.</p>
+
+                {/* Empty state when library hasn't loaded yet */}
+                {exerciseLibrary.length === 0 && searchTerm.trim() === "" && (
+                  <p className="text-center py-8 text-slate-500 text-sm">
+                    No exercises in library yet.
+                  </p>
+                )}
+                {filteredLibrary.length === 0 && (
+                  <p className="text-center py-8 text-slate-500 text-sm">
+                    No exercises found.
+                  </p>
                 )}
               </div>
             </motion.div>
