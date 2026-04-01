@@ -210,13 +210,28 @@ export default function Dashboard() {
           .from("macro_result")
           .select("result")
           .eq("user_id", user.id)
-          .single(),
-        supabase.from("hf_data").select("*").eq("user_id", user.id).single(),
+          .maybeSingle(),
+        supabase
+          .from("hf_data")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle(),
       ]);
 
-      if (logsResult.error) throw logsResult.error;
-      if (waterResult.error) throw waterResult.error;
-      if (workoutsResult.error) throw workoutsResult.error;
+      // console.log(workoutsResult);
+
+      if (logsResult.error){
+        // console.log("Throwing data from logs result");
+        throw logsResult.error;
+      } 
+      if (waterResult.error) {
+        // console.log("Throwing data from water result");
+        throw waterResult.error;
+      }
+      if (workoutsResult.error) {
+        // console.log("Throwing data from workouts")
+        throw workoutsResult.error;
+      }
 
       setNutritionLogs(logsResult.data || []);
       setWaterIntake(waterResult.data || []);
@@ -228,8 +243,9 @@ export default function Dashboard() {
       setBodyFat(hfData?.data?.body_fat);
       setBodyFatType(hfData?.data?.body_fat_type);
       setLmpDate(hfData?.data?.lmp_date)
-      if(hfData?.data.ideal_weight !== null){
-        setIdealWeight(hfData.data.ideal_weight.split(' ')[0] || null);
+
+      if(hfData?.data?.ideal_weight !== null){
+        setIdealWeight(hfData?.data?.ideal_weight.split(' ')[0] || null);
         setIdealWeightType(hfData?.data?.ideal_weight.split(' ')[1] || null)
       }
       settdee(hfData?.data?.tdee_maintain);
@@ -272,7 +288,7 @@ export default function Dashboard() {
       );
 
       setWeeklyData(normalizedData);
-      setWaterGoal(nutritionRequired.data.water_requirement);
+      setWaterGoal(nutritionRequired?.data?.water_requirement ?? 3);
 
       setStats({
         caloriesBurned: totalCalories,

@@ -24,10 +24,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
-import ReadoutCard from "@/components/ReadoutCard";
-import ProgressBar from "@/components/ProgressBar";
-import MacroData from "@/components/MacroData";
-import BMRData from "@/components/BMRData";
+// import ReadoutCard from "@/components/ReadoutCard";
+// import ProgressBar from "@/components/ProgressBar";
+// import MacroData from "@/components/MacroData";
+// import BMRData from "@/components/BMRData";
 
 //  CONFIGURATION & TYPES
 
@@ -92,33 +92,7 @@ export default function Fitness() {
   const [selectedRestDuration, setSelectedRestDuration] = useState(60);
   const [showRestOptions, setShowRestOptions] = useState(false);
 
-  // const [macroResult, setMacroResult] = useState<any>(null);
-  // const [bmi, setbmi] = useState<number>(null);
-  // const [bmr, setbmr] = useState<number>(null);
-  // const [bmrUnit, setBmrUnit] = useState<string>(null);
-  // const [tdee, settdee] = useState<number>(null);
-  // const [bodyFat, setBodyFat] = useState<number>(null);
-  // const [bodyFatType, setBodyFatType] = useState<string>(null);
-  // const [idealWeight, setIdealWeight] = useState<string>(null);
-  // const [idealWeightType, setIdealWeightType] = useState<string>(null);
   const {user} = useAuth();
-
-
-  // const colorClass = useMemo(() => {
-  //    if (!bmi) return "text-primary";
-  //    if (bmi < 18.5) return "text-primary";
-  //    if (bmi < 25) return "text-success";
-  //    if (bmi < 30) return "text-warning";
-  //    return "text-destructive";
-  //  }, [bmi]);
-
-  //  const weightCategory = useMemo(() => {
-  //    if (!bmi) return "";
-  //    if (bmi < 18.5) return "Underweight";
-  //    if (bmi < 25) return "Normal weight";
-  //    if (bmi < 30) return "Overweight";
-  //    return "Obese";
-  //  }, [bmi]);
 
   const now = new Date()
   const dayOfWeek = now.getDay();
@@ -169,31 +143,6 @@ export default function Fitness() {
   }, []);
 
   const weekRangeLabel = `${weekDates[0].fullDate} - ${weekDates[6].fullDate}`;
-
-  // const fetchCalculatorData = async () => {
-  //     const [macroData, hfData] = await Promise.all([
-  //       supabase
-  //         .from("macro_result")
-  //         .select("result")
-  //         .eq("user_id", user.id)
-  //         .single(),
-  //       supabase.from("hf_data").select("*").eq("user_id", user.id).single(),
-  //     ]);
-  
-  //     setMacroResult(macroData?.data?.result || null);
-  //     setbmi(hfData?.data?.bmi);
-  //     setbmr(hfData?.data?.bmr);
-  //     setBmrUnit(hfData?.data?.bmr_unit);
-  //     setBodyFat(hfData?.data?.body_fat);
-  //     setBodyFatType(hfData?.data?.body_fat_type);
-  //     if (hfData?.data.ideal_weight !== null) {
-  //       setIdealWeight(hfData.data.ideal_weight.split(" ")[0] || null);
-  //       setIdealWeightType(hfData?.data?.ideal_weight.split(" ")[1] || null);
-  //     }
-  //     settdee(hfData?.data?.tdee_maintain);
-  //   }
-  
-  //  TIMER LOGIC 
   
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;

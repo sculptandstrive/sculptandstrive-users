@@ -21,11 +21,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [macroResult, setMacroResult] = useState<any>(null);
   
 
-  async function fetchCalculatorData(){
-    const {data: MacroData, error: MacroError} = await supabase.from('macro_result').select('result').eq('user_id', user.id).single()
+  // async function fetchCalculatorData(){
+  //   const {data: MacroData, error: MacroError} = await supabase.from('macro_result').select('result').eq('user_id', user.id).single()
     
-    setMacroResult(MacroData?.result || null);
-  }
+  //   setMacroResult(MacroData?.result || null);
+  // }
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
     
-    fetchCalculatorData();
+    // fetchCalculatorData();
 
     return () => subscription.unsubscribe();
   }, []);
