@@ -15,7 +15,12 @@ import {
   Coffee,
   Calendar,
   Settings2,
-  Edit2
+  Edit2,
+  ClipboardList,
+  ChevronDown,
+  PlayCircle,
+  Eye,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,39 +29,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
-import ReadoutCard from "@/components/ReadoutCard";
-import ProgressBar from "@/components/ProgressBar";
-import MacroData from "@/components/MacroData";
-import BMRData from "@/components/BMRData";
 
-//  CONFIGURATION & TYPES
+// ─── TYPES ────────────────────────────────────────────────────────────────────
 
-const exerciseLibrary = [
-  //  STRENGTH 12-15
-  { name: "Bench Press", sets: 4, reps: 12, weight_kg: 60 },
-  { name: "Shoulder Press", sets: 3, reps: 10, weight_kg: 40 },
-  { name: "Lat Pulldown", sets: 4, reps: 12, weight_kg: 50 },
-  { name: "Bicep Curls", sets: 3, reps: 15, weight_kg: 15 },
-  { name: "Tricep Dips", sets: 3, reps: 12, weight_kg: 0 },
-  { name: "Squats", sets: 3, reps: 10, weight_kg: 80 },
-  { name: "Deadlifts", sets: 3, reps: 8, weight_kg: 100 },
-  { name: "Incline Dumbbell Press", sets: 3, reps: 12, weight_kg: 20 },
-  { name: "Hammer Curls", sets: 3, reps: 12, weight_kg: 12 },
-  { name: "Leg Press", sets: 3, reps: 12, weight_kg: 100 },
-  
-  
-  //  CARDIO 25-30
-  { name: "Running (Treadmill)", sets: 1, reps: 30, weight_kg: 0 },
-  { name: "Jump Rope", sets: 3, reps: 100, weight_kg: 0 },
-  { name: "Cycling", sets: 1, reps: 45, weight_kg: 0 },
-  {name: "Burpees", sets: 1, reps: 25, weight_kg: 0 },
- 
+interface AssignedPlan {
+  id: string;
+  name: string;
+}
 
-  //  FLEXIBILITY / CALISTHENICS 
-  { name: "Plank", sets: 3, reps: 60, weight_kg: 0 },
-  { name: "Pushups", sets: 3, reps: 20, weight_kg: 0 },
-  { name: "Pull Ups", sets: 3, reps: 8, weight_kg: 0 },
-];
+interface PlanExercise {
+  id: string;
+  exercise_id: string;
+  name: string;
+  sets: number;
+  reps: number | null;
+  weight_kg: number | null;
+}
+
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 const DEFAULT_WEEKLY_PLAN = [
   { day_name: "Monday", workout_name: "Push Day", order_index: 0 },
@@ -68,24 +58,23 @@ const DEFAULT_WEEKLY_PLAN = [
   { day_name: "Sunday", workout_name: "Rest Day", order_index: 6 },
 ];
 
-const BMI_SEGMENTS = [
-  { label: "Underweight", color: "hsl(190, 90%, 50%)", threshold: 18.5 },
-  { label: "Normal", color: "hsl(150, 60%, 45%)", threshold: 25 },
-  { label: "Overweight", color: "hsl(40, 90%, 55%)", threshold: 30 },
-  { label: "Obese", color: "hsl(0, 84%, 60%)", threshold: 40 },
-];
+// ─── COMPONENT ────────────────────────────────────────────────────────────────
 
 export default function Fitness() {
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // ── Workout state ──
   const [exercises, setExercises] = useState<any[]>([]);
   const [weeklyPlan, setWeeklyPlan] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [activeWorkoutId, setActiveWorkoutId] = useState<string | null>(null);
-
   const [isEditingPlan, setIsEditingPlan] = useState(false);
   const [editingDayId, setEditingDayId] = useState<string | null>(null);
-  const [focusedExerciseId, setFocusedExerciseId] = useState<string | null>(null);
+  const [focusedExerciseId, setFocusedExerciseId] = useState<string | null>(
+    null,
+  );
   const [restTime, setRestTime] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -93,24 +82,18 @@ export default function Fitness() {
   const [showRestOptions, setShowRestOptions] = useState(false);
   const [exerciseLibrary, setExerciseLibrary] = useState<any[]>([]);
 
-  const {user} = useAuth();
+  // ── Assigned plans state ──
+  const [assignedPlans, setAssignedPlans] = useState<AssignedPlan[]>([]);
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
+  const [planExercisesMap, setPlanExercisesMap] = useState<
+    Record<string, PlanExercise[]>
+  >({});
+  const [loadingPlanId, setLoadingPlanId] = useState<string | null>(null);
+  const [loadingExercisesForPlan, setLoadingExercisesForPlan] = useState<
+    string | null
+  >(null);
 
-  const now = new Date()
-  const dayOfWeek = now.getDay();
-
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1))
-  monday.setHours(0,0,0,0)
-
-  const sunday = new Date(monday)
-  sunday.setDate(monday.getDate()+6);
-  sunday.setHours(23, 59, 59, 999);
-  const pad = (n) => String(n).padStart(2, "0");
-  const toLocalDate = (date) =>
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-
-  const startOfWeek = toLocalDate(monday);
-  const endOfWeek = toLocalDate(sunday);
+  // ── Body stats ──
   const [stats, setStats] = useState({
     weight: "---",
     weightChange: 0,
@@ -119,88 +102,114 @@ export default function Fitness() {
     bodyFat: "---",
     bodyFatChange: 0,
     muscleMass: "---",
-    muscleMassChange: 0
+    muscleMassChange: 0,
   });
 
-  const todayDayName = useMemo(() => 
-    new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date()), []
+  // ── Date helpers ──
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const toLocalDate = (d: Date) =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const startOfWeek = toLocalDate(monday);
+  const endOfWeek = toLocalDate(sunday);
+
+  const todayDayName = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(new Date()),
+    [],
   );
 
   const weekDates = useMemo(() => {
-    const now = new Date();
-    const dayOfWeek = now.getDay(); 
-    const diffToMonday = now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
-    const monday = new Date(now.getFullYear(), now.getMonth(), diffToMonday);
-    
+    const n = new Date();
+    const dow = n.getDay();
+    const diff = n.getDate() - (dow === 0 ? 6 : dow - 1);
+    const mon = new Date(n.getFullYear(), n.getMonth(), diff);
     return Array.from({ length: 7 }).map((_, i) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
+      const d = new Date(mon);
+      d.setDate(mon.getDate() + i);
       return {
-        fullDate: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        dayName: d.toLocaleDateString('en-US', { weekday: 'long' }),
-        isToday: d.toDateString() === now.toDateString()
+        fullDate: d.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        }),
+        dayName: d.toLocaleDateString("en-US", { weekday: "long" }),
+        isToday: d.toDateString() === n.toDateString(),
       };
     });
   }, []);
 
   const weekRangeLabel = `${weekDates[0].fullDate} - ${weekDates[6].fullDate}`;
 
-
-  
+  // ── Rest timer ──
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (restTime > 0) {
-      interval = setInterval(() => {
-        setRestTime((prev) => Math.max(0, prev - 1));
-      }, 1000);
+      interval = setInterval(
+        () => setRestTime((p) => Math.max(0, p - 1)),
+        1000,
+      );
     }
     return () => clearInterval(interval);
   }, [restTime]);
 
-  //  UTILS 
+  // ── Utilities ──
   const getRecommendedRest = (workoutName: string) => {
-    const name = workoutName?.toLowerCase() || "";
-    if (name.includes("legs") || name.includes("lower") || name.includes("deadlift")) return 90;
-    if (name.includes("rest")) return 0;
-    if (name.includes("core") || name.includes("abs")) return 30;
+    const n = workoutName?.toLowerCase() || "";
+    if (n.includes("legs") || n.includes("lower") || n.includes("deadlift"))
+      return 90;
+    if (n.includes("rest")) return 0;
+    if (n.includes("core") || n.includes("abs")) return 30;
     return 60;
   };
 
-  //  DATA FETCHING
+  // ─── DATA FETCHING ──────────────────────────────────────────────────────────
+
   const fetchBodyStats = async (userId: string) => {
     try {
       const { data } = await supabase
         .from("current_measurements")
         .select("*")
         .eq("user_id", userId)
-        .order('created_at', { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(1);
 
       if (data && data.length > 0) {
         const latest = data[0];
         const prev = data.length > 1 ? data[1] : latest;
-
         const calculateBF = (row: any) => {
           if (row.body_fat_percentage > 0) return row.body_fat_percentage;
           if (!row.waist_cm || !row.neck_cm || !row.height_cm) return 0;
-          const bf = 495 / (1.03248 - 0.19077 * Math.log10(row.waist_cm - row.neck_cm) + 0.15456 * Math.log10(row.height_cm)) - 450;
-          return Math.max(0, bf); 
+          const bf =
+            495 /
+              (1.03248 -
+                0.19077 * Math.log10(row.waist_cm - row.neck_cm) +
+                0.15456 * Math.log10(row.height_cm)) -
+            450;
+          return Math.max(0, bf);
         };
-
         const currentBF = calculateBF(latest);
         const currentWeight = latest.weight_kg || 0;
         const prevWeight = prev.weight_kg || currentWeight;
-        const currentMuscle = currentWeight * (1 - (currentBF / 100));
-
+        const currentMuscle = currentWeight * (1 - currentBF / 100);
         setStats({
           weight: currentWeight > 0 ? currentWeight.toString() : "---",
           weightChange: Number((currentWeight - prevWeight).toFixed(1)),
-          bmi: (latest.height_cm > 0 ? (currentWeight / ((latest.height_cm / 100) ** 2)) : 0).toFixed(1),
+          bmi: (latest.height_cm > 0
+            ? currentWeight / (latest.height_cm / 100) ** 2
+            : 0
+          ).toFixed(1),
           bmiChange: 0,
           bodyFat: currentBF > 0 ? currentBF.toFixed(1) : "---",
           bodyFatChange: 0,
           muscleMass: currentMuscle > 0 ? currentMuscle.toFixed(1) : "---",
-          muscleMassChange: 0
+          muscleMassChange: 0,
         });
       }
     } catch (err) {
@@ -209,34 +218,34 @@ export default function Fitness() {
   };
 
   const fetchExercisesForWorkout = async (workoutId: string) => {
-    const { data: exData, error: exError } = await supabase
+    const { data, error } = await supabase
       .from("exercises")
       .select("*")
       .eq("workout_id", workoutId)
       .order("created_at", { ascending: true });
-
-    if (!exError) setExercises(exData || []);
+    if (!error) setExercises(data || []);
   };
 
   const createDefaultWorkoutsForUser = async (userId: string) => {
     try {
-      const rowsToInsert = DEFAULT_WEEKLY_PLAN.map((d) => ({
+      const rows = DEFAULT_WEEKLY_PLAN.map((d) => ({
         name: d.workout_name,
         user_id: userId,
         day_name: d.day_name,
         order_index: d.order_index,
         completed: false,
       }));
-
-      const { data, error } = await supabase.from("workouts").insert(rowsToInsert as any).select();
-      if (error){
-        return null;
-      } 
-      return data?.sort((a: any, b: any) => a.order_index - b.order_index).map(d => ({ 
-        ...d, 
-        workout_name: (d as any).name 
-      })) || null;
-    } catch (err) {
+      const { data, error } = await supabase
+        .from("workouts")
+        .insert(rows as any)
+        .select();
+      if (error) return null;
+      return (
+        data
+          ?.sort((a: any, b: any) => a.order_index - b.order_index)
+          .map((d: any) => ({ ...d, workout_name: d.name })) || null
+      );
+    } catch {
       return null;
     }
   };
@@ -245,118 +254,287 @@ export default function Fitness() {
     setLoading(true);
     try {
       const { data: authData } = await supabase.auth.getUser();
-      const user = authData?.user;
-      if (!user) return;
+      const authUser = authData?.user;
+      if (!authUser) return;
 
       let { data: plan, error } = await supabase
         .from("workouts")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", authUser.id)
         .gte("workout_date", startOfWeek)
         .lte("workout_date", endOfWeek)
         .order("order_index", { ascending: true });
 
-      if(error){
-        toast({
-          title: "Failed to Fetch Data",
-          description: "Server Failed to Fetch your current week data",
-          variant: "destructive"
-        })
+      if (error) {
+        toast({ title: "Failed to Fetch Data", variant: "destructive" });
         return;
       }
 
       let finalPlan = plan;
-
-      if(plan.length === 0){
-         let {data: plan, error} = await supabase.rpc('insert_current_week_workouts', {
-          p_user_id: user.id
-        })
-
-        if (error) {
+      if (plan.length === 0) {
+        const { data: inserted, error: rpcErr } = await supabase.rpc(
+          "insert_current_week_workouts",
+          { p_user_id: authUser.id },
+        );
+        if (rpcErr) {
           toast({
             title: "Failed to Insert Week Data",
-            description: "Server Failed to Insert your current week data",
             variant: "destructive",
           });
           return;
         }
-
-        finalPlan = plan;
+        finalPlan = inserted;
       }
 
       let mappedPlan: any[] = [];
-
       if (!finalPlan || finalPlan.length === 0) {
-        const created = await createDefaultWorkoutsForUser(user.id);
+        const created = await createDefaultWorkoutsForUser(authUser.id);
         if (created) mappedPlan = created;
       } else {
-        mappedPlan = finalPlan.map((p) => ({
+        mappedPlan = finalPlan.map((p: any) => ({
           ...p,
-          workout_name: (p as any).name,
+          workout_name: p.name,
         }));
       }
       setWeeklyPlan(mappedPlan);
 
-      const todayWorkout = mappedPlan.find((p: any) => p.day_name === todayDayName);
+      const todayWorkout = mappedPlan.find(
+        (p: any) => p.day_name === todayDayName,
+      );
       const workoutToShow = todayWorkout || mappedPlan[0];
-
       if (workoutToShow?.id) {
         setActiveWorkoutId(workoutToShow.id);
-        setSelectedRestDuration(getRecommendedRest(workoutToShow.workout_name || ""));
+        setSelectedRestDuration(
+          getRecommendedRest(workoutToShow.workout_name || ""),
+        );
         await fetchExercisesForWorkout(workoutToShow.id);
       }
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchExercisesList = async () => {
+    const { data, error } = await supabase
+      .from("exercises_list")
+      .select("*, exercise_category(name)");
+    if (error) {
+      toast({
+        title: "Failed to load exercise library",
+        variant: "destructive",
+      });
+      return;
+    }
+    setExerciseLibrary(
+      (data ?? []).map((ex: any) => ({
+        name: ex.name,
+        sets: 3,
+        reps: 10,
+        weight_kg: 0,
+        category: ex.exercise_category?.name ?? "General",
+      })),
+    );
+  };
+
+  /** Fetch plans assigned to the current user via client_workout_assignments. */
+  const fetchAssignedPlans = async (userId: string) => {
+    const { data: assignments, error } = await supabase
+      .from("client_workout_assignments")
+      .select("plan_id")
+      .eq("client_id", userId);
+
+    if (error || !assignments || assignments.length === 0) return;
+
+    const planIds = assignments.map((a: any) => a.plan_id);
+
+    const { data: plans, error: planErr } = await supabase
+      .from("workout_plans")
+      .select("id, name")
+      .in("id", planIds);
+
+    if (!planErr && plans) setAssignedPlans(plans as AssignedPlan[]);
+  };
+
+  /**
+   * Fetch & cache exercises for a plan.
+   * Stored in planExercisesMap[planId] so repeated opens are instant.
+   */
+  const fetchPlanExercises = async (planId: string) => {
+    if (planExercisesMap[planId]) return; // already cached
+    setLoadingExercisesForPlan(planId);
+
+    const { data, error } = await supabase
+      .from("workout_plan_exercises")
+      .select("id, exercise_id, sets, reps, weight_kg, exercises_list(name)")
+      .eq("plan_id", planId);
+
+    if (error) {
+      toast({ title: "Failed to load plan exercises", variant: "destructive" });
+    } else {
+      const mapped: PlanExercise[] = (data ?? []).map((row: any) => ({
+        id: row.id,
+        exercise_id: row.exercise_id,
+        name: row.exercises_list?.name ?? "Unknown",
+        sets: row.sets ?? 3,
+        reps: row.reps ?? null,
+        weight_kg: row.weight_kg ?? null,
+      }));
+      setPlanExercisesMap((prev) => ({ ...prev, [planId]: mapped }));
+    }
+    setLoadingExercisesForPlan(null);
+  };
+
+  /** Toggle plan expansion; load exercises on first open. */
+  const handleTogglePlan = async (planId: string) => {
+    if (expandedPlanId === planId) {
+      setExpandedPlanId(null);
+    } else {
+      setExpandedPlanId(planId);
+      await fetchPlanExercises(planId);
+    }
+  };
+
+  /**
+   * Insert all exercises from a plan into the currently selected workout day.
+   * Skips any exercise already present (matched by name, case-insensitive).
+   * Uses sets / reps / weight_kg exactly as stored in the plan.
+   */
+  const handleLoadPlanIntoWorkout = async (planId: string) => {
+    if (!activeWorkoutId) {
+      toast({ title: "No active day selected", variant: "destructive" });
+      return;
+    }
+
+    setLoadingPlanId(planId);
+
+    // Ensure exercises are loaded (may not be if user clicks Load without expanding first)
+    if (!planExercisesMap[planId]) {
+      await fetchPlanExercises(planId);
+    }
+    const planExs = planExercisesMap[planId] ?? [];
+
+    if (planExs.length === 0) {
+      toast({ title: "This plan has no exercises", variant: "destructive" });
+      setLoadingPlanId(null);
+      return;
+    }
+
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData?.user) {
+      setLoadingPlanId(null);
+      return;
+    }
+
+    // Skip exercises already in the current day
+    const existingNames = new Set(
+      exercises.map((e: any) => e.name.trim().toLowerCase()),
+    );
+    const toAdd = planExs.filter(
+      (pe) => !existingNames.has(pe.name.trim().toLowerCase()),
+    );
+
+    if (toAdd.length === 0) {
+      toast({ title: "All exercises already added to this day" });
+      setLoadingPlanId(null);
+      return;
+    }
+
+    const rows = toAdd.map((pe) => ({
+      name: pe.name,
+      sets: pe.sets,
+      reps: pe.reps ?? 10,
+      weight_kg: pe.weight_kg ?? 0,
+      completed: false,
+      user_id: authData.user!.id,
+      workout_id: activeWorkoutId,
+    }));
+
+    const { data: inserted, error } = await supabase
+      .from("exercises")
+      .insert(rows)
+      .select();
+
+    if (error) {
+      toast({
+        title: "Failed to load plan",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      setExercises((prev) => [...prev, ...(inserted ?? [])]);
+      const activeDayName = weeklyPlan.find(
+        (d) => d.id === activeWorkoutId,
+      )?.day_name;
+      toast({
+        title: `${toAdd.length} exercise${toAdd.length > 1 ? "s" : ""} loaded`,
+        description: `Added to ${activeDayName}`,
+      });
+    }
+
+    setLoadingPlanId(null);
+  };
+
+  // ─── INIT ───────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     fetchExercisesList();
-    let unsub: any = null;
     const init = async () => {
       const { data: authData } = await supabase.auth.getUser();
       if (authData?.user) {
         await fetchWorkoutData();
         await fetchBodyStats(authData.user.id);
+        await fetchAssignedPlans(authData.user.id);
       } else {
-        const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
           if (session?.user) {
             fetchWorkoutData();
             fetchBodyStats(session.user.id);
+            fetchAssignedPlans(session.user.id);
           }
         });
-        unsub = subscription;
+        return () => {
+          if ((sub as any)?.unsubscribe) (sub as any).unsubscribe();
+        };
       }
     };
     init();
-    return () => { if (unsub?.unsubscribe) unsub.unsubscribe(); };
   }, []);
 
-  //  HANDLERS 
-  const updateExerciseField = async (id: string, field: string, value: string) => {
-    let numValue = parseInt(value) || 0;
-    // if ((field === 'sets' || field === 'reps') && numValue <= 0) numValue = 1;
-    if (numValue < 0) numValue = 0;
+  // ─── HANDLERS ───────────────────────────────────────────────────────────────
 
-    if((field === 'sets' || field === 'reps' || field === 'weight_kg') && numValue > 999){
+  const updateExerciseField = async (
+    id: string,
+    field: string,
+    value: string,
+  ) => {
+    let numValue = parseInt(value) || 0;
+    if (numValue < 0) numValue = 0;
+    if (
+      (field === "sets" || field === "reps" || field === "weight_kg") &&
+      numValue > 999
+    ) {
       toast({
-        title: `Cannot Add more than 3 digits in ${field.split('_')[0]}`,
+        title: `Cannot Add more than 3 digits in ${field.split("_")[0]}`,
         variant: "destructive",
       });
       return;
-    } 
-
-    setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, [field]: numValue } : ex));
-    const { error } = await supabase.from('exercises').update({ [field]: numValue }).eq('id', id);
+    }
+    setExercises((prev) =>
+      prev.map((ex) => (ex.id === id ? { ...ex, [field]: numValue } : ex)),
+    );
+    const { error } = await supabase
+      .from("exercises")
+      .update({ [field]: numValue })
+      .eq("id", id);
     if (error) toast({ title: "Failed to update", variant: "destructive" });
   };
 
   const handleSwitchDay = async (workoutId: string) => {
     if (isEditingPlan) return;
     setActiveWorkoutId(workoutId);
-    const day = weeklyPlan.find(d => d.id === workoutId);
+    const day = weeklyPlan.find((d) => d.id === workoutId);
     if (day) setSelectedRestDuration(getRecommendedRest(day.workout_name));
     await fetchExercisesForWorkout(workoutId);
     setRestTime(0);
@@ -364,49 +542,74 @@ export default function Fitness() {
     setShowRestOptions(false);
   };
 
-  const toggleExercise = async (exercise: any, id: string, currentStatus: boolean) => {
-    const nextStatus = !currentStatus;
-    if(exercise.sets == 0 || exercise.reps == 0){
-      toast({
-        title: 'Exercise Date error',
-        description: 'Sets or Reps Cannot be 0',
-        variant: 'destructive'
-      })
+  const toggleExercise = async (
+    exercise: any,
+    id: string,
+    currentStatus: boolean,
+  ) => {
+    if (exercise.sets === 0 || exercise.reps === 0) {
+      toast({ title: "Sets or Reps Cannot be 0", variant: "destructive" });
       return;
     }
-    setExercises(prev => prev.map(ex => ex.id === id ? { ...ex, completed: nextStatus } : ex));
+    const nextStatus = !currentStatus;
+    setExercises((prev) =>
+      prev.map((ex) => (ex.id === id ? { ...ex, completed: nextStatus } : ex)),
+    );
     if (nextStatus) setFocusedExerciseId(null);
-    await supabase.from('exercises').update({ completed: nextStatus }).eq('id', id);
-
+    await supabase
+      .from("exercises")
+      .update({ completed: nextStatus })
+      .eq("id", id);
     if (activeWorkoutId) {
-      const updatedExs = exercises.map(ex => ex.id === id ? { ...ex, completed: nextStatus } : ex);
-      const allCompleted = updatedExs.length > 0 && updatedExs.every(e => e.completed);
-      await supabase.from('workouts').update({ completed: allCompleted } as any).eq('id', activeWorkoutId);
-      setWeeklyPlan(prev => prev.map(day => day.id === activeWorkoutId ? { ...day, completed: allCompleted } : day));
+      const updated = exercises.map((ex) =>
+        ex.id === id ? { ...ex, completed: nextStatus } : ex,
+      );
+      const allDone = updated.length > 0 && updated.every((e) => e.completed);
+      await supabase
+        .from("workouts")
+        .update({ completed: allDone } as any)
+        .eq("id", activeWorkoutId);
+      setWeeklyPlan((prev) =>
+        prev.map((d) =>
+          d.id === activeWorkoutId ? { ...d, completed: allDone } : d,
+        ),
+      );
     }
   };
 
-  const addExercise = async (template: typeof exerciseLibrary[0]) => {
+  const addExercise = async (template: any) => {
     if (isAdding || !activeWorkoutId) return;
-    const isAlreadyAdded = exercises.some((ex) => ex.name.trim().toLowerCase() === template.name.trim().toLowerCase());
-    if (isAlreadyAdded) {
-      toast({ title: "Already Added", description: `${template.name} is already in your list.`, variant: "destructive" });
+    const already = exercises.some(
+      (ex) =>
+        ex.name.trim().toLowerCase() === template.name.trim().toLowerCase(),
+    );
+    if (already) {
+      toast({
+        title: "Already Added",
+        description: `${template.name} is already in your list.`,
+        variant: "destructive",
+      });
       return;
     }
-
     setIsAdding(true);
     const { data: authData } = await supabase.auth.getUser();
-    if (!authData?.user) { setIsAdding(false); return; }
-    
-    const { data, error } = await supabase.from('exercises').insert([{ 
-      ...template, 
-      completed: false, 
-      user_id: authData.user.id, 
-      workout_id: activeWorkoutId 
-    }]).select();
-
+    if (!authData?.user) {
+      setIsAdding(false);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("exercises")
+      .insert([
+        {
+          ...template,
+          completed: false,
+          user_id: authData.user.id,
+          workout_id: activeWorkoutId,
+        },
+      ])
+      .select();
     if (!error && data) {
-      setExercises(prev => [...prev, ...data]);
+      setExercises((prev) => [...prev, ...data]);
       setSearchTerm("");
       toast({ title: `${template.name} added!` });
       setIsLogOpen(false);
@@ -420,20 +623,33 @@ export default function Fitness() {
     if (!activeWorkoutId || exercises.length === 0) return;
     setRestTime(0);
     setFocusedExerciseId(null);
-    setExercises(prev => prev.map(ex => ({ ...ex, completed: false })));
-    await supabase.from('exercises').update({ completed: false }).eq('workout_id', activeWorkoutId);
-    await supabase.from('workouts').update({ completed: false } as any).eq('id', activeWorkoutId);
-    setWeeklyPlan(prev => prev.map(day => day.id === activeWorkoutId ? { ...day, completed: false } : day));
+    setExercises((prev) => prev.map((ex) => ({ ...ex, completed: false })));
+    await supabase
+      .from("exercises")
+      .update({ completed: false })
+      .eq("workout_id", activeWorkoutId);
+    await supabase
+      .from("workouts")
+      .update({ completed: false } as any)
+      .eq("id", activeWorkoutId);
+    setWeeklyPlan((prev) =>
+      prev.map((d) =>
+        d.id === activeWorkoutId ? { ...d, completed: false } : d,
+      ),
+    );
     toast({ title: "Progress reset" });
   };
 
   const handleContinue = () => {
-    const nextItem = exercises.find(ex => !ex.completed);
+    const nextItem = exercises.find((ex) => !ex.completed);
     if (nextItem) {
       setFocusedExerciseId(nextItem.id);
       setRestTime(selectedRestDuration);
       setShowRestOptions(false);
-      toast({ title: "Rest Started", description: `Next up: ${nextItem.name}` });
+      toast({
+        title: "Rest Started",
+        description: `Next up: ${nextItem.name}`,
+      });
     } else {
       toast({ title: "Workout Complete!" });
     }
@@ -444,79 +660,78 @@ export default function Fitness() {
       setEditingDayId(null);
       return;
     }
-
     setWeeklyPlan((prev) =>
-      prev.map((day) => (day.id === id ? { ...day, workout_name: newName } : day))
+      prev.map((d) => (d.id === id ? { ...d, workout_name: newName } : d)),
     );
     setEditingDayId(null);
-
     try {
       const { error } = await supabase
         .from("workouts")
         .update({ name: newName })
         .eq("id", id);
       if (error) throw error;
-      if (id === activeWorkoutId) {
+      if (id === activeWorkoutId)
         setSelectedRestDuration(getRecommendedRest(newName));
-      }
-    } catch (err) {
+    } catch {
       toast({ title: "Sync Failed", variant: "destructive" });
     }
   };
 
   const deleteSingleExercise = async (id: string) => {
-    setExercises(prev => prev.filter(ex => ex.id !== id));
-    await supabase.from('exercises').delete().eq('id', id);
+    setExercises((prev) => prev.filter((ex) => ex.id !== id));
+    await supabase.from("exercises").delete().eq("id", id);
     toast({ title: "Exercise removed" });
   };
 
-  const progress = exercises.length > 0 ? (exercises.filter(e => e.completed).length / exercises.length) * 100 : 0;
+  // ─── DERIVED ────────────────────────────────────────────────────────────────
+
+  const progress =
+    exercises.length > 0
+      ? (exercises.filter((e) => e.completed).length / exercises.length) * 100
+      : 0;
 
   const bodyStatsDisplay = [
-    { label: "Weight", value: stats.weight, unit: "kg", change: stats.weightChange },
-    { label: "Body Fat", value: stats.bodyFat, unit: "%", change: stats.bodyFatChange },
-    { label: "Muscle Mass", value: stats.muscleMass, unit: "kg", change: stats.muscleMassChange },
+    {
+      label: "Weight",
+      value: stats.weight,
+      unit: "kg",
+      change: stats.weightChange,
+    },
+    {
+      label: "Body Fat",
+      value: stats.bodyFat,
+      unit: "%",
+      change: stats.bodyFatChange,
+    },
+    {
+      label: "Muscle Mass",
+      value: stats.muscleMass,
+      unit: "kg",
+      change: stats.muscleMassChange,
+    },
     { label: "BMI", value: stats.bmi, unit: "", change: stats.bmiChange },
   ];
 
-  const fetchExercisesList = async () => {
-    const { data, error } = await supabase
-      .from("exercises_list")
-      .select("*, exercise_category(name)");
-
-    if (error) {
-      toast({
-        title: "Failed to load exercise library",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Map to match the shape addExercise() expects
-    const mapped = (data ?? []).map((ex) => ({
-      name: ex.name,
-      sets: 3, // default
-      reps: 10, // default
-      weight_kg: 0, // default
-      category: ex.exercise_category?.name ?? "General",
-    }));
-
-    setExerciseLibrary(mapped);
-  };
-
-  const filteredLibrary = exerciseLibrary.filter(ex => 
-    ex.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredLibrary = exerciseLibrary.filter((ex) =>
+    ex.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  if (loading) return (
-    <div className="flex h-screen items-center justify-center bg-[#0b0f13]">
-      <Loader2 className="w-8 h-8 animate-spin text-[#2dd4bf]" />
-    </div>
-  );
+  const activeDayName = weeklyPlan.find(
+    (d) => d.id === activeWorkoutId,
+  )?.day_name;
+
+  // ─── RENDER ─────────────────────────────────────────────────────────────────
+
+  if (loading)
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#0b0f13]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#2dd4bf]" />
+      </div>
+    );
 
   return (
-    <div className="max-w-7xl mx-auto  space-y-8 min-h-screen text-white font-sans">
-      {/* Header */}
+    <div className="max-w-7xl mx-auto space-y-8 min-h-screen text-white font-sans">
+      {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-1">
@@ -534,7 +749,7 @@ export default function Fitness() {
         </Button>
       </div>
 
-      {/* Stats Cards */}
+      {/* ── Body Stats ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {bodyStatsDisplay.map((stat) => (
           <div
@@ -570,18 +785,15 @@ export default function Fitness() {
         ))}
       </div>
 
+      {/* ── Main Grid ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8 items-start">
-        {/* Main Workout Panel */}
+        {/* ── Workout Panel ── */}
         <div className="lg:col-span-2 bg-[#161b22] border border-slate-800 rounded-2xl p-4 md:p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2 text-[#2dd4bf]">
               <Dumbbell className="w-5 h-5" />
               <h3 className="font-bold text-[15px] md:text-[16px] tracking-tight">
-                {weeklyPlan.find((d) => d.id === activeWorkoutId)?.day_name ===
-                todayDayName
-                  ? "Today's"
-                  : weeklyPlan.find((d) => d.id === activeWorkoutId)
-                      ?.day_name}{" "}
+                {activeDayName === todayDayName ? "Today's" : activeDayName}{" "}
                 Workout
               </h3>
             </div>
@@ -648,6 +860,7 @@ export default function Fitness() {
                       <div className="w-1.5 h-1.5 rounded-full bg-slate-700" />
                     )}
                   </button>
+
                   <div className="flex-1 min-w-0">
                     <p
                       className={`text-[14px] md:text-[15px] font-bold truncate ${exercise.completed ? "text-slate-500 line-through" : "text-white"}`}
@@ -655,59 +868,28 @@ export default function Fitness() {
                       {exercise.name}
                     </p>
                     <div className="flex flex-col md:flex-row items-center gap-4 mt-1.5">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-500 font-bold uppercase mb-0.5">
-                          Sets
-                        </span>
-                        <Input
-                          type="number"
-                          className="h-7 w-10 md:w-12 bg-[#161b22] border-slate-800 text-[11px] md:text-[12px] p-1 text-center font-bold"
-                          value={exercise.sets}
-                          onChange={(e) =>
-                            updateExerciseField(
-                              exercise.id,
-                              "sets",
-                              e.target.value,
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="flex flex-col shrink-0">
-                        <span className="text-[8px] md:text-[9px] text-slate-500 font-bold uppercase mb-0.5">
-                          Reps
-                        </span>
-                        <Input
-                          type="number"
-                          className="h-7 w-10 md:w-12 bg-[#161b22] border-slate-800 text-[11px] md:text-[12px] p-1 text-center font-bold"
-                          value={exercise.reps}
-                          onChange={(e) =>
-                            updateExerciseField(
-                              exercise.id,
-                              "reps",
-                              e.target.value,
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="flex flex-col shrink-0">
-                        <span className="text-[8px] md:text-[9px] text-slate-500 font-bold uppercase mb-0.5">
-                          Weight (kg)
-                        </span>
-                        <Input
-                          type="number"
-                          className="h-7 w-14 md:w-16 bg-[#161b22] border-slate-800 text-[11px] md:text-[12px] p-1 text-center font-bold"
-                          value={exercise.weight_kg}
-                          onChange={(e) =>
-                            updateExerciseField(
-                              exercise.id,
-                              "weight_kg",
-                              e.target.value,
-                            )
-                          }
-                        />
-                      </div>
+                      {(["sets", "reps", "weight_kg"] as const).map((field) => (
+                        <div key={field} className="flex flex-col shrink-0">
+                          <span className="text-[8px] md:text-[9px] text-slate-500 font-bold uppercase mb-0.5">
+                            {field === "weight_kg" ? "Weight (kg)" : field}
+                          </span>
+                          <Input
+                            type="number"
+                            className={`h-7 bg-[#161b22] border-slate-800 text-[11px] md:text-[12px] p-1 text-center font-bold ${field === "weight_kg" ? "w-14 md:w-16" : "w-10 md:w-12"}`}
+                            value={exercise[field]}
+                            onChange={(e) =>
+                              updateExerciseField(
+                                exercise.id,
+                                field,
+                                e.target.value,
+                              )
+                            }
+                          />
+                        </div>
+                      ))}
                     </div>
                   </div>
+
                   <button
                     onClick={() => deleteSingleExercise(exercise.id)}
                     className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 p-2 text-slate-600 hover:text-red-500 transition-opacity shrink-0"
@@ -724,7 +906,7 @@ export default function Fitness() {
                     ?.workout_name?.toLowerCase()
                     .includes("rest") ? (
                     <>
-                      <Coffee className="w-10 h-10 mb-3 opacity-20 text-[#2dd4bf]" />{" "}
+                      <Coffee className="w-10 h-10 mb-3 opacity-20 text-[#2dd4bf]" />
                       <p>It's a Rest Day! Take it easy.</p>
                     </>
                   ) : (
@@ -748,6 +930,7 @@ export default function Fitness() {
             </AnimatePresence>
           </div>
 
+          {/* Rest / Reset Controls */}
           <div className="mt-6 md:mt-8 space-y-4">
             <AnimatePresence>
               {showRestOptions && (
@@ -776,23 +959,21 @@ export default function Fitness() {
                       </Button>
                     ))}
                   </div>
-
                   <div className="flex items-center gap-3 ml-auto border-l border-slate-800 pl-4 h-9">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider leading-none">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                       Custom
                     </span>
                     <div className="relative flex items-center">
                       <Input
                         type="number"
-                        className="w-16 h-9 bg-black/40 border-slate-800 text-[12px] text-center font-mono focus-visible:ring-[#2dd4bf] focus-visible:border-[#2dd4bf] pr-4 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-16 h-9 bg-black/40 border-slate-800 text-[12px] text-center font-mono focus-visible:ring-[#2dd4bf] focus-visible:border-[#2dd4bf] pr-4"
                         value={
                           selectedRestDuration === 0 ? "" : selectedRestDuration
-                        } // Shows empty instead of 0
+                        }
                         placeholder="0"
                         onChange={(e) => {
-                          const val = e.target.value;
-                          // Strip leading zeros using regex and parse
-                          const parsed = parseInt(val.replace(/^0+/, "")) || 0;
+                          const parsed =
+                            parseInt(e.target.value.replace(/^0+/, "")) || 0;
                           setSelectedRestDuration(Math.max(0, parsed));
                         }}
                       />
@@ -828,11 +1009,10 @@ export default function Fitness() {
                   <Settings2 className="w-5 h-5" />
                 </Button>
               </div>
-
               <Button
                 onClick={handleReset}
                 variant="outline"
-                className=" h-12 px-6 rounded-xl border-slate-800 font-bold text-slate-400 text-[13px] uppercase hover:text-red-500"
+                className="h-12 px-6 rounded-xl border-slate-800 font-bold text-slate-400 text-[13px] uppercase hover:text-red-500"
               >
                 <RotateCcw className="w-4 h-4 mr-2" /> Reset
               </Button>
@@ -840,7 +1020,7 @@ export default function Fitness() {
           </div>
         </div>
 
-        {/* Weekly Plan Sidebar */}
+        {/* ── Weekly Plan Sidebar ── */}
         <div className="bg-[#161b22] border border-slate-800 rounded-2xl p-6 flex flex-col lg:sticky lg:top-6 lg:max-h-[calc(100vh-48px)]">
           <div className="flex items-center justify-between mb-6 shrink-0">
             <div className="flex items-center gap-2">
@@ -868,7 +1048,6 @@ export default function Fitness() {
                 (wd) => wd.dayName === day.day_name,
               );
               const isToday = dateInfo?.isToday;
-
               return (
                 <div
                   key={day.id || day.day_name}
@@ -890,7 +1069,15 @@ export default function Fitness() {
                   <div className="flex justify-between items-start mb-0.5">
                     <div className="flex items-center gap-2">
                       <p
-                        className={`text-[12px] font-bold ${day.completed ? "text-emerald-500" : activeWorkoutId === day.id ? "text-[#2dd4bf]" : isToday ? "text-white" : "text-slate-400"}`}
+                        className={`text-[12px] font-bold ${
+                          day.completed
+                            ? "text-emerald-500"
+                            : activeWorkoutId === day.id
+                              ? "text-[#2dd4bf]"
+                              : isToday
+                                ? "text-white"
+                                : "text-slate-400"
+                        }`}
                       >
                         {day.day_name}
                       </p>
@@ -939,6 +1126,7 @@ export default function Fitness() {
               );
             })}
           </div>
+
           <p className="text-[10px] text-slate-500 mt-4 text-center shrink-0">
             {isEditingPlan
               ? "Click a workout name to rename it."
@@ -947,7 +1135,224 @@ export default function Fitness() {
         </div>
       </div>
 
-      {/* Add Exercise Modal */}
+      {/* ════════════════════════════════════════════════════════════════════════
+          ASSIGNED PLANS — shown only when the user has at least one plan
+          ════════════════════════════════════════════════════════════════════ */}
+      {assignedPlans.length > 0 && (
+        <div className="bg-[#161b22] border border-slate-800 rounded-2xl p-4 md:p-6">
+          {/* Section header */}
+          <div className="flex items-start gap-3 mb-2">
+            <div className="w-9 h-9 rounded-lg bg-[#2dd4bf]/10 flex items-center justify-center shrink-0 mt-0.5">
+              <ClipboardList className="w-4 h-4 text-[#2dd4bf]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-bold text-[16px] text-white">
+                  My Assigned Plans
+                </h3>
+                <Badge className="bg-[#2dd4bf]/10 text-[#2dd4bf] border-none text-[10px] font-bold">
+                  {assignedPlans.length} plan
+                  {assignedPlans.length !== 1 ? "s" : ""}
+                </Badge>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Plans from your trainer — view exercises or load them into the
+                selected day
+              </p>
+            </div>
+          </div>
+
+
+          {/* Plan list */}
+          <div className="space-y-3">
+            {assignedPlans.map((plan) => {
+              const isExpanded = expandedPlanId === plan.id;
+              const planExs = planExercisesMap[plan.id];
+              const isLoadingExs = loadingExercisesForPlan === plan.id;
+              const isLoadingInto = loadingPlanId === plan.id;
+
+              return (
+                <div
+                  key={plan.id}
+                  className={`rounded-xl border overflow-hidden bg-[#0d1117] transition-colors ${
+                    isExpanded ? "border-slate-700" : "border-slate-800"
+                  }`}
+                >
+                  {/* ── Plan header row ── */}
+                  <div className="flex items-center gap-3 p-4">
+                    {/* Expand / collapse toggle */}
+                    <button
+                      onClick={() => handleTogglePlan(plan.id)}
+                      className="flex items-center gap-3 flex-1 min-w-0 text-left group"
+                    >
+                      <div className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center shrink-0 group-hover:bg-[#2dd4bf]/10 transition-colors">
+                        <Dumbbell className="w-4 h-4 text-slate-400 group-hover:text-[#2dd4bf] transition-colors" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-[14px] text-white truncate">
+                          {plan.name}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <Lock className="w-3 h-3 text-slate-600" />
+                          <span className="text-[10px] text-slate-500">
+                            View only
+                          </span>
+                          {planExs !== undefined && (
+                            <>
+                              <span className="text-slate-700 text-[10px]">
+                                •
+                              </span>
+                              <span className="text-[10px] text-slate-500">
+                                {planExs.length} exercise
+                                {planExs.length !== 1 ? "s" : ""}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <motion.div
+                        animate={{ rotate: isExpanded ? 180 : 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="shrink-0 mr-1"
+                      >
+                        {isLoadingExs ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-slate-500" />
+                        )}
+                      </motion.div>
+                    </button>
+
+                    {/* Load into current day */}
+                    <Button
+                      size="sm"
+                      onClick={() => handleLoadPlanIntoWorkout(plan.id)}
+                      disabled={isLoadingInto || !activeWorkoutId}
+                      className="shrink-0 bg-[#2dd4bf] hover:bg-[#26b4a2] disabled:opacity-40 text-black font-bold text-[11px] h-8 px-3 gap-1.5 rounded-lg"
+                    >
+                      {isLoadingInto ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <PlayCircle className="w-3.5 h-3.5" />
+                      )}
+                      Load into {activeDayName ?? "Day"}
+                    </Button>
+                  </div>
+
+                  {/* ── Expandable exercise list (read-only) ── */}
+                  <AnimatePresence initial={false}>
+                    {isExpanded && (
+                      <motion.div
+                        key="exercises"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.22, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="border-t border-slate-800 px-4 pb-4 pt-3">
+                          {/* Loading state */}
+                          {isLoadingExs && (
+                            <div className="flex items-center justify-center py-8 gap-2 text-slate-500 text-[13px]">
+                              <Loader2 className="w-4 h-4 animate-spin" />{" "}
+                              Loading exercises…
+                            </div>
+                          )}
+
+                          {/* Empty state */}
+                          {!isLoadingExs && planExs && planExs.length === 0 && (
+                            <p className="text-center py-8 text-slate-500 text-[13px]">
+                              No exercises in this plan yet.
+                            </p>
+                          )}
+
+                          {/* Exercise rows */}
+                          {!isLoadingExs && planExs && planExs.length > 0 && (
+                            <div className="space-y-2">
+                              {/* Column headers */}
+                              <div className="grid grid-cols-[1fr_52px_52px_60px] gap-2 px-3 pb-1">
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">
+                                  Exercise
+                                </span>
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest text-center">
+                                  Sets
+                                </span>
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest text-center">
+                                  Reps
+                                </span>
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest text-center">
+                                  kg
+                                </span>
+                              </div>
+
+                              {planExs.map((pe, idx) => (
+                                <motion.div
+                                  key={pe.id}
+                                  initial={{ opacity: 0, x: -6 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{
+                                    delay: idx * 0.035,
+                                    duration: 0.18,
+                                  }}
+                                  className="grid grid-cols-[1fr_52px_52px_60px] gap-2 items-center px-3 py-2.5 rounded-lg bg-slate-900/60 border border-slate-800/50"
+                                >
+                                  {/* Exercise name */}
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf]/40 shrink-0" />
+                                    <span className="text-[13px] font-medium text-slate-200 truncate">
+                                      {pe.name}
+                                    </span>
+                                  </div>
+
+                                  {/* Sets — read-only pill */}
+                                  <div className="flex justify-center">
+                                    <span className="text-[12px] font-bold text-white bg-slate-800 rounded-md px-2 py-0.5 min-w-[32px] text-center tabular-nums">
+                                      {pe.sets}
+                                    </span>
+                                  </div>
+
+                                  {/* Reps */}
+                                  <div className="flex justify-center">
+                                    <span className="text-[12px] font-bold text-white bg-slate-800 rounded-md px-2 py-0.5 min-w-[32px] text-center tabular-nums">
+                                      {pe.reps ?? "—"}
+                                    </span>
+                                  </div>
+
+                                  {/* Weight */}
+                                  <div className="flex justify-center">
+                                    <span className="text-[12px] font-bold text-slate-400 bg-slate-800 rounded-md px-2 py-0.5 min-w-[40px] text-center tabular-nums">
+                                      {pe.weight_kg != null
+                                        ? pe.weight_kg
+                                        : "—"}
+                                    </span>
+                                  </div>
+                                </motion.div>
+                              ))}
+
+                              {/* Footer hint */}
+                              <div className="flex items-center gap-1.5 pt-2 px-1">
+                                <Eye className="w-3 h-3 text-slate-700 shrink-0" />
+                                <p className="text-[10px] text-slate-600">
+                                  Read-only — use the "Load into Day" button
+                                  above to add these to your workout
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Exercise Modal ── */}
       <AnimatePresence>
         {isLogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -986,8 +1391,7 @@ export default function Fitness() {
                         {ex.name}
                       </p>
                       <p className="text-[11px] text-slate-500">
-                        {ex.category} • {ex.sets} sets • {ex.reps} reps{" "}
-                        {/* ← shows category now */}
+                        {ex.category} • {ex.sets} sets • {ex.reps} reps
                       </p>
                     </div>
                     {isAdding ? (
@@ -997,14 +1401,12 @@ export default function Fitness() {
                     )}
                   </button>
                 ))}
-
-                {/* Empty state when library hasn't loaded yet */}
                 {exerciseLibrary.length === 0 && searchTerm.trim() === "" && (
                   <p className="text-center py-8 text-slate-500 text-sm">
                     No exercises in library yet.
                   </p>
                 )}
-                {filteredLibrary.length === 0 && (
+                {filteredLibrary.length === 0 && searchTerm.trim() !== "" && (
                   <p className="text-center py-8 text-slate-500 text-sm">
                     No exercises found.
                   </p>
