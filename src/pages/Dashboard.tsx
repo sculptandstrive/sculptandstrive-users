@@ -218,18 +218,13 @@ export default function Dashboard() {
           .maybeSingle(),
       ]);
 
-      // console.log(workoutsResult);
-
       if (logsResult.error){
-        // console.log("Throwing data from logs result");
         throw logsResult.error;
       } 
       if (waterResult.error) {
-        // console.log("Throwing data from water result");
         throw waterResult.error;
       }
       if (workoutsResult.error) {
-        // console.log("Throwing data from workouts")
         throw workoutsResult.error;
       }
 

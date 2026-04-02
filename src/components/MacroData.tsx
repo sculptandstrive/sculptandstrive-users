@@ -52,9 +52,9 @@ function MacroCard({
       {/* {subtitle && (
         <p className="text-xs text-muted-foreground mb-1">{subtitle}</p>
       )} */}
-      <p className="text-2xl font-bold">
+      <p className="text-base font-bold">
         {grams}g
-        <span className="text-xl font-normal text-muted-foreground">/day</span>
+        <span className="text-base font-normal text-muted-foreground">/day</span>
       </p>
       <p className="text-xs text-muted-foreground mt-1">
         Range: {min} – {max}
@@ -177,7 +177,7 @@ const MacroData = ({result}) => {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <div className="rounded-lg bg-muted p-4">
           <p className="text-xs text-muted-foreground">Sugar</p>
-          <p className="text-lg font-bold">
+          <p className="text-base font-bold">
             &lt;{result.sugar}g
             <span className="text-base font-normal text-muted-foreground">
               /day
@@ -186,7 +186,7 @@ const MacroData = ({result}) => {
         </div>
         <div className="rounded-lg bg-muted p-4">
           <p className="text-xs text-muted-foreground">Saturated Fat</p>
-          <p className="text-lg font-bold">
+          <p className="text-base font-bold">
             &lt;{result.saturatedFat}g
             <span className="text-base font-normal text-muted-foreground">
               /day
@@ -195,7 +195,7 @@ const MacroData = ({result}) => {
         </div>
         <div className="rounded-lg bg-muted p-4 col-span-2 sm:col-span-1">
           <p className="text-xs text-muted-foreground">Food Energy</p>
-          <p className="text-lg font-bold">
+          <p className="text-base font-bold">
             {result.calories.toLocaleString()}
             <span className="text-base font-normal text-muted-foreground">
               {" "}
@@ -209,70 +209,7 @@ const MacroData = ({result}) => {
       </div>
     </div>
 
-    // <div className="rounded-xl border border-border bg-card p-6 shadow-sm fade-in-up flex flex-col gap-5">
-    //   <h2 className="text-xl font-bold mb-1">Daily Nutrients Target</h2>
-
-    //   <div className="grid gap-4 sm:grid-cols-3 mb-6">
-    //     <MacroCard
-    //       label="Protein"
-    //       grams={result.protein.grams}
-    //       min={result.protein.min}
-    //       max={result.protein.max}
-    //       color="bg-protein"
-    //     />
-    //     <MacroCard
-    //       label="Carbs"
-    //       grams={result.carbs.grams}
-    //       min={result.carbs.min}
-    //       max={result.carbs.max}
-    //       color="bg-carbs"
-    //       subtitle="Includes Sugar"
-    //     />
-    //     <MacroCard
-    //       label="Fat"
-    //       grams={result.fat.grams}
-    //       min={result.fat.min}
-    //       max={result.fat.max}
-    //       color="bg-fat"
-    //       subtitle="Includes Saturated Fat"
-    //     />
-    //   </div>
-
-    //   {/* Additional Info */}
-    //   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-    //     <div className="rounded-lg bg-muted p-4">
-    //       <p className="text-xs text-muted-foreground">Sugar</p>
-    //       <p className="text-lg font-bold">
-    //         &lt;{result.sugar}g
-    //         <span className="text-xs font-normal text-muted-foreground">
-    //           /day
-    //         </span>
-    //       </p>
-    //     </div>
-    //     <div className="rounded-lg bg-muted p-4">
-    //       <p className="text-xs text-muted-foreground">Saturated Fat</p>
-    //       <p className="text-lg font-bold">
-    //         &lt;{result.saturatedFat}g
-    //         <span className="text-xs font-normal text-muted-foreground">
-    //           /day
-    //         </span>
-    //       </p>
-    //     </div>
-    //     <div className="rounded-lg bg-muted p-4 col-span-2 sm:col-span-1">
-    //       <p className="text-xs text-muted-foreground">Food Energy</p>
-    //       <p className="text-lg font-bold">
-    //         {result.calories.toLocaleString()}
-    //         <span className="text-xs font-normal text-muted-foreground">
-    //           {" "}
-    //           Cal/day
-    //         </span>
-    //       </p>
-    //       <p className="text-xs text-muted-foreground">
-    //         or {result.kj.toLocaleString()} kJ/day
-    //       </p>
-    //     </div>
-    //   </div>
-    // </div>
+   
   );
 }
 

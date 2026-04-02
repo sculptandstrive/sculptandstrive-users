@@ -51,7 +51,7 @@ function MacroCard({
         <span className="text-sm font-medium text-muted-foreground">{label}</span>
       </div>
       {subtitle && <p className="text-xs text-muted-foreground mb-1">{subtitle}</p>}
-      <p className="text-2xl font-bold">{grams}g<span className="text-xl font-normal text-muted-foreground">/day</span></p>
+      <p className="text-base font-bold">{grams}g<span className="text-base font-normal text-muted-foreground">/day</span></p>
       <p className="text-xs text-muted-foreground mt-1">Range: {min} – {max}</p>
     </div>
   );
@@ -241,27 +241,27 @@ export function MacroResults({ result }: { result: MacroResult }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <div className="rounded-lg bg-muted p-4">
           <p className="text-xs text-muted-foreground">Sugar</p>
-          <p className="text-lg font-bold">
+          <p className="text-base font-bold">
             &lt;{result.sugar}g
-            <span className="text-xs font-normal text-muted-foreground">
+            <span className="text-base font-normal text-muted-foreground">
               /day
             </span>
           </p>
         </div>
         <div className="rounded-lg bg-muted p-4">
           <p className="text-xs text-muted-foreground">Saturated Fat</p>
-          <p className="text-lg font-bold">
+          <p className="text-base font-bold">
             &lt;{result.saturatedFat}g
-            <span className="text-xs font-normal text-muted-foreground">
+            <span className="text-base font-normal text-muted-foreground">
               /day
             </span>
           </p>
         </div>
         <div className="rounded-lg bg-muted p-4 col-span-2 sm:col-span-1">
           <p className="text-xs text-muted-foreground">Food Energy</p>
-          <p className="text-lg font-bold">
+          <p className="text-base font-bold">
             {cal.toLocaleString()}
-            <span className="text-xs font-normal text-muted-foreground">
+            <span className="text-base font-normal text-muted-foreground">
               {" "}
               Cal/day
             </span>
