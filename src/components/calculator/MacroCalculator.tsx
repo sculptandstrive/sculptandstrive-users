@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CalculatorForm, type FormData } from "./CalculatorForm";
 import { MacroResults, type MacroResult } from "./MacroResults";
 import { FoodTable } from "./FoodTable";
 import { InfoSection } from "./InfoSection";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 function calculateMacros(data: FormData): MacroResult {
   const { age, gender, heightFt, heightIn, weight, activity, goal, unit } = data;
@@ -62,9 +64,46 @@ function calculateMacros(data: FormData): MacroResult {
 
 export default function MacroCalculator() {
   const [result, setResult] = useState<MacroResult | null>(null);
+  const [formData, setFormData] = useState<FormData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const {user} = useAuth();
   const handleCalculate = (data: FormData) => {
+    setFormData(data);
     setResult(calculateMacros(data));
   };
+
+   useEffect(() => {
+     async function fetchSavedResult() {
+       const { data, error } = await supabase
+         .from("macro_result")
+         .select(
+           "result, unit, age, gender, height_cm, weight_kg, activity, goal",
+         )
+         .eq("user_id", user.id)
+         .single();
+
+       if (data && !error) {
+         // Restore result from DB
+         setResult(data.result as MacroResult);
+
+         // Reconstruct formData from stored metric values
+         setFormData({
+           unit: data.unit,
+           age: data.age,
+           gender: data.gender,
+           heightFt: data.height_cm, // stored as cm, metric mode uses heightFt field for cm
+           heightIn: 0,
+           weight: data.weight_kg,
+           activity: data.activity,
+           goal: data.goal,
+         });
+       }
+
+       setLoading(false);
+     }
+
+     fetchSavedResult();
+   }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -75,22 +114,27 @@ export default function MacroCalculator() {
             Macro Calculator
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Calculate your daily macronutrient needs based on your body metrics, activity level, and goals.
+            Calculate your daily macronutrient needs based on your body metrics,
+            activity level, and goals.
           </p>
         </div>
 
         {/* Calculator Layout */}
         <div className="grid gap-8 lg:grid-cols-5">
           <div className="lg:col-span-2">
-            <CalculatorForm onCalculate={handleCalculate} />
+            <CalculatorForm
+              onCalculate={handleCalculate}
+              savedData={formData}
+            />
           </div>
           <div className="lg:col-span-3">
             {result ? (
-              <MacroResults result={result} />
+              <MacroResults result={result} formData={formData} />
             ) : (
               <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-border bg-card p-12">
                 <p className="text-muted-foreground text-center">
-                  Fill in your details and click <strong>Calculate</strong> to see your macro breakdown.
+                  Fill in your details and click <strong>Calculate</strong> to
+                  see your macro breakdown.
                 </p>
               </div>
             )}

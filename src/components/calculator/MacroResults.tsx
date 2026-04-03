@@ -67,7 +67,13 @@ interface AssignedPlan {
   recommendations?: any[]
 }
 
-export function MacroResults({ result }: { result: MacroResult }) {
+export function MacroResults({
+  result,
+  formData,
+}: {
+  result: MacroResult;
+  formData: FormData | null;
+}) {
   const [plan, setPlan] = useState<Plan>("balanced");
   const [assignedPlan, setAssignedPlan] = useState<AssignedPlan | any>(null);
   const plans: { key: Plan; label: string }[] = [
@@ -84,18 +90,21 @@ export function MacroResults({ result }: { result: MacroResult }) {
   const fat = Math.round((cal * m.fatPct) / 9);
 
   const totalCal = protein * 4 + carbs * 4 + fat * 9;
-  const proteinPct = Math.round((protein * 4 / totalCal) * 100);
-  const carbsPct = Math.round((carbs * 4 / totalCal) * 100);
+  const proteinPct = Math.round(((protein * 4) / totalCal) * 100);
+  const carbsPct = Math.round(((carbs * 4) / totalCal) * 100);
   const fatPct = 100 - proteinPct - carbsPct;
-  
-  const {user} = useAuth()
 
-  async function fetchPlan () {
-    const {data: planResult, error: planError} = await supabase.from('user_meal_plans')
-    .select(`meal_plans!user_meal_plans_plan_id_fkey(name, calories, protein, carbs, water, fats)`,)
-    .eq("user_id", user.id)
+  const { user } = useAuth();
 
-    if(planResult && (planResult as any)?.[0]?.meal_plans){
+  async function fetchPlan() {
+    const { data: planResult, error: planError } = await supabase
+      .from("user_meal_plans")
+      .select(
+        `meal_plans!user_meal_plans_plan_id_fkey(name, calories, protein, carbs, water, fats)`,
+      )
+      .eq("user_id", user.id);
+
+    if (planResult && (planResult as any)?.[0]?.meal_plans) {
       const p = (planResult as any)[0].meal_plans;
 
       setAssignedPlan({
@@ -103,56 +112,82 @@ export function MacroResults({ result }: { result: MacroResult }) {
         calories: Number(p.calories),
         carbs: Number(p.carbs),
         fats: Number(p.fats),
-        water: Number(p.water)
-      })
-    }
-    else{
+        water: Number(p.water),
+      });
+    } else {
       setAssignedPlan(null);
     }
   }
-  useEffect(()=>{ 
+  useEffect(() => {
     fetchPlan();
-  },[])
+  }, []);
 
-  const handleNutritionRequirements = async() => {
-    try{
-      if(assignedPlan){
-        throw new Error("Plan has already been assigned by Trainer")
+  const handleNutritionRequirements = async () => {
+    try {
+      if (assignedPlan) {
+        throw new Error("Plan has already been assigned by Trainer");
       }
 
       let dbResult = result;
       dbResult.carbs.grams = carbs;
       dbResult.fat.grams = fat;
       dbResult.protein.grams = protein;
-      
-      const {error} = await supabase.from('nutrition_requirements').update({
-        calories_requirement: cal,
-        protein_requirement: protein,
-        fats_requirement: fat,
-        carbs_requirement: carbs
-      })
-      .eq('user_id', user.id)
 
-      const {error: macroError} = await supabase.from('macro_result').upsert({result: dbResult, user_id: user.id},{onConflict: 'user_id'});
+      const { error } = await supabase
+        .from("nutrition_requirements")
+        .update({
+          calories_requirement: cal,
+          protein_requirement: protein,
+          fats_requirement: fat,
+          carbs_requirement: carbs,
+        })
+        .eq("user_id", user.id);
 
-      if(error || macroError){
+      let heightCm: number;
+      let weightKg: number;
+      if (formData.unit === "us") {
+        heightCm = Math.round(
+          (formData.heightFt * 12 + formData.heightIn) * 2.54,
+        );
+        weightKg = Math.round(formData.weight * 0.453592);
+      } else {
+        heightCm = formData.heightFt; // already cm
+        weightKg = formData.weight; // already kg
+      }
+
+      const { error: macroError } = await supabase.from("macro_result").upsert(
+        {
+          user_id: user.id,
+          result: dbResult,
+          
+          unit: formData.unit,
+          age: formData.age,
+          gender: formData.gender,
+          height_cm: heightCm,
+          weight_kg: weightKg,
+          activity: formData.activity,
+          goal: formData.goal,
+        },
+        { onConflict: "user_id" },
+      );
+
+      if (error || macroError) {
         throw new Error("Server Error");
       }
 
       toast({
-        title: "Updated Nutrition Requirements successfully"
-      })
-    }
-    catch(error){
+        title: "Updated Nutrition Requirements successfully",
+      });
+    } catch (error) {
       toast({
         title: "Failed to update requirements",
         description: error.message,
-        variant: "destructive"
-      })
+        variant: "destructive",
+      });
       console.error(error);
       return;
     }
-  }
+  };
 
   return (
     <div className="rounded-xl border border-border bg-card p-6 shadow-sm fade-in-up ">
@@ -273,7 +308,10 @@ export function MacroResults({ result }: { result: MacroResult }) {
       </div>
 
       <div className="w-full flex justify-center items-center mt-6">
-        <Button className="bg-gradient-primary hover:opacity-90 text-primary-foreground" onClick={handleNutritionRequirements}>
+        <Button
+          className="bg-gradient-primary hover:opacity-90 text-primary-foreground"
+          onClick={handleNutritionRequirements}
+        >
           Set Nutrition Goals
         </Button>
       </div>

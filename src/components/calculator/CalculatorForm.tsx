@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
+import { useEffect } from "react";
 
 export interface FormData {
   unit: "us" | "metric";
@@ -14,6 +15,7 @@ export interface FormData {
 
 interface Props {
   onCalculate: (data: FormData) => void;
+  savedData?: FormData | null;
 }
 
 function FieldError({ message }: { message?: string }) {
@@ -21,7 +23,7 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-xs text-destructive mt-1">{message}</p>;
 }
 
-export function CalculatorForm({ onCalculate }: Props) {
+export function CalculatorForm({ onCalculate, savedData }: Props) {
   const {
     register,
     handleSubmit,
@@ -42,6 +44,12 @@ export function CalculatorForm({ onCalculate }: Props) {
       goal: "maintain",
     },
   });
+
+   useEffect(() => {
+     if (savedData) {
+       reset(savedData);
+     }
+   }, [savedData]);
 
   const unit = watch("unit");
   const gender = watch("gender");

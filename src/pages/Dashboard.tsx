@@ -165,6 +165,7 @@ export default function Dashboard() {
         planResult,
         macroData,
         hfData,
+        bmrData
       ] = await Promise.all([
         supabase
           .from("nutrition_logs")
@@ -216,6 +217,10 @@ export default function Dashboard() {
           .select("*")
           .eq("user_id", user.id)
           .maybeSingle(),
+        supabase.from('bmr_data')
+          .select('result_unit, bmr')
+          .eq('user_id', user.id)
+          .maybeSingle()
       ]);
 
       if (logsResult.error){
@@ -233,8 +238,8 @@ export default function Dashboard() {
       setNutritionRequirement(nutritionRequired?.data);
       setMacroResult(macroData?.data?.result || null);
       setbmi(hfData?.data?.bmi);
-      setbmr(hfData?.data?.bmr);
-      setBmrUnit(hfData?.data?.bmr_unit);
+      setbmr(bmrData?.data?.bmr);
+      setBmrUnit(bmrData?.data?.result_unit);
       setBodyFat(hfData?.data?.body_fat);
       setBodyFatType(hfData?.data?.body_fat_type);
       setLmpDate(hfData?.data?.lmp_date)

@@ -46,7 +46,8 @@ export function NutritionWidget({
   
   const totals = calculateNutritionTotals(nutritionLogs);
   const dynamicGoals = getNutritionGoals(assignedPlan, userRequirements);
-
+  console.log(assignedPlan);
+  console.log(userRequirements);
   
   const caloriesPercent =
     dynamicGoals.calories > 0
