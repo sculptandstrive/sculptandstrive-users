@@ -43,7 +43,7 @@ export function NutritionWidget({
   waterRequirement = 3000,
 }: NutritionWidgetProps) {
   
-  
+  console.log(waterRequirement);
   const totals = calculateNutritionTotals(nutritionLogs);
   const dynamicGoals = getNutritionGoals(assignedPlan, userRequirements);
   console.log(assignedPlan);

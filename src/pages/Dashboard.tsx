@@ -260,6 +260,11 @@ export default function Dashboard() {
           fats: Number(p.fats),
           water: Number(p.water),
         });
+        setWaterGoal(
+          p?.water ??
+            nutritionRequired?.data?.water_requirement ??
+            3,
+        );
       } else {
         setAssignedPlan(null);
       }
@@ -288,7 +293,7 @@ export default function Dashboard() {
       );
 
       setWeeklyData(normalizedData);
-      setWaterGoal(nutritionRequired?.data?.water_requirement ?? 3);
+      
 
       setStats({
         caloriesBurned: totalCalories,

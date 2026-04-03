@@ -134,7 +134,7 @@ export default function Nutrition() {
     if (!user) {
       return;
     }
-
+    console.log("Doesn't returned")
     try {
       const [
         logsResult,
@@ -197,14 +197,14 @@ export default function Nutrition() {
       setBodyFat(hfData?.data?.body_fat);
       setBodyFatType(hfData?.data?.body_fat_type);
       setLmpDate(hfData?.data?.lmp_date);
-      if (hfData?.data.ideal_weight !== null) {
-        setIdealWeight(hfData.data.ideal_weight.split(" ")[0] || null);
+      if(hfData?.data?.ideal_weight !== null) {
+        setIdealWeight(hfData?.data?.ideal_weight.split(" ")[0] || null);
         setIdealWeightType(hfData?.data?.ideal_weight.split(" ")[1] || null);
       }
       settdee(hfData?.data?.tdee_maintain);
-
-      if (planResult.data && (planResult.data as any)?.[0]?.meal_plans) {
+      if(planResult.data && (planResult.data as any)?.[0]?.meal_plans) {
         const p = (planResult.data as any)[0].meal_plans;
+
         setAssignedPlan({
           name: p.name,
           calories: Number(p.calories),
@@ -234,6 +234,8 @@ export default function Nutrition() {
 
   const totals = calculateNutritionTotals(nutritionLogs);
   const nutritionRequirementFixed = { ...nutritionRequirement };
+  console.log(assignedPlan)
+  console.log(nutritionRequirementFixed);
   const dynamicGoals = getNutritionGoals(
     assignedPlan,
     nutritionRequirementFixed,
