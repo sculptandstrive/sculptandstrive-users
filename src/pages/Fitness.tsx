@@ -44,6 +44,8 @@ interface PlanExercise {
   sets: number;
   reps: number | null;
   weight_kg: number | null;
+  rest_time: number;
+  details: string;
 }
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -367,9 +369,9 @@ export default function Fitness() {
 
     const { data, error } = await supabase
       .from("workout_plan_exercises")
-      .select("id, exercise_id, sets, reps, weight_kg, exercises_list(name)")
+      .select("id, exercise_id, sets, reps, weight_kg, description, rest_timer, exercises_list(name)")
       .eq("plan_id", planId);
-
+    console.log(data);
     if (error) {
       toast({ title: "Failed to load plan exercises", variant: "destructive" });
     } else {
@@ -380,6 +382,8 @@ export default function Fitness() {
         sets: row.sets ?? 3,
         reps: row.reps ?? null,
         weight_kg: row.weight_kg ?? null,
+        details: row.description ?? null,
+        rest_time: row.rest_timer ?? 30
       }));
       setPlanExercisesMap((prev) => ({ ...prev, [planId]: mapped }));
     }
@@ -1272,9 +1276,15 @@ export default function Fitness() {
                           {!isLoadingExs && planExs && planExs.length > 0 && (
                             <div className="space-y-2">
                               {/* Column headers */}
-                              <div className="grid grid-cols-[1fr_52px_52px_60px] gap-2 px-3 pb-1">
+                              <div className="grid grid-cols-[1fr_5fr_60px_52px_52px_60px] gap-2 px-3 pb-1">
                                 <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">
                                   Exercise
+                                </span>
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">
+                                  Details
+                                </span>
+                                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">
+                                  Rest 
                                 </span>
                                 <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest text-center">
                                   Sets
@@ -1296,13 +1306,27 @@ export default function Fitness() {
                                     delay: idx * 0.035,
                                     duration: 0.18,
                                   }}
-                                  className="grid grid-cols-[1fr_52px_52px_60px] gap-2 items-center px-3 py-2.5 rounded-lg bg-slate-900/60 border border-slate-800/50"
+                                  className="grid grid-cols-[1fr_5fr_60px_52px_52px_60px] gap-2 items-center px-3 py-2.5 rounded-lg bg-slate-900/60 border border-slate-800/50"
                                 >
                                   {/* Exercise name */}
                                   <div className="flex items-center gap-2 min-w-0">
                                     <div className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf]/40 shrink-0" />
                                     <span className="text-[13px] font-medium text-slate-200 truncate">
                                       {pe.name}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-[13px] font-medium text-slate-200 truncate">
+                                      {pe?.details?.length > 5
+                                        ? pe.details
+                                        : "No Description"}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex justify-center">
+                                    <span className="text-[12px] font-bold text-white bg-slate-800 rounded-md px-2 py-0.5 min-w-[32px] text-center tabular-nums">
+                                      {pe.rest_time ?? 30}s
                                     </span>
                                   </div>
 
