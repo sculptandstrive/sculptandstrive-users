@@ -1166,7 +1166,6 @@ export default function Fitness() {
             </div>
           </div>
 
-
           {/* Plan list */}
           <div className="space-y-3">
             {assignedPlans.map((plan) => {
@@ -1183,7 +1182,7 @@ export default function Fitness() {
                   }`}
                 >
                   {/* ── Plan header row ── */}
-                  <div className="flex items-center gap-3 p-4">
+                  <div className="flex flex-col sm:flex-row items-center gap-3 p-4">
                     {/* Expand / collapse toggle */}
                     <button
                       onClick={() => handleTogglePlan(plan.id)}
@@ -1275,8 +1274,8 @@ export default function Fitness() {
                           {/* Exercise rows */}
                           {!isLoadingExs && planExs && planExs.length > 0 && (
                             <div className="space-y-2">
-                              {/* Column headers */}
-                              <div className="grid grid-cols-[1fr_5fr_60px_52px_52px_60px] gap-2 px-3 pb-1">
+                              {/* Column headers — hidden on mobile */}
+                              <div className="hidden sm:grid grid-cols-[1fr_5fr_60px_52px_52px_60px] gap-2 px-3 pb-1">
                                 <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">
                                   Exercise
                                 </span>
@@ -1284,7 +1283,7 @@ export default function Fitness() {
                                   Details
                                 </span>
                                 <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">
-                                  Rest 
+                                  Rest
                                 </span>
                                 <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest text-center">
                                   Sets
@@ -1306,51 +1305,68 @@ export default function Fitness() {
                                     delay: idx * 0.035,
                                     duration: 0.18,
                                   }}
-                                  className="grid grid-cols-[1fr_5fr_60px_52px_52px_60px] gap-2 items-center px-3 py-2.5 rounded-lg bg-slate-900/60 border border-slate-800/50"
+                                  className="flex flex-col gap-2 sm:grid sm:grid-cols-[1fr_5fr_60px_52px_52px_60px] sm:items-center px-3 py-2.5 rounded-lg bg-slate-900/60 border border-slate-800/50"
                                 >
                                   {/* Exercise name */}
                                   <div className="flex items-center gap-2 min-w-0">
                                     <div className="w-1.5 h-1.5 rounded-full bg-[#2dd4bf]/40 shrink-0" />
-                                    <span className="text-[13px] font-medium text-slate-200 truncate">
+                                    <span className="text-[13px] font-semibold text-slate-200 truncate">
                                       {pe.name}
                                     </span>
                                   </div>
 
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span className="text-[13px] font-medium text-slate-200 truncate">
+                                  {/* Details */}
+                                  <div className="min-w-0">
+                                    <span className="text-[12px] text-slate-400 line-clamp-2 sm:truncate">
                                       {pe?.details?.length > 5
                                         ? pe.details
                                         : "No Description"}
                                     </span>
                                   </div>
 
-                                  <div className="flex justify-center">
-                                    <span className="text-[12px] font-bold text-white bg-slate-800 rounded-md px-2 py-0.5 min-w-[32px] text-center tabular-nums">
-                                      {pe.rest_time ?? 30}s
-                                    </span>
-                                  </div>
+                                  {/* Stats row — inline on mobile, separate cells on desktop */}
+                                  <div className="flex items-center gap-2 sm:contents">
+                                    {/* Rest */}
+                                    <div className="flex flex-col items-center gap-0.5 sm:block">
+                                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest sm:hidden">
+                                        Rest
+                                      </span>
+                                      <span className="text-[12px] font-bold text-white bg-slate-800 rounded-md px-2 py-0.5 min-w-[32px] text-center tabular-nums">
+                                        {pe.rest_time ?? 30}s
+                                      </span>
+                                    </div>
 
-                                  {/* Sets — read-only pill */}
-                                  <div className="flex justify-center">
-                                    <span className="text-[12px] font-bold text-white bg-slate-800 rounded-md px-2 py-0.5 min-w-[32px] text-center tabular-nums">
-                                      {pe.sets}
-                                    </span>
-                                  </div>
+                                    {/* Sets */}
+                                    <div className="flex flex-col items-center gap-0.5 sm:flex sm:justify-center">
+                                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest sm:hidden">
+                                        Sets
+                                      </span>
+                                      <span className="text-[12px] font-bold text-white bg-slate-800 rounded-md px-2 py-0.5 min-w-[32px] text-center tabular-nums">
+                                        {pe.sets}
+                                      </span>
+                                    </div>
 
-                                  {/* Reps */}
-                                  <div className="flex justify-center">
-                                    <span className="text-[12px] font-bold text-white bg-slate-800 rounded-md px-2 py-0.5 min-w-[32px] text-center tabular-nums">
-                                      {pe.reps ?? "—"}
-                                    </span>
-                                  </div>
+                                    {/* Reps */}
+                                    <div className="flex flex-col items-center gap-0.5 sm:flex sm:justify-center">
+                                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest sm:hidden">
+                                        Reps
+                                      </span>
+                                      <span className="text-[12px] font-bold text-white bg-slate-800 rounded-md px-2 py-0.5 min-w-[32px] text-center tabular-nums">
+                                        {pe.reps ?? "—"}
+                                      </span>
+                                    </div>
 
-                                  {/* Weight */}
-                                  <div className="flex justify-center">
-                                    <span className="text-[12px] font-bold text-slate-400 bg-slate-800 rounded-md px-2 py-0.5 min-w-[40px] text-center tabular-nums">
-                                      {pe.weight_kg != null
-                                        ? pe.weight_kg
-                                        : "—"}
-                                    </span>
+                                    {/* Weight */}
+                                    <div className="flex flex-col items-center gap-0.5 sm:flex sm:justify-center">
+                                      <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest sm:hidden">
+                                        kg
+                                      </span>
+                                      <span className="text-[12px] font-bold text-slate-400 bg-slate-800 rounded-md px-2 py-0.5 min-w-[40px] text-center tabular-nums">
+                                        {pe.weight_kg != null
+                                          ? pe.weight_kg
+                                          : "—"}
+                                      </span>
+                                    </div>
                                   </div>
                                 </motion.div>
                               ))}
